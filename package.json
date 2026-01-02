@@ -1,0 +1,25 @@
+{
+  "name": "career-fit-scoring",
+  "version": "1.0.0",
+  "description": "커리어넷 API를 활용한 지원자 적합도 점수 산출 알고리즘",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "keywords": [
+    "career",
+    "scoring",
+    "algorithm",
+    "recruitment",
+    "matching"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
