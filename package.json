@@ -1,7 +1,7 @@
 {
   "name": "career-fit-scoring",
   "version": "1.0.0",
-  "description": "커리어넷 API를 활용한 지원자 적합도 점수 산출 알고리즘",
+  "description": "커리어넷 API를 활용한 지원자 적합도 점수 산출 알고리즘 - Electron 데스크톱 앱용",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -13,7 +13,11 @@
     "scoring",
     "algorithm",
     "recruitment",
-    "matching"
+    "matching",
+    "electron",
+    "resume",
+    "docx",
+    "careernet"
   ],
   "author": "",
   "license": "MIT",
@@ -21,5 +25,9 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/guynamedzuri/career-fit-scoring.git"
   }
 }
