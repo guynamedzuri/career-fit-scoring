@@ -244,7 +244,50 @@ ipcMain.handle('read-official-certificates', async () => {
       const filePath = path.join(projectRoot, 'certificate_official.txt');
       if (fs.existsSync(filePath)) {
         console.log('[Official Certs IPC] Reading file from:', filePath);
-        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        // 여러 인코딩 시도
+        let fileContent: string | null = null;
+        const encodings = ['utf-8', 'utf8', 'euc-kr', 'cp949'] as const;
+        
+        for (const encoding of encodings) {
+          try {
+            const buffer = fs.readFileSync(filePath);
+            if (encoding === 'utf-8' || encoding === 'utf8') {
+              fileContent = buffer.toString('utf-8');
+            } else {
+              // iconv-lite 같은 라이브러리가 필요하지만, 일단 기본 방법 시도
+              fileContent = buffer.toString('utf-8');
+            }
+            
+            // UTF-8 BOM 제거 (EF BB BF)
+            if (fileContent.charCodeAt(0) === 0xFEFF) {
+              fileContent = fileContent.slice(1);
+            }
+            
+            // 깨진 문자 확인 (Replacement Character가 많으면 다른 인코딩 시도)
+            const brokenCharCount = (fileContent.match(/\uFFFD/g) || []).length;
+            if (brokenCharCount < fileContent.length * 0.01) { // 1% 미만이면 OK
+              console.log(`[Official Certs IPC] File read with encoding: ${encoding}, broken chars: ${brokenCharCount}`);
+              break;
+            } else {
+              console.warn(`[Official Certs IPC] Too many broken characters with ${encoding}, trying next...`);
+              fileContent = null;
+            }
+          } catch (error) {
+            console.warn(`[Official Certs IPC] Failed to read with ${encoding}:`, error);
+            fileContent = null;
+          }
+        }
+        
+        if (!fileContent) {
+          // 마지막 시도: 기본 UTF-8
+          fileContent = fs.readFileSync(filePath, 'utf-8');
+          if (fileContent.charCodeAt(0) === 0xFEFF) {
+            fileContent = fileContent.slice(1);
+          }
+        }
+        
+        // 깨진 문자 제거
+        fileContent = fileContent.replace(/\uFFFD+/g, ''); // Replacement Character 제거
         console.log('[Official Certs IPC] File read successfully, size:', fileContent.length, 'bytes');
         return fileContent;
       } else {
@@ -269,7 +312,50 @@ ipcMain.handle('read-official-certificates', async () => {
       console.log('  -', filePath, exists ? '✓' : '✗');
       if (exists) {
         console.log('[Official Certs IPC] Found file at:', filePath);
-        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        // 여러 인코딩 시도
+        let fileContent: string | null = null;
+        const encodings = ['utf-8', 'utf8', 'euc-kr', 'cp949'] as const;
+        
+        for (const encoding of encodings) {
+          try {
+            const buffer = fs.readFileSync(filePath);
+            if (encoding === 'utf-8' || encoding === 'utf8') {
+              fileContent = buffer.toString('utf-8');
+            } else {
+              // iconv-lite 같은 라이브러리가 필요하지만, 일단 기본 방법 시도
+              fileContent = buffer.toString('utf-8');
+            }
+            
+            // UTF-8 BOM 제거 (EF BB BF)
+            if (fileContent.charCodeAt(0) === 0xFEFF) {
+              fileContent = fileContent.slice(1);
+            }
+            
+            // 깨진 문자 확인 (Replacement Character가 많으면 다른 인코딩 시도)
+            const brokenCharCount = (fileContent.match(/\uFFFD/g) || []).length;
+            if (brokenCharCount < fileContent.length * 0.01) { // 1% 미만이면 OK
+              console.log(`[Official Certs IPC] File read with encoding: ${encoding}, broken chars: ${brokenCharCount}`);
+              break;
+            } else {
+              console.warn(`[Official Certs IPC] Too many broken characters with ${encoding}, trying next...`);
+              fileContent = null;
+            }
+          } catch (error) {
+            console.warn(`[Official Certs IPC] Failed to read with ${encoding}:`, error);
+            fileContent = null;
+          }
+        }
+        
+        if (!fileContent) {
+          // 마지막 시도: 기본 UTF-8
+          fileContent = fs.readFileSync(filePath, 'utf-8');
+          if (fileContent.charCodeAt(0) === 0xFEFF) {
+            fileContent = fileContent.slice(1);
+          }
+        }
+        
+        // 깨진 문자 제거
+        fileContent = fileContent.replace(/\uFFFD+/g, ''); // Replacement Character 제거
         console.log('[Official Certs IPC] File read successfully, size:', fileContent.length, 'bytes');
         return fileContent;
       }
