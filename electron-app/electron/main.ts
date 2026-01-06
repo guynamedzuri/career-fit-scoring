@@ -15,9 +15,26 @@ function createWindow() {
   });
 
   // 개발 환경에서는 Vite 개발 서버, 프로덕션에서는 빌드된 파일
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.loadURL('http://localhost:5173');
+  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+  
+  if (isDev) {
+    // Vite 개발 서버 URL
+    const viteUrl = 'http://localhost:5173';
+    console.log('Loading Vite dev server:', viteUrl);
+    mainWindow.loadURL(viteUrl);
     mainWindow.webContents.openDevTools();
+    
+    // Vite 서버가 준비될 때까지 대기
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+      console.error('Failed to load:', errorCode, errorDescription);
+      if (errorCode === -106) {
+        // ERR_INTERNET_DISCONNECTED 또는 연결 실패
+        console.log('Waiting for Vite server to start...');
+        setTimeout(() => {
+          mainWindow.loadURL(viteUrl);
+        }, 1000);
+      }
+    });
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
