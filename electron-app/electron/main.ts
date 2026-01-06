@@ -18,6 +18,8 @@ function createWindow() {
   // 개발 환경에서는 Vite 개발 서버, 프로덕션에서는 빌드된 파일
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
   
+  console.log('isDev:', isDev, 'isPackaged:', app.isPackaged);
+  
   if (isDev) {
     // Vite 개발 서버 URL
     const viteUrl = 'http://localhost:5173';
@@ -49,7 +51,10 @@ function createWindow() {
       }
     });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    // 프로덕션: 빌드된 파일 로드
+    const indexPath = path.join(__dirname, '../dist/index.html');
+    console.log('Loading production file:', indexPath);
+    mainWindow.loadFile(indexPath);
     mainWindow.show();
   }
 

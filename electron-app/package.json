@@ -3,12 +3,54 @@
   "version": "1.0.0",
   "description": "Electron desktop app for resume scoring using career-fit-scoring algorithm",
   "main": "electron/main.js",
+  "author": {
+    "name": "Career Fit Scoring",
+    "email": ""
+  },
+  "build": {
+    "appId": "com.career-fit-scoring.app",
+    "productName": "이력서 적합도 평가 시스템",
+    "directories": {
+      "output": "dist-installer",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "package.json",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
+      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
+      "!**/node_modules/*.d.ts",
+      "!**/node_modules/.bin",
+      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "이력서 적합도 평가 시스템"
+    }
+  },
   "scripts": {
     "dev": "npm run build:electron:dev && concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
     "dev:electron": "wait-on http://localhost:5173 -t 30000 && electron .",
     "build:electron:dev": "tsc -p tsconfig.electron.json",
-    "build": "npm run build:electron:dev && vite build && electron-builder",
+    "build": "npm run build:all && electron-builder",
+    "build:all": "npm run build:electron:dev && vite build",
+    "build:win": "npm run build:all && electron-builder --win",
+    "build:mac": "npm run build:all && electron-builder --mac",
+    "build:linux": "npm run build:all && electron-builder --linux",
     "build:electron": "tsc -p tsconfig.electron.json && electron-builder",
     "preview": "vite preview"
   },
