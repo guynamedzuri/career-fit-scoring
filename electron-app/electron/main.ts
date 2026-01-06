@@ -156,12 +156,12 @@ ipcMain.handle('read-official-certificates', async () => {
   try {
     // 여러 경로에서 certificate_official.txt 찾기
     const possiblePaths = [
-      // 원본 프로젝트 루트 (ats-system/) - 가장 가능성 높음
-      path.join(__dirname, '../../../../..', 'certificate_official.txt'),
-      // 프로젝트 루트 (career-fit-scoring/)
+      // 프로젝트 루트 (career-fit-scoring/) - 가장 가능성 높음
       path.join(__dirname, '../../..', 'certificate_official.txt'),
       // electron-app 디렉토리
       path.join(__dirname, '..', 'certificate_official.txt'),
+      // 원본 프로젝트 루트 (ats-system/) - 개발 환경
+      path.join(__dirname, '../../../../..', 'certificate_official.txt'),
       // 현재 작업 디렉토리
       path.join(process.cwd(), 'certificate_official.txt'),
       // 상위 디렉토리들도 시도
