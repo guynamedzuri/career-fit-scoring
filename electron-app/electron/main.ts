@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as http from 'http';
@@ -53,12 +53,16 @@ function createWindow() {
     width: 1200,
     height: 800,
     show: false, // 준비될 때까지 숨김
+    autoHideMenuBar: true, // 메뉴바 자동 숨김
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
     },
   });
+  
+  // 메뉴바 완전히 제거
+  mainWindow.setMenuBarVisibility(false);
 
   // 개발 환경에서는 Vite 개발 서버, 프로덕션에서는 빌드된 파일
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -109,6 +113,9 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  // 애플리케이션 메뉴 제거 (File, Edit, View, Window 등)
+  Menu.setApplicationMenu(null);
+  
   createWindow();
 
   app.on('activate', () => {
