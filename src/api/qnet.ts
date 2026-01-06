@@ -27,15 +27,13 @@ interface QNetApiResponse {
  * Q-Net API 키
  */
 const getApiKey = (): string => {
-  // 브라우저 환경 (Vite)
-  if (typeof window !== 'undefined' && (import.meta as any).env) {
-    return (import.meta as any).env.VITE_QNET_API_KEY || '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f';
-  }
   // Node.js 환경
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env.QNET_API_KEY || '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f';
+  if (typeof process !== 'undefined' && process.env && process.env.QNET_API_KEY) {
+    return process.env.QNET_API_KEY;
   }
-  // 기본값
+  // 브라우저 환경에서는 전역 변수나 기본값 사용
+  // Vite 환경에서는 빌드 시 환경 변수가 주입되므로, 런타임에서는 기본값 사용
+  // 실제 환경 변수는 Vite 빌드 시점에 처리됨
   return '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f';
 };
 

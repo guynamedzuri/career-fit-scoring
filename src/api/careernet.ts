@@ -60,15 +60,15 @@ interface CareerNetMajorItem {
  * 커리어넷 API 키 (환경 변수에서 가져오거나 직접 설정)
  */
 const getApiKey = (): string => {
-  // 브라우저 환경 (Vite)
-  if (typeof window !== 'undefined' && (import.meta as any).env) {
-    return (import.meta as any).env.VITE_CAREERNET_API_KEY || '83ae558eb34c7d75e2bde972db504fd5';
+  // Node.js 환경 또는 Vite에서 define으로 주입된 환경 변수
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env.CAREERNET_API_KEY) {
+      return process.env.CAREERNET_API_KEY;
+    }
+  } catch (e) {
+    // process가 정의되지 않은 경우 무시
   }
-  // Node.js 환경
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env.CAREERNET_API_KEY || '83ae558eb34c7d75e2bde972db504fd5';
-  }
-  // 기본값
+  // 기본값 (Vite의 define으로 주입되거나 기본값 사용)
   return '83ae558eb34c7d75e2bde972db504fd5';
 };
 
