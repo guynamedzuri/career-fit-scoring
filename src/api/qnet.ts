@@ -26,7 +26,20 @@ interface QNetApiResponse {
 /**
  * Q-Net API 키
  */
-const QNET_API_KEY = process.env.QNET_API_KEY || '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f';
+const getApiKey = (): string => {
+  // 브라우저 환경 (Vite)
+  if (typeof window !== 'undefined' && (import.meta as any).env) {
+    return (import.meta as any).env.VITE_QNET_API_KEY || '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f';
+  }
+  // Node.js 환경
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env.QNET_API_KEY || '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f';
+  }
+  // 기본값
+  return '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f';
+};
+
+const QNET_API_KEY = getApiKey();
 
 /**
  * 국가자격증 검색
