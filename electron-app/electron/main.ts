@@ -1,5 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as http from 'http';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -92,4 +94,63 @@ ipcMain.handle('select-folder', async () => {
   }
   
   return result.filePaths[0];
+});
+
+// Q-Net API 호출 IPC 핸들러
+ipcMain.handle('qnet-search-certifications', async () => {
+  return new Promise((resolve, reject) => {
+    const apiKey = '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f';
+    const url = `http://openapi.q-net.or.kr/api/service/rest/InquiryListNationalQualifcationSVC/getList?ServiceKey=${apiKey}`;
+    
+    http.get(url, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          const jsonData = JSON.parse(data);
+          const items = jsonData.response?.body?.items?.item || [];
+          const itemList = Array.isArray(items) ? items : (items ? [items] : []);
+          
+          const certifications: string[] = [];
+          itemList.forEach((item: any) => {
+            if (item.jmfldnm) {
+              certifications.push(item.jmfldnm.trim());
+            }
+          });
+          
+          resolve(certifications);
+        } catch (error) {
+          console.error('[Q-Net IPC] Parse error:', error);
+          reject(error);
+        }
+      });
+    }).on('error', (error) => {
+      console.error('[Q-Net IPC] Request error:', error);
+      reject(error);
+    });
+  });
+});
+
+// 공인민간자격증 파일 읽기 IPC 핸들러
+ipcMain.handle('read-official-certificates', async () => {
+  try {
+    // 루트 디렉토리에서 certificate_official.txt 찾기
+    const rootPath = path.join(__dirname, '../../..');
+    const filePath = path.join(rootPath, 'certificate_official.txt');
+    
+    if (fs.existsSync(filePath)) {
+      const fileContent = fs.readFileSync(filePath, 'utf-8');
+      return fileContent;
+    } else {
+      console.warn('[Official Certs IPC] File not found:', filePath);
+      return null;
+    }
+  } catch (error) {
+    console.error('[Official Certs IPC] Read error:', error);
+    return null;
+  }
 });

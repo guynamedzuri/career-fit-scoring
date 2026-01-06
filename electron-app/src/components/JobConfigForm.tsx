@@ -9,6 +9,8 @@ declare global {
   interface Window {
     electron?: {
       selectFolder: () => Promise<string | null>;
+      qnetSearchCertifications: () => Promise<string[]>;
+      readOfficialCertificates: () => Promise<string | null>;
     };
   }
 }
@@ -261,27 +263,37 @@ export default function JobConfigForm() {
     try {
       const allCerts: Array<{ name: string; code?: string }> = [];
       
-      // Q-Net API (CORS 문제로 일단 스킵 - Electron에서는 메인 프로세스에서 호출 필요)
-      // Electron 환경에서는 CORS 제한이 있으므로 일단 스킵
-      // TODO: Electron 메인 프로세스에서 API 호출하도록 수정
+      // Q-Net API (Electron 메인 프로세스를 통해 호출)
       try {
-        console.log('[Load Certs] Q-Net API skipped in Electron (CORS issue)');
-        // const qnetCerts = await searchCertifications('');
-        // qnetCerts.forEach(cert => {
-        //   allCerts.push({ name: cert });
-        // });
+        if (window.electron?.qnetSearchCertifications) {
+          const qnetCerts = await window.electron.qnetSearchCertifications();
+          qnetCerts.forEach(certName => {
+            allCerts.push({ name: certName });
+          });
+          console.log('[Load Certs] Q-Net: Loaded', qnetCerts.length, 'certifications');
+        } else {
+          console.warn('[Load Certs] Q-Net API not available (not in Electron)');
+        }
       } catch (error) {
         console.error('[Load Certs] Q-Net API error:', error);
       }
       
-      // 공인민간자격증 파일 (Electron에서는 파일 시스템 접근 필요)
-      // 일단 스킵 - 나중에 Electron 메인 프로세스에서 파일 읽기 구현 필요
+      // 공인민간자격증 파일 (Electron 메인 프로세스를 통해 읽기)
       try {
-        console.log('[Load Certs] Official certs skipped in Electron (file access needed)');
-        // const officialCerts = await parseOfficialCertificates(fileContent);
-        // officialCerts.forEach(cert => {
-        //   allCerts.push({ name: cert });
-        // });
+        if (window.electron?.readOfficialCertificates) {
+          const fileContent = await window.electron.readOfficialCertificates();
+          if (fileContent) {
+            const officialCerts = parseOfficialCertificates(fileContent);
+            officialCerts.forEach(cert => {
+              allCerts.push({ name: cert });
+            });
+            console.log('[Load Certs] Official: Loaded', officialCerts.length, 'certifications');
+          } else {
+            console.warn('[Load Certs] Official certs file not found');
+          }
+        } else {
+          console.warn('[Load Certs] Official certs not available (not in Electron)');
+        }
       } catch (error) {
         console.error('[Load Certs] Official certs parse error:', error);
       }
