@@ -7,6 +7,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    show: false, // 준비될 때까지 숨김
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -21,6 +22,16 @@ function createWindow() {
     // Vite 개발 서버 URL
     const viteUrl = 'http://localhost:5173';
     console.log('Loading Vite dev server:', viteUrl);
+    
+    // 페이지가 로드되면 창 표시
+    mainWindow.webContents.once('did-finish-load', () => {
+      console.log('Page loaded successfully');
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+    
     mainWindow.loadURL(viteUrl);
     mainWindow.webContents.openDevTools();
     
@@ -39,6 +50,7 @@ function createWindow() {
     });
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    mainWindow.show();
   }
 
   mainWindow.on('closed', () => {
