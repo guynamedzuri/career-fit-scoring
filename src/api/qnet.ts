@@ -12,6 +12,17 @@ export interface QNetCertification {
   [key: string]: any; // 기타 필드
 }
 
+// Q-Net API 응답 타입 정의
+interface QNetApiResponse {
+  response?: {
+    body?: {
+      items?: {
+        item?: QNetCertification | QNetCertification[];
+      };
+    };
+  };
+}
+
 /**
  * Q-Net API 키
  */
@@ -52,7 +63,7 @@ export async function searchCertifications(
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as QNetApiResponse;
     
     if (!data || !data.response || !data.response.body || !data.response.body.items) {
       return [];

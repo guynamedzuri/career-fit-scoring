@@ -34,6 +34,28 @@ export interface CareerNetMajor {
   majorNm?: string;
 }
 
+// API 응답 타입 정의
+interface CareerNetApiResponse {
+  dataSearch?: {
+    content?: any[] | any;
+  };
+}
+
+interface CareerNetJobItem {
+  job?: string;
+  jobdicSeq?: string;
+  aptd_type_code?: string;
+  summary?: string;
+  profession?: string;
+  similarJob?: string;
+}
+
+interface CareerNetMajorItem {
+  facilName?: string;
+  majorSeq?: string;
+  majorNm?: string;
+}
+
 /**
  * 커리어넷 API 키 (환경 변수에서 가져오거나 직접 설정)
  */
@@ -55,15 +77,18 @@ export async function searchJobs(apiKey?: string): Promise<CareerNetJob[]> {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as CareerNetApiResponse;
     
     if (!data || !data.dataSearch || !data.dataSearch.content) {
       return [];
     }
     
     const jobs: CareerNetJob[] = [];
+    const contentList = Array.isArray(data.dataSearch.content) 
+      ? data.dataSearch.content 
+      : [data.dataSearch.content];
     
-    data.dataSearch.content.forEach((item: any) => {
+    contentList.forEach((item: CareerNetJobItem) => {
       if (item.job && item.jobdicSeq) {
         jobs.push({
           job: item.job,
@@ -107,19 +132,20 @@ export async function getJobDetail(jobdicSeq: string, apiKey?: string): Promise<
     let capacityList: string[] = [];
     let majorList: Array<{ MAJOR_NM?: string; MAJOR_SEQ?: string }> = [];
     
-    if (typeof DOMParser !== 'undefined') {
+    // 브라우저 환경 체크 (DOMParser는 브라우저 전용)
+    if (typeof window !== 'undefined' && typeof DOMParser !== 'undefined') {
       // 브라우저 환경
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
       
       // capacity_major > content > capacity (관련 자격증)
       const capacityElements = xmlDoc.querySelectorAll('capacity_major > content > capacity');
-      capacityElements.forEach(el => {
+      capacityElements.forEach((el: Element) => {
         if (el.textContent) {
           const capacityText = el.textContent.trim();
           if (capacityText) {
             // 쉼표로 구분된 자격증 목록 파싱
-            const certs = capacityText.split(',').map(c => c.trim()).filter(c => c);
+            const certs = capacityText.split(',').map((c: string) => c.trim()).filter((c: string) => c);
             capacityList.push(...certs);
           }
         }
@@ -127,7 +153,7 @@ export async function getJobDetail(jobdicSeq: string, apiKey?: string): Promise<
       
       // capacity_major > content > major > content (관련 학과)
       const majorElements = xmlDoc.querySelectorAll('capacity_major > content > major > content');
-      majorElements.forEach(el => {
+      majorElements.forEach((el: Element) => {
         const majorNm = el.querySelector('MAJOR_NM')?.textContent?.trim();
         const majorSeq = el.querySelector('MAJOR_SEQ')?.textContent?.trim();
         if (majorNm || majorSeq) {
@@ -202,15 +228,18 @@ export async function searchMajors(gubun: string = 'univ_list', apiKey?: string)
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as CareerNetApiResponse;
     
     if (!data || !data.dataSearch || !data.dataSearch.content) {
       return [];
     }
     
     const majors: CareerNetMajor[] = [];
+    const contentList = Array.isArray(data.dataSearch.content) 
+      ? data.dataSearch.content 
+      : [data.dataSearch.content];
     
-    data.dataSearch.content.forEach((item: any) => {
+    contentList.forEach((item: CareerNetMajorItem) => {
       if (item.facilName) {
         // facilName은 쉼표로 구분된 여러 학과명을 포함할 수 있음
         const facilNames = item.facilName.split(',').map((name: string) => name.trim()).filter((name: string) => name);
