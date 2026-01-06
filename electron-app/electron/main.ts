@@ -5,6 +5,49 @@ import * as http from 'http';
 
 let mainWindow: BrowserWindow | null = null;
 
+/**
+ * 프로젝트 루트 디렉토리 찾기
+ * certificate_official.txt 파일이 있는 디렉토리를 찾습니다.
+ */
+function findProjectRoot(): string | null {
+  let currentDir = __dirname;
+  const maxDepth = 10; // 최대 탐색 깊이
+  
+  for (let i = 0; i < maxDepth; i++) {
+    const certFile = path.join(currentDir, 'certificate_official.txt');
+    if (fs.existsSync(certFile)) {
+      console.log('[Find Project Root] Found at:', currentDir);
+      return currentDir;
+    }
+    
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      // 루트 디렉토리에 도달
+      break;
+    }
+    currentDir = parentDir;
+  }
+  
+  // process.cwd()에서도 시도
+  currentDir = process.cwd();
+  for (let i = 0; i < maxDepth; i++) {
+    const certFile = path.join(currentDir, 'certificate_official.txt');
+    if (fs.existsSync(certFile)) {
+      console.log('[Find Project Root] Found at (cwd):', currentDir);
+      return currentDir;
+    }
+    
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      break;
+    }
+    currentDir = parentDir;
+  }
+  
+  console.warn('[Find Project Root] Project root not found');
+  return null;
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -154,31 +197,50 @@ ipcMain.handle('qnet-search-certifications', async () => {
 // 공인민간자격증 파일 읽기 IPC 핸들러
 ipcMain.handle('read-official-certificates', async () => {
   try {
-    // 여러 경로에서 certificate_official.txt 찾기
+    console.log('[Official Certs IPC] Starting file search...');
+    console.log('[Official Certs IPC] __dirname:', __dirname);
+    console.log('[Official Certs IPC] process.cwd():', process.cwd());
+    console.log('[Official Certs IPC] app.getAppPath():', app.getAppPath());
+    
+    // 프로젝트 루트 찾기
+    const projectRoot = findProjectRoot();
+    
+    if (projectRoot) {
+      const filePath = path.join(projectRoot, 'certificate_official.txt');
+      if (fs.existsSync(filePath)) {
+        console.log('[Official Certs IPC] Reading file from:', filePath);
+        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        console.log('[Official Certs IPC] File read successfully, size:', fileContent.length, 'bytes');
+        return fileContent;
+      } else {
+        console.error('[Official Certs IPC] File not found at expected path:', filePath);
+      }
+    }
+    
+    // 프로젝트 루트를 찾지 못한 경우, 여러 경로 시도
     const possiblePaths = [
-      // 프로젝트 루트 (career-fit-scoring/) - 가장 가능성 높음
       path.join(__dirname, '../../..', 'certificate_official.txt'),
-      // electron-app 디렉토리
+      path.join(__dirname, '../..', 'certificate_official.txt'),
       path.join(__dirname, '..', 'certificate_official.txt'),
-      // 원본 프로젝트 루트 (ats-system/) - 개발 환경
-      path.join(__dirname, '../../../../..', 'certificate_official.txt'),
-      // 현재 작업 디렉토리
       path.join(process.cwd(), 'certificate_official.txt'),
-      // 상위 디렉토리들도 시도
       path.join(process.cwd(), '..', 'certificate_official.txt'),
       path.join(process.cwd(), '../..', 'certificate_official.txt'),
+      path.join(process.cwd(), '../../..', 'certificate_official.txt'),
     ];
     
+    console.log('[Official Certs IPC] Trying fallback paths:');
     for (const filePath of possiblePaths) {
-      if (fs.existsSync(filePath)) {
+      const exists = fs.existsSync(filePath);
+      console.log('  -', filePath, exists ? '✓' : '✗');
+      if (exists) {
         console.log('[Official Certs IPC] Found file at:', filePath);
         const fileContent = fs.readFileSync(filePath, 'utf-8');
+        console.log('[Official Certs IPC] File read successfully, size:', fileContent.length, 'bytes');
         return fileContent;
       }
     }
     
-    console.warn('[Official Certs IPC] File not found in any of these paths:');
-    possiblePaths.forEach(p => console.warn('  -', p));
+    console.warn('[Official Certs IPC] File not found in any path');
     return null;
   } catch (error) {
     console.error('[Official Certs IPC] Read error:', error);
