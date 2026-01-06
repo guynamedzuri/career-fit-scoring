@@ -111,16 +111,32 @@ ipcMain.handle('qnet-search-certifications', async () => {
       
       res.on('end', () => {
         try {
-          const jsonData = JSON.parse(data);
-          const items = jsonData.response?.body?.items?.item || [];
-          const itemList = Array.isArray(items) ? items : (items ? [items] : []);
-          
           const certifications: string[] = [];
-          itemList.forEach((item: any) => {
-            if (item.jmfldnm) {
-              certifications.push(item.jmfldnm.trim());
+          
+          // XML 또는 JSON 응답 처리
+          if (data.trim().startsWith('<?xml') || data.trim().startsWith('<')) {
+            // XML 파싱 (간단한 정규식 방식)
+            const jmfldnmMatches = data.match(/<jmfldnm[^>]*>([^<]*)<\/jmfldnm>/g);
+            if (jmfldnmMatches) {
+              jmfldnmMatches.forEach((match: string) => {
+                const name = match.replace(/<\/?jmfldnm[^>]*>/g, '').trim();
+                if (name) {
+                  certifications.push(name);
+                }
+              });
             }
-          });
+          } else {
+            // JSON 파싱
+            const jsonData = JSON.parse(data);
+            const items = jsonData.response?.body?.items?.item || [];
+            const itemList = Array.isArray(items) ? items : (items ? [items] : []);
+            
+            itemList.forEach((item: any) => {
+              if (item.jmfldnm) {
+                certifications.push(item.jmfldnm.trim());
+              }
+            });
+          }
           
           resolve(certifications);
         } catch (error) {
@@ -138,17 +154,32 @@ ipcMain.handle('qnet-search-certifications', async () => {
 // 공인민간자격증 파일 읽기 IPC 핸들러
 ipcMain.handle('read-official-certificates', async () => {
   try {
-    // 루트 디렉토리에서 certificate_official.txt 찾기
-    const rootPath = path.join(__dirname, '../../..');
-    const filePath = path.join(rootPath, 'certificate_official.txt');
+    // 여러 경로에서 certificate_official.txt 찾기
+    const possiblePaths = [
+      // 원본 프로젝트 루트 (ats-system/) - 가장 가능성 높음
+      path.join(__dirname, '../../../../..', 'certificate_official.txt'),
+      // 프로젝트 루트 (career-fit-scoring/)
+      path.join(__dirname, '../../..', 'certificate_official.txt'),
+      // electron-app 디렉토리
+      path.join(__dirname, '..', 'certificate_official.txt'),
+      // 현재 작업 디렉토리
+      path.join(process.cwd(), 'certificate_official.txt'),
+      // 상위 디렉토리들도 시도
+      path.join(process.cwd(), '..', 'certificate_official.txt'),
+      path.join(process.cwd(), '../..', 'certificate_official.txt'),
+    ];
     
-    if (fs.existsSync(filePath)) {
-      const fileContent = fs.readFileSync(filePath, 'utf-8');
-      return fileContent;
-    } else {
-      console.warn('[Official Certs IPC] File not found:', filePath);
-      return null;
+    for (const filePath of possiblePaths) {
+      if (fs.existsSync(filePath)) {
+        console.log('[Official Certs IPC] Found file at:', filePath);
+        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        return fileContent;
+      }
     }
+    
+    console.warn('[Official Certs IPC] File not found in any of these paths:');
+    possiblePaths.forEach(p => console.warn('  -', p));
+    return null;
   } catch (error) {
     console.error('[Official Certs IPC] Read error:', error);
     return null;
