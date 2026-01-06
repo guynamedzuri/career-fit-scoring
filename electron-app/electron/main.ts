@@ -69,6 +69,34 @@ function createWindow() {
   
   console.log('isDev:', isDev, 'isPackaged:', app.isPackaged);
   
+  // 프로덕션 환경에서 개발자 도구 비활성화
+  if (!isDev) {
+    // 개발자 도구가 열리려고 하면 즉시 닫기
+    mainWindow.webContents.on('devtools-opened', () => {
+      console.warn('[Security] DevTools opened in production, closing...');
+      if (mainWindow) {
+        mainWindow.webContents.closeDevTools();
+      }
+    });
+    
+    // 키보드 단축키로 개발자 도구 열기 시도 차단
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      // F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U 등 차단
+      if (
+        input.key === 'F12' ||
+        (input.control && input.shift && (input.key === 'I' || input.key === 'J')) ||
+        (input.control && input.key === 'U')
+      ) {
+        event.preventDefault();
+      }
+    });
+    
+    // 우클릭 컨텍스트 메뉴에서 "검사" 옵션 제거 (preload에서도 처리 필요)
+    mainWindow.webContents.on('context-menu', (event) => {
+      event.preventDefault();
+    });
+  }
+  
   if (isDev) {
     // Vite 개발 서버 URL
     const viteUrl = 'http://localhost:5173';
