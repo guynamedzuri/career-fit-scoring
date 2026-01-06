@@ -27,11 +27,13 @@ function createWindow() {
     // Vite 서버가 준비될 때까지 대기
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
       console.error('Failed to load:', errorCode, errorDescription);
-      if (errorCode === -106) {
+      if (errorCode === -106 && mainWindow) {
         // ERR_INTERNET_DISCONNECTED 또는 연결 실패
         console.log('Waiting for Vite server to start...');
         setTimeout(() => {
-          mainWindow.loadURL(viteUrl);
+          if (mainWindow) {
+            mainWindow.loadURL(viteUrl);
+          }
         }, 1000);
       }
     });
