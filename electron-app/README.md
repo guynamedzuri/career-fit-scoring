@@ -5,18 +5,36 @@ Electron 기반 데스크톱 애플리케이션으로, DOCX 이력서 파일들�
 ## 설치
 
 ```bash
+# 1. 루트 모듈 빌드
+cd ..
+npm install
+npm run build
+
+# 2. Electron 앱 의존성 설치
+cd electron-app
 npm install
 ```
 
-## 개발
+## 개발 모드 실행
 
 ```bash
 npm run dev
 ```
 
-이 명령은 Vite 개발 서버와 Electron을 동시에 실행합니다.
+이 명령은:
+1. Electron 메인 프로세스 파일을 빌드합니다 (`electron/main.ts` → `electron/main.js`)
+2. Vite 개발 서버를 `http://localhost:5173`에서 시작합니다
+3. Electron 앱을 실행하여 개발 서버에 연결합니다
 
 ## 빌드
+
+### Electron 메인 프로세스만 빌드
+
+```bash
+npm run build:electron:dev
+```
+
+### 전체 빌드 (프론트엔드 + Electron)
 
 ```bash
 npm run build
@@ -36,3 +54,31 @@ npm run build
 - TypeScript
 - Vite
 - career-fit-scoring (알고리즘 모듈)
+
+## 문제 해결
+
+### "package.json has a valid 'main' entry" 오류
+
+이 오류는 Electron 메인 프로세스 파일이 빌드되지 않았을 때 발생합니다:
+
+```bash
+# Electron 파일 빌드
+npm run build:electron:dev
+```
+
+### 모듈을 찾을 수 없다는 오류
+
+```bash
+# 루트 모듈 재빌드
+cd ..
+npm run build
+cd electron-app
+```
+
+### Electron이 실행되지 않음
+
+```bash
+# node_modules 재설치
+rm -rf node_modules package-lock.json
+npm install
+```
