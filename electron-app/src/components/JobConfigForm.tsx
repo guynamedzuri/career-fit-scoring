@@ -261,30 +261,40 @@ export default function JobConfigForm() {
     try {
       const allCerts: Array<{ name: string; code?: string }> = [];
       
-      // Q-Net API
+      // Q-Net API (CORS 문제로 일단 스킵 - Electron에서는 메인 프로세스에서 호출 필요)
+      // Electron 환경에서는 CORS 제한이 있으므로 일단 스킵
+      // TODO: Electron 메인 프로세스에서 API 호출하도록 수정
       try {
-        const qnetCerts = await searchCertifications('');
-        qnetCerts.forEach(cert => {
-          allCerts.push({ name: cert.name, code: cert.code });
-        });
+        console.log('[Load Certs] Q-Net API skipped in Electron (CORS issue)');
+        // const qnetCerts = await searchCertifications('');
+        // qnetCerts.forEach(cert => {
+        //   allCerts.push({ name: cert });
+        // });
       } catch (error) {
         console.error('[Load Certs] Q-Net API error:', error);
       }
       
-      // 공인민간자격증 파일
+      // 공인민간자격증 파일 (Electron에서는 파일 시스템 접근 필요)
+      // 일단 스킵 - 나중에 Electron 메인 프로세스에서 파일 읽기 구현 필요
       try {
-        const officialCerts = await parseOfficialCertificates();
-        officialCerts.forEach(cert => {
-          allCerts.push({ name: cert });
-        });
+        console.log('[Load Certs] Official certs skipped in Electron (file access needed)');
+        // const officialCerts = await parseOfficialCertificates(fileContent);
+        // officialCerts.forEach(cert => {
+        //   allCerts.push({ name: cert });
+        // });
       } catch (error) {
         console.error('[Load Certs] Official certs parse error:', error);
       }
       
       // 추가 국가자격증
-      ADDITIONAL_NATIONAL_CERTIFICATES.forEach(cert => {
-        allCerts.push({ name: cert });
-      });
+      try {
+        const additionalCerts = parseAdditionalNationalCertificates(ADDITIONAL_NATIONAL_CERTIFICATES);
+        additionalCerts.forEach(certName => {
+          allCerts.push({ name: certName });
+        });
+      } catch (error) {
+        console.error('[Load Certs] Additional certs error:', error);
+      }
       
       allCertsCacheRef.current = allCerts;
       setLoadingCerts(false);
