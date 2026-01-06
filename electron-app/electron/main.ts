@@ -50,8 +50,13 @@ function findProjectRoot(): string | null {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1000,
+    height: 700,
+    minWidth: 1000,
+    minHeight: 700,
+    maxWidth: 1000,
+    maxHeight: 700,
+    resizable: false, // 창 크기 조절 불가능
     show: false, // 준비될 때까지 숨김
     autoHideMenuBar: true, // 메뉴바 자동 숨김
     webPreferences: {
