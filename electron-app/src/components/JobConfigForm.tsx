@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { searchJobs, getJobDetail } from 'career-fit-scoring/src/api/careernet';
-import { searchCertifications } from 'career-fit-scoring/src/api/qnet';
-import { parseOfficialCertificates, parseAdditionalNationalCertificates, ADDITIONAL_NATIONAL_CERTIFICATES } from 'career-fit-scoring/src/certificateParser';
+// career-fit-scoring 모듈 import
+import { searchJobs, getJobDetail, searchCertifications } from 'career-fit-scoring';
+import { parseOfficialCertificates, parseAdditionalNationalCertificates, ADDITIONAL_NATIONAL_CERTIFICATES } from 'career-fit-scoring';
 import '../styles/job-config-form.css';
 
 // Electron API 타입

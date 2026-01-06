@@ -7,10 +7,15 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // career-fit-scoring 모듈을 소스에서 직접 참조 (개발 모드)
+      'career-fit-scoring': path.resolve(__dirname, '../src'),
     },
   },
   base: './',
   build: {
     outDir: 'dist',
+  },
+  optimizeDeps: {
+    exclude: ['career-fit-scoring'],
   },
 });
