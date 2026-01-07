@@ -529,8 +529,11 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
         <div className="table-cell cell-ai-grade">
           <div>AI 평가</div>
         </div>
-        <div className="table-cell cell-actions">
+        <div className="table-cell cell-detail">
           <div>상세</div>
+        </div>
+        <div className="table-cell cell-ai-comment">
+          <div>AI</div>
         </div>
       </div>
 
@@ -601,32 +604,32 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
                   <span className="ai-grade-placeholder">-</span>
                 )}
               </div>
-              <div className="table-cell cell-actions">
-                <div className="action-buttons">
-                  <button 
-                    className="detail-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedResult(selectedResult?.filePath === result.filePath ? null : result);
-                    }}
-                    title="상세 정보 보기"
-                  >
-                    <Info size={16} />
-                  </button>
-                  <button
-                    className={`ai-comment-btn ${result.aiChecked && result.aiReport ? 'active' : 'disabled'}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (result.aiChecked && result.aiReport) {
-                        handleOpenAiReport(result.aiReport);
-                      }
-                    }}
-                    disabled={!result.aiChecked || !result.aiReport}
-                    title={result.aiChecked && result.aiReport ? 'AI 분석 보고서 보기' : 'AI 검사 미완료'}
-                  >
-                    AI
-                  </button>
-                </div>
+              <div className="table-cell cell-detail">
+                <button 
+                  className="detail-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedResult(selectedResult?.filePath === result.filePath ? null : result);
+                  }}
+                  title="상세 정보 보기"
+                >
+                  <Info size={16} />
+                </button>
+              </div>
+              <div className="table-cell cell-ai-comment">
+                <button
+                  className={`ai-comment-btn ${result.aiChecked && result.aiReport ? 'active' : 'disabled'}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (result.aiChecked && result.aiReport) {
+                      handleOpenAiReport(result.aiReport);
+                    }
+                  }}
+                  disabled={!result.aiChecked || !result.aiReport}
+                  title={result.aiChecked && result.aiReport ? 'AI 분석 보고서 보기' : 'AI 검사 미완료'}
+                >
+                  AI
+                </button>
               </div>
             </div>
           ))
