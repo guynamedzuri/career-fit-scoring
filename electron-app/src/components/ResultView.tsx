@@ -21,6 +21,10 @@ interface ScoringResult {
   lastCompany?: string; // 직전 회사 이름
   lastSalary?: string; // 직전 연봉
   searchableText?: string; // 검색 가능한 전체 텍스트 (이름, 회사, 자격증 등 모든 정보)
+  // AI 검사 결과
+  aiGrade?: string; // AI 평가 등급 (예: 'A', 'B', 'C', 'D')
+  aiReport?: string; // AI 분석 결과 보고서
+  aiChecked?: boolean; // AI 검사 완료 여부
 }
 
 interface ResultViewProps {
@@ -42,6 +46,9 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
   const [selectedCandidates, setSelectedCandidates] = useState<Set<string>>(new Set()); // 선택된 후보자 filePath Set
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showAiReportModal, setShowAiReportModal] = useState(false);
+  const [currentAiReport, setCurrentAiReport] = useState<string>('');
+  const [aiProcessing, setAiProcessing] = useState(false);
   const [filters, setFilters] = useState({
     minAge: '',
     maxAge: '',
@@ -273,6 +280,90 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
     });
   };
 
+  // AI 검사 실행
+  const handleAiCheck = async () => {
+    if (selectedCandidates.size === 0 || aiProcessing) return;
+
+    const selectedResults = results.filter(r => selectedCandidates.has(r.filePath));
+    if (selectedResults.length === 0) return;
+
+    setAiProcessing(true);
+
+    try {
+      // 여러 개를 동시에 처리 (Promise.all 사용)
+      // API 제한이 있으면 순차 처리로 변경 가능
+      const aiPromises = selectedResults.map(async (result) => {
+        try {
+          // TODO: 실제 AI API 호출 구현
+          // 예시: const response = await callAiApi(result.applicationData, jobMetadata);
+          
+          // 임시로 시뮬레이션 (실제로는 AI API 호출)
+          await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+          
+          // 임시 결과 생성
+          const grades = ['A', 'B', 'C', 'D'];
+          const randomGrade = grades[Math.floor(Math.random() * grades.length)];
+          const mockReport = `이력서 분석 결과 보고서\n\n` +
+            `이름: ${result.name || result.fileName}\n` +
+            `평가 등급: ${randomGrade}\n\n` +
+            `주요 평가 내용:\n` +
+            `- 경력 경험: 적절함\n` +
+            `- 자격증: 보유\n` +
+            `- 학력: 적합\n\n` +
+            `종합 의견:\n` +
+            `해당 후보자는 요구사항에 부합하는 것으로 판단됩니다.`;
+
+          return {
+            filePath: result.filePath,
+            aiGrade: randomGrade,
+            aiReport: mockReport,
+            aiChecked: true,
+          };
+        } catch (error) {
+          console.error(`[AI Check] Error for ${result.filePath}:`, error);
+          return {
+            filePath: result.filePath,
+            aiGrade: undefined,
+            aiReport: undefined,
+            aiChecked: false,
+            error: error instanceof Error ? error.message : 'AI 검사 실패',
+          };
+        }
+      });
+
+      const aiResults = await Promise.all(aiPromises);
+
+      // 결과를 results에 반영
+      setResults(prevResults =>
+        prevResults.map(result => {
+          const aiResult = aiResults.find(r => r.filePath === result.filePath);
+          if (aiResult) {
+            return {
+              ...result,
+              aiGrade: aiResult.aiGrade,
+              aiReport: aiResult.aiReport,
+              aiChecked: aiResult.aiChecked,
+            };
+          }
+          return result;
+        })
+      );
+
+      // 선택 해제
+      setSelectedCandidates(new Set());
+    } catch (error) {
+      console.error('[AI Check] Overall error:', error);
+    } finally {
+      setAiProcessing(false);
+    }
+  };
+
+  // AI 보고서 모달 열기
+  const handleOpenAiReport = (report: string) => {
+    setCurrentAiReport(report);
+    setShowAiReportModal(true);
+  };
+
   // 전체 선택 여부 확인
   const isAllSelected = filteredAndSortedResults.length > 0 && 
     selectedCandidates.size === filteredAndSortedResults.length;
@@ -382,6 +473,14 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
         >
           상태 이동
         </button>
+        <button 
+          className="ai-check-btn"
+          onClick={handleAiCheck}
+          disabled={selectedCandidates.size === 0 || aiProcessing}
+          title="선택된 후보자 AI 검사"
+        >
+          {aiProcessing ? 'AI 검사 중...' : 'AI 검사'}
+        </button>
       </div>
 
       {/* 테이블 헤더 */}
@@ -434,6 +533,9 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
           >
             총점수 <SortIcon field="totalScore" />
           </div>
+        </div>
+        <div className="table-cell cell-ai-grade">
+          <div>AI 평가</div>
         </div>
         <div className="table-cell cell-actions">
           <div>상세</div>
@@ -498,17 +600,41 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
                   <span className="score-placeholder">-</span>
                 )}
               </div>
+              <div className="table-cell cell-ai-grade">
+                {result.aiChecked && result.aiGrade ? (
+                  <span className={`ai-grade ai-grade-${result.aiGrade.toLowerCase()}`}>
+                    {result.aiGrade}
+                  </span>
+                ) : (
+                  <span className="ai-grade-placeholder">-</span>
+                )}
+              </div>
               <div className="table-cell cell-actions">
-                <button 
-                  className="detail-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedResult(selectedResult?.filePath === result.filePath ? null : result);
-                  }}
-                  title="상세 정보 보기"
-                >
-                  <Info size={16} />
-                </button>
+                <div className="action-buttons">
+                  <button 
+                    className="detail-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedResult(selectedResult?.filePath === result.filePath ? null : result);
+                    }}
+                    title="상세 정보 보기"
+                  >
+                    <Info size={16} />
+                  </button>
+                  <button
+                    className={`ai-comment-btn ${result.aiChecked && result.aiReport ? 'active' : 'disabled'}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (result.aiChecked && result.aiReport) {
+                        handleOpenAiReport(result.aiReport);
+                      }
+                    }}
+                    disabled={!result.aiChecked || !result.aiReport}
+                    title={result.aiChecked && result.aiReport ? 'AI 분석 보고서 보기' : 'AI 검사 미완료'}
+                  >
+                    AI
+                  </button>
+                </div>
               </div>
             </div>
           ))
@@ -725,6 +851,23 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
                   적용
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI 보고서 모달 */}
+      {showAiReportModal && (
+        <div className="status-modal-overlay" onClick={() => setShowAiReportModal(false)}>
+          <div className="ai-report-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="status-modal-header">
+              <h3>AI 분석 보고서</h3>
+              <button className="status-modal-close" onClick={() => setShowAiReportModal(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="ai-report-content">
+              <pre className="ai-report-text">{currentAiReport}</pre>
             </div>
           </div>
         </div>
