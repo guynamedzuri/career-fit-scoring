@@ -49,14 +49,15 @@ function findProjectRoot(): string | null {
 }
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
+  // 개발 환경에서는 Vite 개발 서버, 프로덕션에서는 빌드된 파일
+  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+  
+  console.log('isDev:', isDev, 'isPackaged:', app.isPackaged);
+  
+  // 개발 환경과 프로덕션 환경에 따라 다른 창 설정
+  const windowOptions: Electron.BrowserWindowConstructorOptions = {
     width: 1000,
     height: 700,
-    minWidth: 1000,
-    minHeight: 700,
-    maxWidth: 1000,
-    maxHeight: 700,
-    resizable: false, // 창 크기 조절 불가능
     show: false, // 준비될 때까지 숨김
     autoHideMenuBar: true, // 메뉴바 자동 숨김
     webPreferences: {
@@ -64,15 +65,27 @@ function createWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
     },
-  });
+  };
+  
+  if (isDev) {
+    // 개발 환경: 창 크기 조절 가능
+    windowOptions.resizable = true;
+    windowOptions.minWidth = 600;
+    windowOptions.minHeight = 500;
+    // maxWidth, maxHeight는 제한 없음
+  } else {
+    // 프로덕션 환경: 창 크기 고정
+    windowOptions.resizable = false;
+    windowOptions.minWidth = 1000;
+    windowOptions.minHeight = 700;
+    windowOptions.maxWidth = 1000;
+    windowOptions.maxHeight = 700;
+  }
+  
+  mainWindow = new BrowserWindow(windowOptions);
   
   // 메뉴바 완전히 제거
   mainWindow.setMenuBarVisibility(false);
-
-  // 개발 환경에서는 Vite 개발 서버, 프로덕션에서는 빌드된 파일
-  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-  
-  console.log('isDev:', isDev, 'isPackaged:', app.isPackaged);
   
   // 프로덕션 환경에서 개발자 도구 비활성화
   if (!isDev) {
@@ -84,7 +97,7 @@ function createWindow() {
       }
     });
     
-    // 키보드 단축키로 개발자 도구 열기 시도 차단
+    // 키보드 단축키로 개발자 도구 열기 시도 차단 (프로덕션만)
     mainWindow.webContents.on('before-input-event', (event, input) => {
       // F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U 등 차단
       if (
@@ -92,6 +105,21 @@ function createWindow() {
         (input.control && input.shift && (input.key === 'I' || input.key === 'J')) ||
         (input.control && input.key === 'U')
       ) {
+        event.preventDefault();
+      }
+    });
+  } else {
+    // 개발 환경: F12로 개발자 도구 열기 허용
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      // F12로 개발자 도구 열기/닫기
+      if (input.key === 'F12') {
+        if (mainWindow) {
+          if (mainWindow.webContents.isDevToolsOpened()) {
+            mainWindow.webContents.closeDevTools();
+          } else {
+            mainWindow.webContents.openDevTools();
+          }
+        }
         event.preventDefault();
       }
     });
