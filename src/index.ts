@@ -43,3 +43,21 @@ export {
   parseAdditionalNationalCertificates,
   ADDITIONAL_NATIONAL_CERTIFICATES,
 } from './certificateParser';
+
+// DOCX 파싱 함수들
+export {
+  extractTablesFromDocx,
+  getCellValue,
+  findRowByText,
+  findColumnByText,
+  type RawTableData,
+  type RawTableRow,
+  type RawTableCell,
+} from './docxParser';
+
+// 이력서 매핑 함수들
+export {
+  mapResumeDataToApplicationData,
+  DEFAULT_RESUME_MAPPING,
+  type ResumeMappingConfig,
+} from './resumeMapping';
