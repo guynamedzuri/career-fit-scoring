@@ -6,6 +6,64 @@ import * as http from 'http';
 let mainWindow: BrowserWindow | null = null;
 
 /**
+ * .env 파일 로드
+ */
+function loadEnvFile(): void {
+  try {
+    // 프로젝트 루트 찾기
+    const projectRoot = findProjectRoot();
+    if (!projectRoot) {
+      console.warn('[Load Env] Project root not found, trying current directory');
+    }
+    
+    // .env 파일 경로들 시도
+    const envPaths = [
+      projectRoot ? path.join(projectRoot, '.env') : null,
+      path.join(__dirname, '../../.env'),
+      path.join(__dirname, '../../../.env'),
+      path.join(process.cwd(), '.env'),
+    ].filter((p): p is string => p !== null);
+    
+    for (const envPath of envPaths) {
+      if (fs.existsSync(envPath)) {
+        console.log('[Load Env] Loading .env from:', envPath);
+        const envContent = fs.readFileSync(envPath, 'utf-8');
+        const lines = envContent.split('\n');
+        
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          // 주석이나 빈 줄 건너뛰기
+          if (!trimmedLine || trimmedLine.startsWith('#')) continue;
+          
+          // KEY=VALUE 형식 파싱
+          const match = trimmedLine.match(/^([^=]+)=(.*)$/);
+          if (match) {
+            const key = match[1].trim();
+            let value = match[2].trim();
+            
+            // 따옴표 제거
+            if ((value.startsWith('"') && value.endsWith('"')) ||
+                (value.startsWith("'") && value.endsWith("'"))) {
+              value = value.slice(1, -1);
+            }
+            
+            // 환경 변수에 설정 (이미 있으면 덮어쓰지 않음)
+            if (!process.env[key]) {
+              process.env[key] = value;
+            }
+          }
+        }
+        return;
+      }
+    }
+    
+    console.warn('[Load Env] .env file not found in:', envPaths);
+  } catch (error) {
+    console.warn('[Load Env] Error loading .env file:', error);
+  }
+}
+
+/**
  * 프로젝트 루트 디렉토리 찾기
  * certificate_official.txt 파일이 있는 디렉토리를 찾습니다.
  */
@@ -434,32 +492,25 @@ ipcMain.handle('ai-check-resume', async (event, data: {
   fileName: string;
 }) => {
   try {
-    // Azure OpenAI 설정 (환경 변수 또는 기본값 사용)
-    // API 키는 ats-system 디렉토리의 AZURE_OPENAI_SETUP.md 파일 참고
-    const API_KEY = process.env.AZURE_OPENAI_API_KEY || 
-      (() => {
-        // ats-system 디렉토리에서 설정 파일 읽기 시도
-        try {
-          const setupPath = path.join(__dirname, '../../../../AZURE_OPENAI_SETUP.md');
-          if (fs.existsSync(setupPath)) {
-            const content = fs.readFileSync(setupPath, 'utf-8');
-            const keyMatch = content.match(/API 키 \(API Key\)\s*```\s*([^\s]+)/);
-            if (keyMatch) return keyMatch[1];
-          }
-        } catch (e) {
-          console.warn('[AI Check] Could not read API key from setup file:', e);
-        }
-        // 기본값 (실제 사용 시 환경 변수로 설정 권장)
-        return '';
-      })();
+    // Azure OpenAI 설정 (.env 파일에서 읽기)
+    // .env 파일 로드 (빌드 시 포함됨)
+    loadEnvFile();
+    
+    const API_KEY = process.env.AZURE_OPENAI_API_KEY;
     
     if (!API_KEY) {
-      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. 환경 변수 AZURE_OPENAI_API_KEY를 설정하거나 ats-system/AZURE_OPENAI_SETUP.md 파일을 확인하세요.');
+      throw new Error(
+        'Azure OpenAI API 키가 설정되지 않았습니다.\n' +
+        '.env 파일에 AZURE_OPENAI_API_KEY를 설정하세요.'
+      );
     }
     
     const ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT || 'https://roar-mjm4cwji-swedencentral.openai.azure.com/';
     const DEPLOYMENT_NAME = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
     const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
+    
+    console.log('[AI Check] Using endpoint:', ENDPOINT);
+    console.log('[AI Check] Using deployment:', DEPLOYMENT_NAME);
 
     const apiUrl = `${ENDPOINT}openai/deployments/${DEPLOYMENT_NAME}/chat/completions?api-version=${API_VERSION}`;
 
