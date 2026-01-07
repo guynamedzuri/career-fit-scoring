@@ -28,7 +28,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "requestedExecutionLevel": "asInvoker"
@@ -55,9 +57,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "career-fit-scoring": "file:..",
+    "lucide-react": "^0.562.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "career-fit-scoring": "file:.."
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
