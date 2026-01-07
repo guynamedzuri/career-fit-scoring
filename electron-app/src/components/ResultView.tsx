@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, ChevronUp, ChevronDown, Download, Info, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, Download, Info, AlertCircle, CheckCircle2, Filter } from 'lucide-react';
 import '../styles/result-view.css';
 
 interface DocxFile {
@@ -12,6 +12,7 @@ interface ScoringResult {
   filePath: string;
   totalScore: number;
   status: 'pending' | 'processing' | 'completed' | 'error';
+  candidateStatus?: 'pending' | 'review' | 'rejected'; // 후보자 상태 (대기, 검토, 탈락)
   errorMessage?: string;
   applicationData?: any;
   // 파싱된 데이터
@@ -40,16 +41,26 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
   const [selectedResult, setSelectedResult] = useState<ScoringResult | null>(null);
   const [selectedCandidates, setSelectedCandidates] = useState<Set<string>>(new Set()); // 선택된 후보자 filePath Set
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filters, setFilters] = useState({
+    minAge: '',
+    maxAge: '',
+    minScore: '',
+    maxScore: '',
+    company: '',
+    status: '' as '' | 'pending' | 'processing' | 'completed' | 'error',
+  });
 
   // TODO: 실제로 DOCX 파일을 파싱하고 점수를 계산하는 로직 구현
   // 지금은 임시로 플레이스홀더 데이터를 표시
   // 플레이스홀더: 선택된 파일들에 대해 초기 상태 설정
   useEffect(() => {
-    const placeholderResults: ScoringResult[] = selectedFiles.map(file => ({
+      const placeholderResults: ScoringResult[] = selectedFiles.map(file => ({
       fileName: file.name,
       filePath: file.path,
       totalScore: 0,
       status: 'pending' as const,
+      candidateStatus: 'pending' as const, // 초기 상태는 대기
       name: undefined, // TODO: DOCX 파싱 후 실제 이름으로 교체
       age: undefined,
       lastCompany: undefined,
@@ -77,6 +88,41 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
         if (r.searchableText && r.searchableText.toLowerCase().includes(query)) return true;
         return false;
       });
+    }
+
+    // 상세 필터 적용
+    if (filters.minAge) {
+      const minAge = parseInt(filters.minAge);
+      if (!isNaN(minAge)) {
+        filtered = filtered.filter(r => r.age !== undefined && r.age >= minAge);
+      }
+    }
+    if (filters.maxAge) {
+      const maxAge = parseInt(filters.maxAge);
+      if (!isNaN(maxAge)) {
+        filtered = filtered.filter(r => r.age !== undefined && r.age <= maxAge);
+      }
+    }
+    if (filters.minScore) {
+      const minScore = parseFloat(filters.minScore);
+      if (!isNaN(minScore)) {
+        filtered = filtered.filter(r => r.totalScore >= minScore);
+      }
+    }
+    if (filters.maxScore) {
+      const maxScore = parseFloat(filters.maxScore);
+      if (!isNaN(maxScore)) {
+        filtered = filtered.filter(r => r.totalScore <= maxScore);
+      }
+    }
+    if (filters.company.trim()) {
+      const companyQuery = filters.company.toLowerCase();
+      filtered = filtered.filter(r => 
+        r.lastCompany && r.lastCompany.toLowerCase().includes(companyQuery)
+      );
+    }
+    if (filters.status) {
+      filtered = filtered.filter(r => r.candidateStatus === filters.status);
     }
 
     // 정렬
@@ -118,7 +164,7 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
     });
 
     return filtered;
-  }, [results, searchQuery, sortField, sortOrder]);
+  }, [results, searchQuery, sortField, sortOrder, filters]);
 
   // 정렬 토글
   const handleSort = (field: SortField) => {
@@ -176,12 +222,42 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
 
   // 상태 이동 처리
   const handleStatusChange = (newStatus: 'pending' | 'review' | 'rejected') => {
-    // TODO: 실제 상태 변경 로직 구현
+    // 실제 상태 변경: results 배열 업데이트
+    setResults(prevResults => 
+      prevResults.map(result => {
+        if (selectedCandidates.has(result.filePath)) {
+          return {
+            ...result,
+            candidateStatus: newStatus,
+          };
+        }
+        return result;
+      })
+    );
+    
     console.log('상태 변경:', Array.from(selectedCandidates), '->', newStatus);
     
     // 상태 변경 후 선택 해제
     setSelectedCandidates(new Set());
     setShowStatusModal(false);
+  };
+
+  // 필터 적용
+  const applyFilters = () => {
+    // 필터는 filteredAndSortedResults에서 이미 적용됨
+    setShowFilterModal(false);
+  };
+
+  // 필터 초기화
+  const resetFilters = () => {
+    setFilters({
+      minAge: '',
+      maxAge: '',
+      minScore: '',
+      maxScore: '',
+      company: '',
+      status: '',
+    });
   };
 
   // 전체 선택 여부 확인
@@ -238,7 +314,7 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
         )}
       </div>
 
-      {/* 검색 + 상태 이동 */}
+      {/* 검색 + 필터 + 상태 이동 */}
       <div className="candidate-search-row">
         <div className="candidate-search">
           <Search size={16} className="search-icon" />
@@ -249,6 +325,13 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-input"
           />
+          <button
+            className="filter-btn"
+            onClick={() => setShowFilterModal(true)}
+            title="상세 필터"
+          >
+            <Filter size={16} />
+          </button>
         </div>
         <button 
           className="status-move-btn"
@@ -502,6 +585,103 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
                   onClick={() => handleStatusChange('rejected')}
                 >
                   탈락
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 필터 모달 */}
+      {showFilterModal && (
+        <div className="status-modal-overlay" onClick={() => setShowFilterModal(false)}>
+          <div className="filter-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="status-modal-header">
+              <h3>상세 필터</h3>
+              <button className="status-modal-close" onClick={() => setShowFilterModal(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="filter-modal-content">
+              <div className="filter-group">
+                <label className="filter-label">나이</label>
+                <div className="filter-range">
+                  <input
+                    type="number"
+                    placeholder="최소"
+                    value={filters.minAge}
+                    onChange={(e) => setFilters({ ...filters, minAge: e.target.value })}
+                    className="filter-input"
+                    min="0"
+                  />
+                  <span className="filter-separator">~</span>
+                  <input
+                    type="number"
+                    placeholder="최대"
+                    value={filters.maxAge}
+                    onChange={(e) => setFilters({ ...filters, maxAge: e.target.value })}
+                    className="filter-input"
+                    min="0"
+                  />
+                </div>
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">총점수</label>
+                <div className="filter-range">
+                  <input
+                    type="number"
+                    placeholder="최소"
+                    value={filters.minScore}
+                    onChange={(e) => setFilters({ ...filters, minScore: e.target.value })}
+                    className="filter-input"
+                    min="0"
+                    step="0.1"
+                  />
+                  <span className="filter-separator">~</span>
+                  <input
+                    type="number"
+                    placeholder="최대"
+                    value={filters.maxScore}
+                    onChange={(e) => setFilters({ ...filters, maxScore: e.target.value })}
+                    className="filter-input"
+                    min="0"
+                    step="0.1"
+                  />
+                </div>
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">회사명</label>
+                <input
+                  type="text"
+                  placeholder="회사명으로 검색..."
+                  value={filters.company}
+                  onChange={(e) => setFilters({ ...filters, company: e.target.value })}
+                  className="filter-input filter-input-full"
+                />
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">후보자 상태</label>
+                <select
+                  value={filters.status}
+                  onChange={(e) => setFilters({ ...filters, status: e.target.value as any })}
+                  className="filter-select"
+                >
+                  <option value="">전체</option>
+                  <option value="pending">대기</option>
+                  <option value="review">검토</option>
+                  <option value="rejected">탈락</option>
+                </select>
+              </div>
+
+              <div className="filter-actions">
+                <button className="filter-reset-btn" onClick={resetFilters}>
+                  초기화
+                </button>
+                <button className="filter-apply-btn" onClick={applyFilters}>
+                  적용
                 </button>
               </div>
             </div>
