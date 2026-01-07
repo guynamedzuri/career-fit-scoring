@@ -391,7 +391,6 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
           </div>
         </div>
       )}
-      </div>
     </div>
   );
 }
