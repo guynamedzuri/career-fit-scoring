@@ -32,34 +32,51 @@ export default function ResumeFileList({ folderPath, onSelectionChange }: Resume
       return;
     }
 
+    let isCancelled = false;
+
     setLoading(true);
     window.electron.getDocxFiles(folderPath)
       .then((docxFiles) => {
+        if (isCancelled) return;
+        
         setFiles(docxFiles);
         // 기본적으로 모든 파일 선택
         const allPaths = new Set(docxFiles.map(f => f.path));
         setSelectedFiles(allPaths);
+        // 파일 로드 시에만 부모에게 알림
         if (onSelectionChange) {
           onSelectionChange(docxFiles);
         }
       })
       .catch((error) => {
+        if (isCancelled) return;
         console.error('[ResumeFileList] Failed to load files:', error);
         setFiles([]);
         setSelectedFiles(new Set());
       })
       .finally(() => {
-        setLoading(false);
+        if (!isCancelled) {
+          setLoading(false);
+        }
       });
-  }, [folderPath, onSelectionChange]);
 
-  // 선택 상태 변경 시 부모 컴포넌트에 알림
+    return () => {
+      isCancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folderPath]); // onSelectionChange를 의존성에서 제거하여 무한 루프 방지
+
+  // 선택 상태 변경 시 부모 컴포넌트에 알림 (파일 로드가 아닌 경우만)
   useEffect(() => {
-    if (onSelectionChange) {
-      const selected = files.filter(f => selectedFiles.has(f.path));
-      onSelectionChange(selected);
+    // files가 비어있거나 아직 로딩 중이면 호출하지 않음
+    if (!onSelectionChange || files.length === 0) {
+      return;
     }
-  }, [selectedFiles, files, onSelectionChange]);
+    
+    const selected = files.filter(f => selectedFiles.has(f.path));
+    onSelectionChange(selected);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFiles, files]); // onSelectionChange를 의존성에서 제거하여 무한 루프 방지
 
   // 전체 선택
   const handleSelectAll = () => {
