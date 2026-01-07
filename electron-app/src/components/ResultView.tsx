@@ -282,7 +282,7 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
 
   // AI 검사 실행
   const handleAiCheck = async () => {
-    if (selectedCandidates.size === 0 || aiProcessing) return;
+    if (selectedCandidates.size === 0 || aiProcessing || !window.electron?.aiCheckResume) return;
 
     const selectedResults = results.filter(r => selectedCandidates.has(r.filePath));
     if (selectedResults.length === 0) return;
@@ -294,31 +294,23 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
       // API 제한이 있으면 순차 처리로 변경 가능
       const aiPromises = selectedResults.map(async (result) => {
         try {
-          // TODO: 실제 AI API 호출 구현
-          // 예시: const response = await callAiApi(result.applicationData, jobMetadata);
-          
-          // 임시로 시뮬레이션 (실제로는 AI API 호출)
-          await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
-          
-          // 임시 결과 생성
-          const grades = ['A', 'B', 'C', 'D'];
-          const randomGrade = grades[Math.floor(Math.random() * grades.length)];
-          const mockReport = `이력서 분석 결과 보고서\n\n` +
-            `이름: ${result.name || result.fileName}\n` +
-            `평가 등급: ${randomGrade}\n\n` +
-            `주요 평가 내용:\n` +
-            `- 경력 경험: 적절함\n` +
-            `- 자격증: 보유\n` +
-            `- 학력: 적합\n\n` +
-            `종합 의견:\n` +
-            `해당 후보자는 요구사항에 부합하는 것으로 판단됩니다.`;
+          // 실제 AI API 호출
+          const response = await window.electron!.aiCheckResume({
+            applicationData: result.applicationData || {},
+            jobMetadata: jobMetadata || {},
+            fileName: result.fileName,
+          });
 
-          return {
-            filePath: result.filePath,
-            aiGrade: randomGrade,
-            aiReport: mockReport,
-            aiChecked: true,
-          };
+          if (response.success && response.grade && response.report) {
+            return {
+              filePath: result.filePath,
+              aiGrade: response.grade,
+              aiReport: response.report,
+              aiChecked: true,
+            };
+          } else {
+            throw new Error(response.error || 'AI 검사 실패');
+          }
         } catch (error) {
           console.error(`[AI Check] Error for ${result.filePath}:`, error);
           return {

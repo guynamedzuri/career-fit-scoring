@@ -426,3 +426,202 @@ ipcMain.handle('read-official-certificates', async () => {
     return null;
   }
 });
+
+// Azure OpenAI API 호출 IPC 핸들러
+ipcMain.handle('ai-check-resume', async (event, data: {
+  applicationData: any;
+  jobMetadata: any;
+  fileName: string;
+}) => {
+  try {
+    // Azure OpenAI 설정 (환경 변수 또는 기본값 사용)
+    // API 키는 ats-system 디렉토리의 AZURE_OPENAI_SETUP.md 파일 참고
+    const API_KEY = process.env.AZURE_OPENAI_API_KEY || 
+      (() => {
+        // ats-system 디렉토리에서 설정 파일 읽기 시도
+        try {
+          const setupPath = path.join(__dirname, '../../../../AZURE_OPENAI_SETUP.md');
+          if (fs.existsSync(setupPath)) {
+            const content = fs.readFileSync(setupPath, 'utf-8');
+            const keyMatch = content.match(/API 키 \(API Key\)\s*```\s*([^\s]+)/);
+            if (keyMatch) return keyMatch[1];
+          }
+        } catch (e) {
+          console.warn('[AI Check] Could not read API key from setup file:', e);
+        }
+        // 기본값 (실제 사용 시 환경 변수로 설정 권장)
+        return '';
+      })();
+    
+    if (!API_KEY) {
+      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. 환경 변수 AZURE_OPENAI_API_KEY를 설정하거나 ats-system/AZURE_OPENAI_SETUP.md 파일을 확인하세요.');
+    }
+    
+    const ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT || 'https://roar-mjm4cwji-swedencentral.openai.azure.com/';
+    const DEPLOYMENT_NAME = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+    const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
+
+    const apiUrl = `${ENDPOINT}openai/deployments/${DEPLOYMENT_NAME}/chat/completions?api-version=${API_VERSION}`;
+
+    // 이력서 데이터를 텍스트로 변환
+    const resumeText = formatResumeDataForAI(data.applicationData);
+    
+    // 채용 공고 정보
+    const jobInfo = data.jobMetadata ? `
+채용 직종: ${data.jobMetadata.jobName || 'N/A'}
+관련 전공: ${data.jobMetadata.relatedMajor || 'N/A'}
+필수 자격증: ${data.jobMetadata.requiredCertifications?.join(', ') || '없음'}
+관련 자격증: ${data.jobMetadata.relatedCertifications?.join(', ') || '없음'}
+` : '';
+
+    // AI 프롬프트 구성
+    const systemPrompt = `당신은 채용 담당자입니다. 이력서를 분석하여 후보자의 적합도를 평가하고 등급을 부여해야 합니다.
+
+평가 기준:
+- A등급: 채용 공고 요구사항을 완벽히 충족하고, 우수한 경력과 자격을 보유한 후보자
+- B등급: 채용 공고 요구사항을 대부분 충족하고, 적절한 경력과 자격을 보유한 후보자
+- C등급: 채용 공고 요구사항을 부분적으로 충족하지만, 일부 부족한 점이 있는 후보자
+- D등급: 채용 공고 요구사항을 충족하지 못하거나, 경력/자격이 부족한 후보자
+
+응답 형식:
+1. 등급: [A/B/C/D 중 하나]
+2. 평가 요약: [한 문장으로 요약]
+3. 주요 강점: [3-5개 항목]
+4. 주요 약점: [3-5개 항목]
+5. 종합 의견: [2-3문단으로 상세 분석]`;
+
+    const userPrompt = `다음 채용 공고 정보와 이력서 데이터를 분석해주세요.
+
+${jobInfo}
+
+이력서 정보:
+${resumeText}
+
+위 정보를 바탕으로 후보자를 평가하고 등급을 부여해주세요.`;
+
+    console.log('[AI Check] Calling Azure OpenAI API for:', data.fileName);
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': API_KEY,
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt,
+          },
+          {
+            role: 'user',
+            content: userPrompt,
+          },
+        ],
+        max_tokens: 2000,
+        temperature: 0.7,
+        top_p: 1.0,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('[AI Check] API Error:', response.status, errorData);
+      throw new Error(`AI API 호출 실패: ${response.status}`);
+    }
+
+    const responseData = await response.json();
+    const aiContent = responseData.choices[0]?.message?.content || '';
+
+    // 등급 추출 (A, B, C, D)
+    const gradeMatch = aiContent.match(/등급:\s*([A-D])/i) || aiContent.match(/\[([A-D])\]/i);
+    const grade = gradeMatch ? gradeMatch[1].toUpperCase() : 'C';
+
+    console.log('[AI Check] Success for:', data.fileName, 'Grade:', grade);
+
+    return {
+      success: true,
+      grade,
+      report: aiContent,
+    };
+  } catch (error) {
+    console.error('[AI Check] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '알 수 없는 오류',
+    };
+  }
+});
+
+// 이력서 데이터를 AI 분석용 텍스트로 변환
+function formatResumeDataForAI(applicationData: any): string {
+  if (!applicationData) return '이력서 데이터가 없습니다.';
+
+  let text = '';
+
+  // 기본 정보
+  if (applicationData.name) text += `이름: ${applicationData.name}\n`;
+  if (applicationData.birthDate) text += `생년월일: ${applicationData.birthDate}\n`;
+  if (applicationData.email) text += `이메일: ${applicationData.email}\n`;
+  if (applicationData.phone) text += `전화번호: ${applicationData.phone}\n`;
+  text += '\n';
+
+  // 자격증
+  const certificates: string[] = [];
+  for (let i = 1; i <= 10; i++) {
+    const certName = applicationData[`certificateName${i}`];
+    const certDate = applicationData[`certificateDate${i}`];
+    if (certName) {
+      certificates.push(`${certName}${certDate ? ` (${certDate})` : ''}`);
+    }
+  }
+  if (certificates.length > 0) {
+    text += `자격증:\n${certificates.join('\n')}\n\n`;
+  }
+
+  // 경력
+  const careers: string[] = [];
+  for (let i = 1; i <= 5; i++) {
+    const company = applicationData[`careerCompanyName${i}`];
+    const startDate = applicationData[`careerStartDate${i}`];
+    const endDate = applicationData[`careerEndDate${i}`];
+    const jobType = applicationData[`careerJobType${i}`];
+    if (company) {
+      careers.push(`${company} | ${startDate || ''} ~ ${endDate || '현재'} | ${jobType || ''}`);
+    }
+  }
+  if (careers.length > 0) {
+    text += `경력:\n${careers.join('\n')}\n\n`;
+  }
+
+  // 학력
+  const educations: string[] = [];
+  for (let i = 1; i <= 5; i++) {
+    const school = applicationData[`universityName${i}`];
+    const degree = applicationData[`universityDegreeType${i}`];
+    const major = applicationData[`universityMajor${i}_1`];
+    const gpa = applicationData[`universityGPA${i}`];
+    if (school) {
+      educations.push(`${school} | ${degree || ''} | ${major || ''} | GPA: ${gpa || 'N/A'}`);
+    }
+  }
+  if (educations.length > 0) {
+    text += `학력:\n${educations.join('\n')}\n\n`;
+  }
+
+  // 대학원
+  const gradSchools: string[] = [];
+  for (let i = 1; i <= 5; i++) {
+    const school = applicationData[`graduateSchoolName${i}`];
+    const degree = applicationData[`graduateSchoolDegreeType${i}`];
+    const major = applicationData[`graduateSchoolMajor${i}_1`];
+    if (school) {
+      gradSchools.push(`${school} | ${degree || ''} | ${major || ''}`);
+    }
+  }
+  if (gradSchools.length > 0) {
+    text += `대학원:\n${gradSchools.join('\n')}\n\n`;
+  }
+
+  return text || '이력서 정보가 없습니다.';
+}
