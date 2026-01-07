@@ -38,6 +38,8 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
   const [results, setResults] = useState<ScoringResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedResult, setSelectedResult] = useState<ScoringResult | null>(null);
+  const [selectedCandidates, setSelectedCandidates] = useState<Set<string>>(new Set()); // 선택된 후보자 filePath Set
+  const [showStatusModal, setShowStatusModal] = useState(false);
 
   // TODO: 실제로 DOCX 파일을 파싱하고 점수를 계산하는 로직 구현
   // 지금은 임시로 플레이스홀더 데이터를 표시
@@ -134,11 +136,57 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
     return sortOrder === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />;
   };
 
-  // XLSX 다운로드 (TODO: 구현 필요)
-  const handleDownloadXlsx = () => {
-    // TODO: XLSX 다운로드 구현
-    console.log('Download XLSX:', filteredAndSortedResults);
+  // 전체 선택/해제
+  const handleSelectAll = () => {
+    if (selectedCandidates.size === filteredAndSortedResults.length) {
+      // 모두 선택되어 있으면 전체 해제
+      setSelectedCandidates(new Set());
+    } else {
+      // 전체 선택
+      const allPaths = new Set(filteredAndSortedResults.map(r => r.filePath));
+      setSelectedCandidates(allPaths);
+    }
   };
+
+  // 개별 선택/해제
+  const handleToggleCandidate = (filePath: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    const newSelected = new Set(selectedCandidates);
+    if (newSelected.has(filePath)) {
+      newSelected.delete(filePath);
+    } else {
+      newSelected.add(filePath);
+    }
+    setSelectedCandidates(newSelected);
+  };
+
+  // 상태 이동 모달 열기
+  const handleOpenStatusModal = () => {
+    if (selectedCandidates.size > 0) {
+      setShowStatusModal(true);
+    }
+  };
+
+  // 상태 이동 모달 닫기
+  const handleCloseStatusModal = () => {
+    setShowStatusModal(false);
+  };
+
+  // 상태 이동 처리
+  const handleStatusChange = (newStatus: 'pending' | 'review' | 'rejected') => {
+    // TODO: 실제 상태 변경 로직 구현
+    console.log('상태 변경:', Array.from(selectedCandidates), '->', newStatus);
+    
+    // 상태 변경 후 선택 해제
+    setSelectedCandidates(new Set());
+    setShowStatusModal(false);
+  };
+
+  // 전체 선택 여부 확인
+  const isAllSelected = filteredAndSortedResults.length > 0 && 
+    selectedCandidates.size === filteredAndSortedResults.length;
 
   // 상태 표시 아이콘
   const StatusIcon = ({ status }: { status: ScoringResult['status'] }) => {
@@ -190,7 +238,7 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
         )}
       </div>
 
-      {/* 검색 + 다운로드 */}
+      {/* 검색 + 상태 이동 */}
       <div className="candidate-search-row">
         <div className="candidate-search">
           <Search size={16} className="search-icon" />
@@ -203,18 +251,26 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
           />
         </div>
         <button 
-          className="download-btn"
-          onClick={handleDownloadXlsx}
-          disabled={filteredAndSortedResults.length === 0}
-          title="Raw Data 다운로드"
+          className="status-move-btn"
+          onClick={handleOpenStatusModal}
+          disabled={selectedCandidates.size === 0}
+          title="선택된 후보자 상태 이동"
         >
-          <Download size={16} />
-          Raw Data
+          상태 이동
         </button>
       </div>
 
       {/* 테이블 헤더 */}
       <div className="candidate-table-header">
+        <div className="table-cell cell-checkbox">
+          <input
+            type="checkbox"
+            checked={isAllSelected}
+            onChange={handleSelectAll}
+            className="header-checkbox"
+            title="전체 선택/해제"
+          />
+        </div>
         <div className="table-cell cell-status">
           <div 
             className={`sortable ${sortField === 'status' ? 'active' : ''}`}
@@ -272,9 +328,18 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
           filteredAndSortedResults.map((result, idx) => (
             <div 
               key={idx} 
-              className={`candidate-row ${result.status === 'error' ? 'row-error' : ''} ${selectedResult?.filePath === result.filePath ? 'row-selected' : ''}`}
+              className={`candidate-row ${result.status === 'error' ? 'row-error' : ''} ${selectedResult?.filePath === result.filePath ? 'row-selected' : ''} ${selectedCandidates.has(result.filePath) ? 'row-checked' : ''}`}
               onClick={() => setSelectedResult(selectedResult?.filePath === result.filePath ? null : result)}
             >
+              <div className="table-cell cell-checkbox">
+                <input
+                  type="checkbox"
+                  checked={selectedCandidates.has(result.filePath)}
+                  onChange={() => handleToggleCandidate(result.filePath)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="row-checkbox"
+                />
+              </div>
               <div className="table-cell cell-status">
                 <div className="status-cell">
                   <StatusIcon status={result.status} />
@@ -399,6 +464,45 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
                 <p className="placeholder-note">
                   ※ 실제 DOCX 파싱 로직 구현 후 데이터가 표시됩니다.
                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 상태 이동 모달 */}
+      {showStatusModal && (
+        <div className="status-modal-overlay" onClick={handleCloseStatusModal}>
+          <div className="status-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="status-modal-header">
+              <h3>상태 이동</h3>
+              <button className="status-modal-close" onClick={handleCloseStatusModal}>
+                ✕
+              </button>
+            </div>
+            <div className="status-modal-content">
+              <p className="status-modal-info">
+                선택된 후보자 <strong>{selectedCandidates.size}명</strong>의 상태를 변경합니다.
+              </p>
+              <div className="status-options">
+                <button
+                  className="status-option-btn status-pending"
+                  onClick={() => handleStatusChange('pending')}
+                >
+                  대기
+                </button>
+                <button
+                  className="status-option-btn status-review"
+                  onClick={() => handleStatusChange('review')}
+                >
+                  검토
+                </button>
+                <button
+                  className="status-option-btn status-rejected"
+                  onClick={() => handleStatusChange('rejected')}
+                >
+                  탈락
+                </button>
               </div>
             </div>
           </div>
