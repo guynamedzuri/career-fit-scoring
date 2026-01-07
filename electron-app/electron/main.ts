@@ -581,8 +581,14 @@ ${resumeText}
       throw new Error(`AI API 호출 실패: ${response.status}`);
     }
 
-    const responseData = await response.json();
-    const aiContent = responseData.choices[0]?.message?.content || '';
+    const responseData = await response.json() as {
+      choices?: Array<{
+        message?: {
+          content?: string;
+        };
+      }>;
+    };
+    const aiContent = responseData.choices?.[0]?.message?.content || '';
 
     // 등급 추출 (A, B, C, D)
     const gradeMatch = aiContent.match(/등급:\s*([A-D])/i) || aiContent.match(/\[([A-D])\]/i);
