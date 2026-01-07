@@ -30,15 +30,19 @@ interface JobConfigFormProps {
     job?: boolean;
   };
   setValidationErrors?: (errors: { folder?: boolean; job?: boolean }) => void;
+  selectedFolder?: string;
+  onFolderChange?: (folderPath: string) => void;
   onExecute?: () => void;
 }
 
 export default function JobConfigForm({ 
   validationErrors = {}, 
   setValidationErrors,
+  selectedFolder: propSelectedFolder,
+  onFolderChange,
   onExecute 
 }: JobConfigFormProps) {
-  const [selectedFolder, setSelectedFolder] = useState<string>('');
+  const [selectedFolder, setSelectedFolder] = useState<string>(propSelectedFolder || '');
   const [jobSearchQuery, setJobSearchQuery] = useState('');
   const [jobSearchResults, setJobSearchResults] = useState<CareerNetJob[]>([]);
   const [showJobDropdown, setShowJobDropdown] = useState(false);
@@ -375,6 +379,9 @@ export default function JobConfigForm({
       const folderPath = await window.electron.selectFolder();
       if (folderPath) {
         setSelectedFolder(folderPath);
+        if (onFolderChange) {
+          onFolderChange(folderPath);
+        }
         // 에러 상태 제거
         if (setValidationErrors && validationErrors.folder) {
           setValidationErrors({ ...validationErrors, folder: false });
@@ -385,6 +392,13 @@ export default function JobConfigForm({
       alert('Electron 환경에서만 폴더 선택이 가능합니다.');
     }
   };
+
+  // prop으로 받은 selectedFolder가 변경되면 내부 state 업데이트
+  useEffect(() => {
+    if (propSelectedFolder !== undefined && propSelectedFolder !== selectedFolder) {
+      setSelectedFolder(propSelectedFolder);
+    }
+  }, [propSelectedFolder]);
 
   // 초기 로드
   useEffect(() => {

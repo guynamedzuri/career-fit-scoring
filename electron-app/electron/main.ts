@@ -50,11 +50,11 @@ function findProjectRoot(): string | null {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 600,
+    width: 1000,
     height: 700,
-    minWidth: 600,
+    minWidth: 1000,
     minHeight: 700,
-    maxWidth: 600,
+    maxWidth: 1000,
     maxHeight: 700,
     resizable: false, // 창 크기 조절 불가능
     show: false, // 준비될 때까지 숨김
@@ -177,6 +177,31 @@ ipcMain.handle('select-folder', async () => {
   }
   
   return result.filePaths[0];
+});
+
+// 폴더 내 DOCX 파일 목록 가져오기 IPC 핸들러
+ipcMain.handle('get-docx-files', async (event, folderPath: string) => {
+  try {
+    if (!folderPath || !fs.existsSync(folderPath)) {
+      return [];
+    }
+    
+    const files = fs.readdirSync(folderPath);
+    const docxFiles = files
+      .filter(file => {
+        const ext = path.extname(file).toLowerCase();
+        return ext === '.docx';
+      })
+      .map(file => ({
+        name: file,
+        path: path.join(folderPath, file),
+      }));
+    
+    return docxFiles;
+  } catch (error) {
+    console.error('[Get DOCX Files] Error:', error);
+    return [];
+  }
 });
 
 // Q-Net API 호출 IPC 핸들러

@@ -15,6 +15,25 @@
   min-height: 0;
 }
 
+.app-main-layout {
+  display: flex;
+  gap: 1.5rem;
+  height: 100%;
+  overflow: hidden;
+}
+
+.app-left-panel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.app-right-panel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .app-footer {
   margin-top: 1rem;
   padding-top: 1rem;
