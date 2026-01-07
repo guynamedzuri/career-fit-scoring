@@ -32,6 +32,7 @@ interface JobConfigFormProps {
   setValidationErrors?: (errors: { folder?: boolean; job?: boolean }) => void;
   selectedFolder?: string;
   onFolderChange?: (folderPath: string) => void;
+  onJobMetadataChange?: (metadata: any) => void;
   onExecute?: () => void;
 }
 
@@ -40,6 +41,7 @@ export default function JobConfigForm({
   setValidationErrors,
   selectedFolder: propSelectedFolder,
   onFolderChange,
+  onJobMetadataChange,
   onExecute 
 }: JobConfigFormProps) {
   const [selectedFolder, setSelectedFolder] = useState<string>(propSelectedFolder || '');
@@ -458,6 +460,21 @@ export default function JobConfigForm({
         }
       }
       return;
+    }
+
+    // jobMetadata 구성
+    const metadata = {
+      jobdicSeq: selectedJob?.jobdicSeq,
+      jobAptdCode: selectedJob?.aptd_type_code,
+      requiredCertifications: requiredCertifications,
+      relatedCertifications: relatedCertifications,
+      relatedMajors: [], // TODO: 학과 정보 추가 필요
+      scoringWeights: scoringWeights,
+    };
+
+    // jobMetadata 전달
+    if (onJobMetadataChange) {
+      onJobMetadataChange(metadata);
     }
 
     // 모든 검증 통과 시 실행

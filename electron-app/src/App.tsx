@@ -1,14 +1,20 @@
 import { useState } from 'react';
 import JobConfigForm from './components/JobConfigForm';
 import ResumeFileList from './components/ResumeFileList';
+import ResultView from './components/ResultView';
 import './styles/app.css';
 
+type ViewMode = 'config' | 'result';
+
 function App() {
+  const [viewMode, setViewMode] = useState<ViewMode>('config');
   const [validationErrors, setValidationErrors] = useState<{
     folder?: boolean;
     job?: boolean;
   }>({});
   const [selectedFolder, setSelectedFolder] = useState<string>('');
+  const [selectedFiles, setSelectedFiles] = useState<Array<{ name: string; path: string }>>([]);
+  const [jobMetadata, setJobMetadata] = useState<any>(null);
 
   const handleExecute = () => {
     // JobConfigForm의 검증 함수 호출
@@ -18,10 +24,40 @@ function App() {
   };
 
   const handleSelectedFilesChange = (files: Array<{ name: string; path: string }>) => {
-    console.log('Selected files:', files);
-    // TODO: 선택된 파일 목록 저장
+    setSelectedFiles(files);
   };
 
+  const handleConfigExecute = () => {
+    // 검증 통과 시 실행할 로직
+    // TODO: 실제 점수 계산 로직 추가
+    console.log('실행하기 - 모든 필수 입력 완료');
+    console.log('Selected files:', selectedFiles);
+    console.log('Job metadata:', jobMetadata);
+    
+    // 결과 화면으로 전환
+    setViewMode('result');
+  };
+
+  const handleBackToConfig = () => {
+    setViewMode('config');
+  };
+
+  // 결과 화면
+  if (viewMode === 'result') {
+    return (
+      <div className="app">
+        <div className="app-content-wrapper">
+          <ResultView 
+            selectedFiles={selectedFiles}
+            jobMetadata={jobMetadata}
+            onBack={handleBackToConfig}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // 설정 화면
   return (
     <div className="app">
       <div className="app-content-wrapper">
@@ -32,11 +68,8 @@ function App() {
               setValidationErrors={setValidationErrors}
               selectedFolder={selectedFolder}
               onFolderChange={setSelectedFolder}
-              onExecute={() => {
-                // 검증 통과 시 실행할 로직
-                console.log('실행하기 - 모든 필수 입력 완료');
-                // TODO: 실제 실행 로직 추가
-              }}
+              onJobMetadataChange={setJobMetadata}
+              onExecute={handleConfigExecute}
             />
           </div>
           <div className="app-right-panel">
