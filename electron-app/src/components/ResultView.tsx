@@ -533,7 +533,7 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
           <div>상세</div>
         </div>
         <div className="table-cell cell-ai-comment">
-          <div>AI</div>
+          <div>AI Comment</div>
         </div>
       </div>
 
@@ -626,9 +626,9 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
                     }
                   }}
                   disabled={!result.aiChecked || !result.aiReport}
-                  title={result.aiChecked && result.aiReport ? 'AI 분석 보고서 보기' : 'AI 검사 미완료'}
+                  title={result.aiChecked && result.aiReport ? 'AI 분석 보고서 보기' : 'AI 검사를 먼저 진행해주세요!'}
                 >
-                  AI
+                  확인하기
                 </button>
               </div>
             </div>
