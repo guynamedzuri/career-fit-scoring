@@ -260,6 +260,10 @@ export default function JobConfigForm({
     setShowJobDropdown(false);
     setRelatedCertifications([]);
     fetchJobDetail(job.jobdicSeq);
+    // 에러 상태 제거
+    if (setValidationErrors && validationErrors.job) {
+      setValidationErrors({ ...validationErrors, job: false });
+    }
   };
 
   // 전체 자격증 데이터 로드
@@ -371,6 +375,10 @@ export default function JobConfigForm({
       const folderPath = await window.electron.selectFolder();
       if (folderPath) {
         setSelectedFolder(folderPath);
+        // 에러 상태 제거
+        if (setValidationErrors && validationErrors.folder) {
+          setValidationErrors({ ...validationErrors, folder: false });
+        }
       }
     } else {
       // 개발 환경에서는 임시로 alert
