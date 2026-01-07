@@ -24,7 +24,20 @@ interface CareerNetJob {
   displayName?: string;
 }
 
-export default function JobConfigForm() {
+interface JobConfigFormProps {
+  validationErrors?: {
+    folder?: boolean;
+    job?: boolean;
+  };
+  setValidationErrors?: (errors: { folder?: boolean; job?: boolean }) => void;
+  onExecute?: () => void;
+}
+
+export default function JobConfigForm({ 
+  validationErrors = {}, 
+  setValidationErrors,
+  onExecute 
+}: JobConfigFormProps) {
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [jobSearchQuery, setJobSearchQuery] = useState('');
   const [jobSearchResults, setJobSearchResults] = useState<CareerNetJob[]>([]);
@@ -388,6 +401,61 @@ export default function JobConfigForm() {
   const careerPercent = totalWeight > 0 ? (scoringWeights.career / totalWeight) * 100 : 0;
   const eduPercent = totalWeight > 0 ? (scoringWeights.education / totalWeight) * 100 : 0;
 
+  // 필수 입력 검증 및 실행
+  const handleExecuteClick = () => {
+    const errors: { folder?: boolean; job?: boolean } = {};
+    let hasError = false;
+
+    // 이력서 폴더 검증
+    if (!selectedFolder || selectedFolder.trim() === '') {
+      errors.folder = true;
+      hasError = true;
+    }
+
+    // 채용 직종 검증
+    if (!selectedJob) {
+      errors.job = true;
+      hasError = true;
+    }
+
+    if (setValidationErrors) {
+      setValidationErrors(errors);
+    }
+
+    if (hasError) {
+      // 첫 번째 에러 필드로 스크롤
+      if (errors.folder) {
+        const folderElement = document.querySelector('.folder-select-wrapper');
+        if (folderElement) {
+          folderElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } else if (errors.job) {
+        const jobElement = document.querySelector('.job-search-wrapper, .selected-job-display');
+        if (jobElement) {
+          jobElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+      return;
+    }
+
+    // 모든 검증 통과 시 실행
+    if (onExecute) {
+      onExecute();
+    }
+  };
+
+  // onExecute prop이 변경되면 실행 버튼 핸들러 업데이트
+  useEffect(() => {
+    if (onExecute) {
+      // App 컴포넌트의 실행 버튼 클릭 시 이 함수 호출
+      (window as any).__handleJobConfigExecute = handleExecuteClick;
+    }
+    return () => {
+      delete (window as any).__handleJobConfigExecute;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedFolder, selectedJob, validationErrors, onExecute]);
+
   return (
     <div className="job-config-form">
       <div className="form-section">
@@ -395,7 +463,7 @@ export default function JobConfigForm() {
         <div className="form-group">
           <label className="form-label">이력서 폴더 *</label>
           <p className="field-hint">DOCX 이력서 파일들이 있는 폴더를 선택하세요.</p>
-          <div className="folder-select-wrapper">
+          <div className={`folder-select-wrapper ${validationErrors.folder ? 'error' : ''}`}>
             <input
               type="text"
               className="folder-path-input"
@@ -414,7 +482,7 @@ export default function JobConfigForm() {
         </div>
 
         {/* 채용 직종 선택 */}
-        <div className="form-group">
+        <div className={`form-group ${validationErrors.job ? 'error' : ''}`}>
           <label className="form-label">채용 직종 *</label>
           <p className="field-hint">직종을 선택하면 관련 자격증이 자동으로 불러와집니다.</p>
           
@@ -456,7 +524,7 @@ export default function JobConfigForm() {
           )}
           
           {!selectedJob && (
-            <div className="job-search-wrapper">
+            <div className={`job-search-wrapper ${validationErrors.job ? 'error' : ''}`}>
               <input
                 type="text"
                 className="job-search-input"

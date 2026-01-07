@@ -6,9 +6,27 @@
   border-radius: 0.5rem;
   padding: 1.5rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  height: calc(100vh - 3rem);
+  height: 100%;
   overflow-y: auto;
   box-sizing: border-box;
+}
+
+/* 에러 상태 스타일 */
+.form-group.error .form-label {
+  color: #dc2626;
+}
+
+.folder-select-wrapper.error .folder-path-input,
+.folder-select-wrapper.error .folder-select-btn,
+.job-search-wrapper.error .job-search-input {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.folder-select-wrapper.error .folder-path-input:focus,
+.job-search-wrapper.error .job-search-input:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
 }
 
 .form-section {
