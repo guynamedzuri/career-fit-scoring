@@ -10,13 +10,16 @@ interface DocxFile {
 interface ScoringResult {
   fileName: string;
   filePath: string;
-  certificationScore: number;
-  careerScore: number;
-  educationScore: number;
   totalScore: number;
   status: 'pending' | 'processing' | 'completed' | 'error';
   errorMessage?: string;
   applicationData?: any;
+  // 파싱된 데이터
+  name?: string; // 이력서에서 추출한 이름
+  age?: number; // 나이
+  lastCompany?: string; // 직전 회사 이름
+  lastSalary?: string; // 직전 연봉
+  searchableText?: string; // 검색 가능한 전체 텍스트 (이름, 회사, 자격증 등 모든 정보)
 }
 
 interface ResultViewProps {
@@ -25,7 +28,7 @@ interface ResultViewProps {
   onBack: () => void;
 }
 
-type SortField = 'name' | 'certification' | 'career' | 'education' | 'totalScore' | 'status';
+type SortField = 'name' | 'age' | 'lastCompany' | 'totalScore' | 'status';
 type SortOrder = 'asc' | 'desc';
 
 export default function ResultView({ selectedFiles, jobMetadata, onBack }: ResultViewProps) {
@@ -43,11 +46,13 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
     const placeholderResults: ScoringResult[] = selectedFiles.map(file => ({
       fileName: file.name,
       filePath: file.path,
-      certificationScore: 0,
-      careerScore: 0,
-      educationScore: 0,
       totalScore: 0,
       status: 'pending' as const,
+      name: undefined, // TODO: DOCX 파싱 후 실제 이름으로 교체
+      age: undefined,
+      lastCompany: undefined,
+      lastSalary: undefined,
+      searchableText: file.name, // 초기값은 파일명
     }));
     setResults(placeholderResults);
   }, [selectedFiles]);
@@ -56,12 +61,20 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
   const filteredAndSortedResults = useMemo(() => {
     let filtered = results;
 
-    // 검색 필터
+    // 키워드 검색 필터 (이름, 파일명, 회사명, 검색 가능한 모든 텍스트에서 검색)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(r => 
-        r.fileName.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter(r => {
+        // 파일명 검색
+        if (r.fileName.toLowerCase().includes(query)) return true;
+        // 이름 검색
+        if (r.name && r.name.toLowerCase().includes(query)) return true;
+        // 회사명 검색
+        if (r.lastCompany && r.lastCompany.toLowerCase().includes(query)) return true;
+        // 검색 가능한 전체 텍스트에서 검색
+        if (r.searchableText && r.searchableText.toLowerCase().includes(query)) return true;
+        return false;
+      });
     }
 
     // 정렬
@@ -70,20 +83,16 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
 
       switch (sortField) {
         case 'name':
-          compareA = a.fileName;
-          compareB = b.fileName;
+          compareA = a.name || a.fileName;
+          compareB = b.name || b.fileName;
           break;
-        case 'certification':
-          compareA = a.certificationScore;
-          compareB = b.certificationScore;
+        case 'age':
+          compareA = a.age ?? 0;
+          compareB = b.age ?? 0;
           break;
-        case 'career':
-          compareA = a.careerScore;
-          compareB = b.careerScore;
-          break;
-        case 'education':
-          compareA = a.educationScore;
-          compareB = b.educationScore;
+        case 'lastCompany':
+          compareA = a.lastCompany || '';
+          compareB = b.lastCompany || '';
           break;
         case 'totalScore':
           compareA = a.totalScore;
@@ -161,22 +170,24 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
 
   return (
     <div className="result-view">
-      <div className="result-view-header">
+      {/* 뒤로가기 버튼 row */}
+      <div className="result-view-back-row">
         <button className="back-btn" onClick={onBack}>
           ← 뒤로가기
         </button>
-        <div className="result-view-title-section">
-          <h1 className="result-view-title">점수 결과</h1>
-          {jobMetadata && (
-            <div className="job-info-summary">
-              <span className="job-info-label">채용 직종:</span>
-              <span className="job-info-value">{jobMetadata.jobName || 'N/A'}</span>
-              <span className="job-info-separator">|</span>
-              <span className="job-info-label">처리 대상:</span>
-              <span className="job-info-value">{selectedFiles.length}개 파일</span>
-            </div>
-          )}
-        </div>
+      </div>
+
+      {/* 헤더 */}
+      <div className="result-view-header">
+        {jobMetadata && (
+          <div className="job-info-summary">
+            <span className="job-info-label">채용 직종:</span>
+            <span className="job-info-value">{jobMetadata.jobName || 'N/A'}</span>
+            <span className="job-info-separator">|</span>
+            <span className="job-info-label">대상:</span>
+            <span className="job-info-value">{selectedFiles.length}명</span>
+          </div>
+        )}
       </div>
 
       {/* 검색 + 다운로드 */}
@@ -185,7 +196,7 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
           <Search size={16} className="search-icon" />
           <input
             type="text"
-            placeholder="파일명 검색..."
+            placeholder="이름, 회사명, 키워드 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-input"
@@ -217,31 +228,23 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
             className={`sortable ${sortField === 'name' ? 'active' : ''}`}
             onClick={() => handleSort('name')}
           >
-            파일명 <SortIcon field="name" />
+            이름 <SortIcon field="name" />
           </div>
         </div>
-        <div className="table-cell cell-certification">
+        <div className="table-cell cell-age">
           <div 
-            className={`sortable ${sortField === 'certification' ? 'active' : ''}`}
-            onClick={() => handleSort('certification')}
+            className={`sortable ${sortField === 'age' ? 'active' : ''}`}
+            onClick={() => handleSort('age')}
           >
-            자격증 점수 <SortIcon field="certification" />
+            나이 <SortIcon field="age" />
           </div>
         </div>
-        <div className="table-cell cell-career">
+        <div className="table-cell cell-company">
           <div 
-            className={`sortable ${sortField === 'career' ? 'active' : ''}`}
-            onClick={() => handleSort('career')}
+            className={`sortable ${sortField === 'lastCompany' ? 'active' : ''}`}
+            onClick={() => handleSort('lastCompany')}
           >
-            경력 점수 <SortIcon field="career" />
-          </div>
-        </div>
-        <div className="table-cell cell-education">
-          <div 
-            className={`sortable ${sortField === 'education' ? 'active' : ''}`}
-            onClick={() => handleSort('education')}
-          >
-            학력 점수 <SortIcon field="education" />
+            직전 회사 <SortIcon field="lastCompany" />
           </div>
         </div>
         <div className="table-cell cell-score">
@@ -280,20 +283,24 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
               </div>
               <div className="table-cell cell-name">
                 <div className="candidate-info">
-                  <span className="candidate-name">{result.fileName}</span>
+                  <span className="candidate-name">{result.name || result.fileName}</span>
                   {result.errorMessage && (
                     <span className="candidate-error">{result.errorMessage}</span>
                   )}
                 </div>
               </div>
-              <div className="table-cell cell-certification">
-                {result.status === 'completed' ? result.certificationScore.toFixed(1) : '-'}
+              <div className="table-cell cell-age">
+                {result.status === 'completed' && result.age !== undefined ? `${result.age}세` : '-'}
               </div>
-              <div className="table-cell cell-career">
-                {result.status === 'completed' ? result.careerScore.toFixed(1) : '-'}
-              </div>
-              <div className="table-cell cell-education">
-                {result.status === 'completed' ? result.educationScore.toFixed(1) : '-'}
+              <div className="table-cell cell-company">
+                {result.status === 'completed' && result.lastCompany ? (
+                  <div className="company-info">
+                    <span className="company-name">{result.lastCompany}</span>
+                    {result.lastSalary && (
+                      <span className="company-salary">({result.lastSalary})</span>
+                    )}
+                  </div>
+                ) : '-'}
               </div>
               <div className="table-cell cell-score">
                 {result.status === 'completed' ? (
@@ -345,25 +352,31 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
             </div>
             
             <div className="detail-section">
-              <h4>점수 상세</h4>
+              <h4>기본 정보</h4>
               <div className="detail-item">
-                <span className="detail-label">자격증 점수:</span>
+                <span className="detail-label">이름:</span>
                 <span className="detail-value">
-                  {selectedResult.status === 'completed' ? selectedResult.certificationScore.toFixed(1) : 'N/A'}
+                  {selectedResult.name || selectedResult.fileName || 'N/A'}
                 </span>
               </div>
               <div className="detail-item">
-                <span className="detail-label">경력 점수:</span>
+                <span className="detail-label">나이:</span>
                 <span className="detail-value">
-                  {selectedResult.status === 'completed' ? selectedResult.careerScore.toFixed(1) : 'N/A'}
+                  {selectedResult.status === 'completed' && selectedResult.age !== undefined ? `${selectedResult.age}세` : 'N/A'}
                 </span>
               </div>
               <div className="detail-item">
-                <span className="detail-label">학력 점수:</span>
+                <span className="detail-label">직전 회사:</span>
                 <span className="detail-value">
-                  {selectedResult.status === 'completed' ? selectedResult.educationScore.toFixed(1) : 'N/A'}
+                  {selectedResult.status === 'completed' && selectedResult.lastCompany ? selectedResult.lastCompany : 'N/A'}
                 </span>
               </div>
+              {selectedResult.status === 'completed' && selectedResult.lastSalary && (
+                <div className="detail-item">
+                  <span className="detail-label">직전 연봉:</span>
+                  <span className="detail-value">{selectedResult.lastSalary}</span>
+                </div>
+              )}
               <div className="detail-item">
                 <span className="detail-label">총점수:</span>
                 <span className="detail-value detail-value-total">

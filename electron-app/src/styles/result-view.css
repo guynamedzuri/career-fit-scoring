@@ -11,26 +11,23 @@
   min-width: 0;
 }
 
-.result-view-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+/* 뒤로가기 버튼 row */
+.result-view-back-row {
+  margin-bottom: 1rem;
 }
 
-.result-view-title-section {
-  flex: 1;
+.result-view-header {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
 }
 
 .job-info-summary {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.875rem;
-  color: #6b7280;
+  font-size: 1rem;
+  color: #374151;
 }
 
 .job-info-label {
@@ -209,11 +206,16 @@
   min-width: 200px;
 }
 
-.cell-certification,
-.cell-career,
-.cell-education {
-  width: 120px;
+.cell-age {
+  width: 80px;
   flex-shrink: 0;
+  text-align: center;
+  justify-content: center;
+}
+
+.cell-company {
+  flex: 1;
+  min-width: 200px;
   text-align: left;
   justify-content: flex-start;
 }
@@ -319,11 +321,27 @@
   color: #374151;
 }
 
-.candidate-row .cell-certification,
-.candidate-row .cell-career,
-.candidate-row .cell-education {
+.candidate-row .cell-age {
   font-size: 0.875rem;
   color: #374151;
+}
+
+.company-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  align-items: flex-start;
+}
+
+.company-name {
+  font-size: 0.875rem;
+  color: #111827;
+  font-weight: 500;
+}
+
+.company-salary {
+  font-size: 0.75rem;
+  color: #6b7280;
 }
 
 .candidate-row .cell-score {
