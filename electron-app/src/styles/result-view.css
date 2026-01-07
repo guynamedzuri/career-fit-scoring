@@ -236,6 +236,14 @@
   color: #9ca3af;
 }
 
+.status-icon.status-review {
+  color: #1383ff;
+}
+
+.status-icon.status-rejected {
+  color: #ef4444;
+}
+
 .status-text {
   font-size: 0.8rem;
   color: #6b7280;

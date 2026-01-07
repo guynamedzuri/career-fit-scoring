@@ -147,9 +147,22 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
           compareB = b.totalScore;
           break;
         case 'status':
-          const statusOrder = { error: 0, pending: 1, processing: 2, completed: 3 };
-          compareA = statusOrder[a.status] ?? 0;
-          compareB = statusOrder[b.status] ?? 0;
+          // 후보자 상태 우선, 없으면 처리 상태
+          const candidateStatusOrder = { pending: 1, review: 2, rejected: 3 };
+          const processStatusOrder = { error: 0, pending: 1, processing: 2, completed: 3 };
+          if (a.candidateStatus && b.candidateStatus) {
+            compareA = candidateStatusOrder[a.candidateStatus] ?? 0;
+            compareB = candidateStatusOrder[b.candidateStatus] ?? 0;
+          } else if (a.candidateStatus) {
+            compareA = candidateStatusOrder[a.candidateStatus] ?? 0;
+            compareB = processStatusOrder[b.status] ?? 0;
+          } else if (b.candidateStatus) {
+            compareA = processStatusOrder[a.status] ?? 0;
+            compareB = candidateStatusOrder[b.candidateStatus] ?? 0;
+          } else {
+            compareA = processStatusOrder[a.status] ?? 0;
+            compareB = processStatusOrder[b.status] ?? 0;
+          }
           break;
         default:
           compareA = a.totalScore;
@@ -264,9 +277,23 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
   const isAllSelected = filteredAndSortedResults.length > 0 && 
     selectedCandidates.size === filteredAndSortedResults.length;
 
-  // 상태 표시 아이콘
-  const StatusIcon = ({ status }: { status: ScoringResult['status'] }) => {
-    switch (status) {
+  // 상태 표시 아이콘 (후보자 상태 우선, 없으면 처리 상태)
+  const StatusIcon = ({ result }: { result: ScoringResult }) => {
+    // 후보자 상태가 있으면 우선 표시
+    if (result.candidateStatus) {
+      switch (result.candidateStatus) {
+        case 'review':
+          return <div className="status-icon status-review">👁</div>;
+        case 'rejected':
+          return <AlertCircle size={16} className="status-icon status-rejected" />;
+        case 'pending':
+        default:
+          return <div className="status-icon status-pending">⏸</div>;
+      }
+    }
+    
+    // 후보자 상태가 없으면 처리 상태 표시
+    switch (result.status) {
       case 'completed':
         return <CheckCircle2 size={16} className="status-icon status-completed" />;
       case 'error':
@@ -278,9 +305,23 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
     }
   };
 
-  // 상태 텍스트
-  const getStatusText = (status: ScoringResult['status']) => {
-    switch (status) {
+  // 상태 텍스트 (후보자 상태 우선, 없으면 처리 상태)
+  const getStatusText = (result: ScoringResult) => {
+    // 후보자 상태가 있으면 우선 표시
+    if (result.candidateStatus) {
+      switch (result.candidateStatus) {
+        case 'review':
+          return '검토';
+        case 'rejected':
+          return '탈락';
+        case 'pending':
+        default:
+          return '대기';
+      }
+    }
+    
+    // 후보자 상태가 없으면 처리 상태 표시
+    switch (result.status) {
       case 'completed':
         return '완료';
       case 'error':
@@ -425,8 +466,8 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
               </div>
               <div className="table-cell cell-status">
                 <div className="status-cell">
-                  <StatusIcon status={result.status} />
-                  <span className="status-text">{getStatusText(result.status)}</span>
+                  <StatusIcon result={result} />
+                  <span className="status-text">{getStatusText(result)}</span>
                 </div>
               </div>
               <div className="table-cell cell-name">
