@@ -82,6 +82,34 @@ export default function JobConfigForm({
 
     setLoadingAllJobs(true);
     try {
+      // Electron 환경에서는 IPC를 통해 호출 (백업 기능 포함)
+      if (window.electron?.careernetSearchJobs) {
+        const jobs = await window.electron.careernetSearchJobs();
+        const allJobs: CareerNetJob[] = [];
+        const jobNamesSet = new Set<string>();
+        
+        jobs.forEach((item: any) => {
+          const jobKey = `${item.jobdicSeq}`;
+          if (!jobNamesSet.has(jobKey)) {
+            allJobs.push({
+              job: item.job,
+              jobdicSeq: item.jobdicSeq,
+              aptd_type_code: item.aptd_type_code,
+              summary: item.summary,
+              profession: item.profession,
+              similarJob: item.similarJob,
+              displayName: item.job,
+            });
+            jobNamesSet.add(jobKey);
+          }
+        });
+        
+        allJobsCacheRef.current = allJobs;
+        setLoadingAllJobs(false);
+        return allJobs;
+      }
+      
+      // Electron이 아닌 환경에서는 직접 fetch (백업 없음)
       const apiKey = '83ae558eb34c7d75e2bde972db504fd5';
       const url = `https://www.career.go.kr/cnet/openapi/getOpenApi?apiKey=${apiKey}&svcType=api&svcCode=JOB&contentType=json&thisPage=1&perPage=9999`;
       
@@ -254,39 +282,68 @@ export default function JobConfigForm({
     try {
       const certifications: string[] = [];
       
-      const apiKey = '83ae558eb34c7d75e2bde972db504fd5';
-      const url = `https://www.career.go.kr/cnet/openapi/getOpenApi?apiKey=${apiKey}&svcType=api&svcCode=JOB_VIEW&jobdicSeq=${jobdicSeq}`;
-      
-      const response = await fetch(url);
-      const responseText = await response.text();
-      
-      if (responseText.trim().startsWith('<')) {
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(responseText, 'text/xml');
+      // Electron 환경에서는 IPC를 통해 호출
+      if (window.electron?.careernetGetJobDetail) {
+        const data = await window.electron.careernetGetJobDetail(jobdicSeq);
         
-        const content = xmlDoc.querySelector('dataSearch content');
-        if (content) {
-          const capacityMajor = content.querySelector('capacity_major');
-          if (capacityMajor) {
-            const contentElements = capacityMajor.querySelectorAll('content');
-            contentElements.forEach(contentEl => {
-              const capacity = contentEl.querySelector('capacity');
-              if (capacity && capacity.textContent) {
-                const capacityText = capacity.textContent.trim();
-                if (capacityText) {
-                  const certList = capacityText.split(',').map(cert => cert.trim()).filter(cert => cert.length > 0);
-                  certList.forEach(cert => {
+        if (data) {
+          // JSON 형식 처리
+          if (data.capacity_major) {
+            const capacityMajor = data.capacity_major;
+            if (Array.isArray(capacityMajor)) {
+              capacityMajor.forEach((item: any) => {
+                if (item.capacity) {
+                  const capacityText = typeof item.capacity === 'string' ? item.capacity : item.capacity.toString();
+                  const certList = capacityText.split(',').map((cert: string) => cert.trim()).filter((cert: string) => cert.length > 0);
+                  certList.forEach((cert: string) => {
                     certifications.push(cert);
                   });
                 }
-              }
-            });
+              });
+            } else if (capacityMajor.capacity) {
+              const capacityText = typeof capacityMajor.capacity === 'string' ? capacityMajor.capacity : capacityMajor.capacity.toString();
+              const certList = capacityText.split(',').map((cert: string) => cert.trim()).filter((cert: string) => cert.length > 0);
+              certList.forEach((cert: string) => {
+                certifications.push(cert);
+              });
+            }
           }
         }
       } else {
-        try {
-          const data = JSON.parse(responseText);
-          const content = data.dataSearch?.content;
+        // Electron이 아닌 환경에서는 직접 fetch
+        const apiKey = '83ae558eb34c7d75e2bde972db504fd5';
+        const url = `https://www.career.go.kr/cnet/openapi/getOpenApi?apiKey=${apiKey}&svcType=api&svcCode=JOB_VIEW&jobdicSeq=${jobdicSeq}`;
+        
+        const response = await fetch(url);
+        const responseText = await response.text();
+        
+        if (responseText.trim().startsWith('<')) {
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(responseText, 'text/xml');
+          
+          const content = xmlDoc.querySelector('dataSearch content');
+          if (content) {
+            const capacityMajor = content.querySelector('capacity_major');
+            if (capacityMajor) {
+              const contentElements = capacityMajor.querySelectorAll('content');
+              contentElements.forEach(contentEl => {
+                const capacity = contentEl.querySelector('capacity');
+                if (capacity && capacity.textContent) {
+                  const capacityText = capacity.textContent.trim();
+                  if (capacityText) {
+                    const certList = capacityText.split(',').map(cert => cert.trim()).filter(cert => cert.length > 0);
+                    certList.forEach(cert => {
+                      certifications.push(cert);
+                    });
+                  }
+                }
+              });
+            }
+          }
+        } else {
+          try {
+            const data = JSON.parse(responseText);
+            const content = data.dataSearch?.content;
           if (content?.capacity_major?.content) {
             const contentList = Array.isArray(content.capacity_major.content)
               ? content.capacity_major.content
