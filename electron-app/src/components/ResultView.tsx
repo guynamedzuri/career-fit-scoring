@@ -35,7 +35,7 @@ interface ResultViewProps {
   onBack: () => void;
 }
 
-type SortField = 'name' | 'age' | 'lastCompany' | 'residence' | 'totalScore' | 'status';
+type SortField = 'name' | 'age' | 'lastCompany' | 'residence' | 'totalScore' | 'aiGrade' | 'status';
 type SortOrder = 'asc' | 'desc';
 
 export default function ResultView({ selectedFiles, jobMetadata, selectedFolder, onBack }: ResultViewProps) {
@@ -226,6 +226,13 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
           const residenceOrder = { '서울': 1, '수도권': 2, '시흥': 3, '안산': 4, '지방': 5 };
           compareA = residenceOrder[a.residence as keyof typeof residenceOrder] ?? 6;
           compareB = residenceOrder[b.residence as keyof typeof residenceOrder] ?? 6;
+          break;
+        case 'aiGrade':
+          const gradeOrder = { 'A': 1, 'B': 2, 'C': 3, 'D': 4 };
+          const gradeA = a.aiGrade ? (gradeOrder[a.aiGrade as keyof typeof gradeOrder] ?? 5) : 6;
+          const gradeB = b.aiGrade ? (gradeOrder[b.aiGrade as keyof typeof gradeOrder] ?? 5) : 6;
+          compareA = gradeA;
+          compareB = gradeB;
           break;
         case 'totalScore':
           compareA = a.totalScore;
@@ -674,7 +681,12 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
             </div>
           </div>
           <div className="table-cell cell-ai-grade">
-            <div>AI 평가</div>
+            <div 
+              className={`sortable ${sortField === 'aiGrade' ? 'active' : ''}`}
+              onClick={() => handleSort('aiGrade')}
+            >
+              AI 평가 <SortIcon field="aiGrade" />
+            </div>
           </div>
           <div className="table-cell cell-detail">
             <div>상세</div>
