@@ -293,7 +293,10 @@ ipcMain.handle('get-docx-files', async (event, folderPath: string) => {
 // Q-Net API 호출 IPC 핸들러
 ipcMain.handle('qnet-search-certifications', async () => {
   return new Promise((resolve, reject) => {
-    const apiKey = '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f';
+    // .env 파일 로드 (이미 loadEnvFile이 호출되었을 수 있지만, 안전하게 다시 로드)
+    loadEnvFile();
+    
+    const apiKey = process.env.QNET_API_KEY || '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f';
     const url = `http://openapi.q-net.or.kr/api/service/rest/InquiryListNationalQualifcationSVC/getList?ServiceKey=${apiKey}`;
     
     console.log('[Q-Net IPC] Calling API:', url);
