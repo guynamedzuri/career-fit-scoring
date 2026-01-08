@@ -148,15 +148,15 @@ export default function JobConfigForm({
         });
       }
       
-      allJobsCacheRef.current = allJobs;
-      setLoadingAllJobs(false);
-      return allJobs;
-    } catch (error) {
-      console.error('[Load All Jobs] Failed:', error);
-      setLoadingAllJobs(false);
-      return [];
-    }
-  };
+        allJobsCacheRef.current = allJobs;
+        setLoadingAllJobs(false);
+        return allJobs;
+      } catch (error) {
+        console.error('[Load All Jobs] Failed:', error);
+        setLoadingAllJobs(false);
+        return [];
+      }
+    };
 
   // 직종 검색
   const handleJobSearch = async (query: string) => {
