@@ -191,8 +191,7 @@
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  /* 최소 너비: 모든 컬럼 너비 합계 (40 + 100 + 100 + 70 + 150 + 90 + 80 + 70 + 100 = 약 800px) */
-  min-width: 800px;
+  width: 100%;
 }
 
 /* 테이블 헤더 (참고한 스타일) */
