@@ -687,7 +687,7 @@ ipcMain.handle('qnet-search-certifications', async () => {
     
     request.on('error', (error) => {
       console.error('[Q-Net IPC] Request error:', error);
-      console.error('[Q-Net IPC] Error details:', error.message, error.code);
+      console.error('[Q-Net IPC] Error details:', error.message, (error as any).code);
       
       // 네트워크 오류 시 비상용 백업 데이터 사용
       console.log('[Q-Net IPC] Network error, trying to load backup data...');
@@ -1135,7 +1135,7 @@ ipcMain.handle('careernet-search-jobs', async () => {
     
     request.on('error', (error) => {
       console.error('[CareerNet IPC] Request error:', error);
-      console.error('[CareerNet IPC] Error details:', error.message, error.code);
+      console.error('[CareerNet IPC] Error details:', error.message, (error as any).code);
       
       // 네트워크 오류 시 비상용 백업 데이터 사용
       console.log('[CareerNet IPC] Network error, trying to load backup data...');
