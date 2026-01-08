@@ -1050,15 +1050,14 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
                   </div>
                 </div>
               </div>
-
-              <div className="filter-actions">
-                <button className="filter-reset-btn" onClick={resetFilters}>
-                  초기화
-                </button>
-                <button className="filter-apply-btn" onClick={applyFilters}>
-                  적용
-                </button>
-              </div>
+            </div>
+            <div className="filter-modal-actions">
+              <button className="filter-reset-btn" onClick={resetFilters}>
+                초기화
+              </button>
+              <button className="filter-apply-btn" onClick={applyFilters}>
+                적용
+              </button>
             </div>
           </div>
         </div>
