@@ -58,6 +58,7 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
     maxScore: '',
     company: '',
     status: '' as '' | 'pending' | 'processing' | 'completed' | 'error',
+    residence: 3 as 0 | 1 | 2 | 3, // 0=안산, 1=시흥+안산, 2=수도권, 3=전국
   });
 
   // TODO: 실제로 DOCX 파일을 파싱하고 점수를 계산하는 로직 구현
@@ -203,6 +204,25 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
     }
     if (filters.status) {
       filtered = filtered.filter(r => r.candidateStatus === filters.status);
+    }
+    
+    // 거주지 필터
+    if (filters.residence !== 3) {
+      const allowedResidences: string[] = [];
+      if (filters.residence === 0) {
+        // 안산만
+        allowedResidences.push('안산');
+      } else if (filters.residence === 1) {
+        // 시흥+안산
+        allowedResidences.push('시흥', '안산');
+      } else if (filters.residence === 2) {
+        // 수도권 (서울, 수도권, 시흥, 안산)
+        allowedResidences.push('서울', '수도권', '시흥', '안산');
+      }
+      filtered = filtered.filter(r => {
+        if (!r.residence) return false;
+        return allowedResidences.includes(r.residence);
+      });
     }
 
     // 정렬
@@ -1001,6 +1021,33 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
                   <option value="review">검토</option>
                   <option value="rejected">탈락</option>
                 </select>
+              </div>
+
+              <div className="filter-group">
+                <label className="filter-label">거주지</label>
+                <div className="residence-slider-container">
+                  <input
+                    type="range"
+                    min="0"
+                    max="3"
+                    step="1"
+                    value={filters.residence}
+                    onChange={(e) => setFilters({ ...filters, residence: parseInt(e.target.value) as 0 | 1 | 2 | 3 })}
+                    className="residence-slider"
+                  />
+                  <div className="residence-slider-labels">
+                    <span className={filters.residence === 0 ? 'active' : ''}>안산</span>
+                    <span className={filters.residence === 1 ? 'active' : ''}>시흥+안산</span>
+                    <span className={filters.residence === 2 ? 'active' : ''}>수도권</span>
+                    <span className={filters.residence === 3 ? 'active' : ''}>전국</span>
+                  </div>
+                  <div className="residence-slider-value">
+                    {filters.residence === 0 && '안산'}
+                    {filters.residence === 1 && '시흥+안산'}
+                    {filters.residence === 2 && '수도권'}
+                    {filters.residence === 3 && '전국'}
+                  </div>
+                </div>
               </div>
 
               <div className="filter-actions">
