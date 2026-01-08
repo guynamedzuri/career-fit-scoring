@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as http from 'http';
+import * as https from 'https';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -471,6 +472,15 @@ function getQNetBackupPath(): string {
   return path.join(__dirname, '../../qnet_certifications_backup.json');
 }
 
+// CareerNet 비상용 로컬 데이터 파일 경로
+function getCareerNetBackupPath(): string {
+  const projectRoot = findProjectRoot();
+  if (projectRoot) {
+    return path.join(projectRoot, 'careernet_jobs_backup.json');
+  }
+  return path.join(__dirname, '../../careernet_jobs_backup.json');
+}
+
 // Q-Net 비상용 로컬 데이터 저장
 function saveQNetBackup(certifications: string[]): void {
   try {
@@ -484,6 +494,47 @@ function saveQNetBackup(certifications: string[]): void {
     console.log('[Q-Net Backup] Saved', certifications.length, 'certifications to:', backupPath);
   } catch (error) {
     console.error('[Q-Net Backup] Error saving backup:', error);
+  }
+}
+
+// CareerNet 비상용 로컬 데이터 저장
+function saveCareerNetBackup(jobs: any[]): void {
+  try {
+    const backupPath = getCareerNetBackupPath();
+    const backupData = {
+      lastUpdated: new Date().toISOString(),
+      count: jobs.length,
+      jobs: jobs,
+    };
+    fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2), 'utf-8');
+    console.log('[CareerNet Backup] Saved', jobs.length, 'jobs to:', backupPath);
+  } catch (error) {
+    console.error('[CareerNet Backup] Error saving backup:', error);
+  }
+}
+
+// CareerNet 비상용 로컬 데이터 로드
+function loadCareerNetBackup(): any[] | null {
+  try {
+    const backupPath = getCareerNetBackupPath();
+    if (!fs.existsSync(backupPath)) {
+      console.log('[CareerNet Backup] Backup file not found:', backupPath);
+      return null;
+    }
+    
+    const backupContent = fs.readFileSync(backupPath, 'utf-8');
+    const backupData = JSON.parse(backupContent);
+    
+    if (backupData.jobs && Array.isArray(backupData.jobs)) {
+      console.log('[CareerNet Backup] Loaded', backupData.jobs.length, 'jobs from backup');
+      console.log('[CareerNet Backup] Last updated:', backupData.lastUpdated);
+      return backupData.jobs;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[CareerNet Backup] Error loading backup:', error);
+    return null;
   }
 }
 
@@ -1003,5 +1054,168 @@ function formatResumeDataForAI(applicationData: any): string {
     text += `대학원:\n${gradSchools.join('\n')}\n\n`;
   }
 
-  return text || '이력서 정보가 없습니다.';
+    return text || '이력서 정보가 없습니다.';
 }
+
+// CareerNet API 호출 IPC 핸들러
+ipcMain.handle('careernet-search-jobs', async () => {
+  return new Promise((resolve, reject) => {
+    // .env 파일 로드
+    loadEnvFile();
+    
+    const apiKey = process.env.CAREERNET_API_KEY || '83ae558eb34c7d75e2bde972db504fd5';
+    const url = `https://www.career.go.kr/cnet/openapi/getOpenApi?apiKey=${apiKey}&svcType=api&svcCode=JOB&contentType=json&thisPage=1&perPage=9999`;
+    
+    console.log('[CareerNet IPC] Calling API:', url);
+    
+    const request = https.get(url, {
+      timeout: 10000, // 10초 타임아웃
+    }, (res) => {
+      let data = '';
+      
+      console.log('[CareerNet IPC] Response status:', res.statusCode);
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          console.log('[CareerNet IPC] Response data length:', data.length);
+          
+          const jsonData = JSON.parse(data);
+          const jobs: any[] = [];
+          
+          if (jsonData.dataSearch?.content) {
+            const contentList = Array.isArray(jsonData.dataSearch.content) 
+              ? jsonData.dataSearch.content 
+              : [jsonData.dataSearch.content];
+            
+            contentList.forEach((item: any) => {
+              const job = item.job?.trim();
+              const jobdicSeq = item.jobdicSeq?.trim();
+              
+              if (job && jobdicSeq) {
+                jobs.push({
+                  job: job,
+                  jobdicSeq: jobdicSeq,
+                  aptd_type_code: item.aptd_type_code?.trim(),
+                  summary: item.summary?.trim(),
+                  profession: item.profession?.trim(),
+                  similarJob: item.similarJob?.trim(),
+                });
+              }
+            });
+          }
+          
+          // API 호출 성공 시 비상용 백업 저장
+          if (jobs.length > 0) {
+            saveCareerNetBackup(jobs);
+          }
+          
+          console.log('[CareerNet IPC] Successfully parsed', jobs.length, 'jobs');
+          resolve(jobs);
+        } catch (error) {
+          console.error('[CareerNet IPC] Parse error:', error);
+          console.error('[CareerNet IPC] Data that failed to parse:', data.substring(0, 500));
+          
+          // 파싱 오류 시에도 비상용 백업 데이터 시도
+          console.log('[CareerNet IPC] Parse failed, trying to load backup data...');
+          const backupData = loadCareerNetBackup();
+          if (backupData && backupData.length > 0) {
+            console.log('[CareerNet IPC] Using backup data:', backupData.length, 'jobs');
+            resolve(backupData);
+            return;
+          }
+          
+          reject(error);
+        }
+      });
+    });
+    
+    request.on('error', (error) => {
+      console.error('[CareerNet IPC] Request error:', error);
+      console.error('[CareerNet IPC] Error details:', error.message, error.code);
+      
+      // 네트워크 오류 시 비상용 백업 데이터 사용
+      console.log('[CareerNet IPC] Network error, trying to load backup data...');
+      const backupData = loadCareerNetBackup();
+      if (backupData && backupData.length > 0) {
+        console.log('[CareerNet IPC] Using backup data:', backupData.length, 'jobs');
+        resolve(backupData);
+        return;
+      }
+      
+      reject(error);
+    });
+    
+    request.on('timeout', () => {
+      console.error('[CareerNet IPC] Request timeout');
+      request.destroy();
+      
+      // 타임아웃 시 비상용 백업 데이터 사용
+      console.log('[CareerNet IPC] Timeout, trying to load backup data...');
+      const backupData = loadCareerNetBackup();
+      if (backupData && backupData.length > 0) {
+        console.log('[CareerNet IPC] Using backup data:', backupData.length, 'jobs');
+        resolve(backupData);
+        return;
+      }
+      
+      reject(new Error('CareerNet API 요청 시간 초과'));
+    });
+  });
+});
+
+// CareerNet 직종 상세 정보 조회 IPC 핸들러
+ipcMain.handle('careernet-get-job-detail', async (event, jobdicSeq: string) => {
+  return new Promise((resolve, reject) => {
+    // .env 파일 로드
+    loadEnvFile();
+    
+    const apiKey = process.env.CAREERNET_API_KEY || '83ae558eb34c7d75e2bde972db504fd5';
+    const url = `https://www.career.go.kr/cnet/openapi/getOpenApi?apiKey=${apiKey}&svcType=api&svcCode=JOB_VIEW&jobdicSeq=${jobdicSeq}`;
+    
+    console.log('[CareerNet IPC] Getting job detail:', url);
+    
+    const request = https.get(url, {
+      timeout: 10000,
+    }, (res) => {
+      let data = '';
+      
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      
+      res.on('end', () => {
+        try {
+          const jsonData = JSON.parse(data);
+          
+          if (jsonData.dataSearch?.content) {
+            const content = Array.isArray(jsonData.dataSearch.content)
+              ? jsonData.dataSearch.content[0]
+              : jsonData.dataSearch.content;
+            
+            resolve(content);
+          } else {
+            resolve(null);
+          }
+        } catch (error) {
+          console.error('[CareerNet IPC] Parse error:', error);
+          reject(error);
+        }
+      });
+    });
+    
+    request.on('error', (error) => {
+      console.error('[CareerNet IPC] Request error:', error);
+      reject(error);
+    });
+    
+    request.on('timeout', () => {
+      console.error('[CareerNet IPC] Request timeout');
+      request.destroy();
+      reject(new Error('CareerNet API 요청 시간 초과'));
+    });
+  });
+});

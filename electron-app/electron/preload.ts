@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.invoke('load-cache', folderPath, filePaths),
   saveCache: (folderPath: string, results: Array<{ filePath: string; fileName: string; data: any }>) =>
     ipcRenderer.invoke('save-cache', folderPath, results),
+  careernetSearchJobs: () => ipcRenderer.invoke('careernet-search-jobs'),
+  careernetGetJobDetail: (jobdicSeq: string) => ipcRenderer.invoke('careernet-get-job-detail', jobdicSeq),
 });

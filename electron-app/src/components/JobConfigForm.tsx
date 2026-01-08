@@ -148,6 +148,67 @@ export default function JobConfigForm({
         return;
       }
       
+        // 중복 제거
+        const jobNamesSet = new Set<string>();
+        jobs.forEach((item: any) => {
+          const jobKey = `${item.jobdicSeq}`;
+          if (!jobNamesSet.has(jobKey)) {
+            finalResults.push({
+              job: item.job,
+              jobdicSeq: item.jobdicSeq,
+              aptd_type_code: item.aptd_type_code,
+              summary: item.summary,
+              profession: item.profession,
+              similarJob: item.similarJob,
+            });
+            jobNamesSet.add(jobKey);
+          }
+        });
+        
+        allJobsCacheRef.current = finalResults;
+        setLoadingAllJobs(false);
+        return finalResults;
+      }
+      
+      // Electron이 아닌 환경에서는 직접 fetch (백업 없음)
+      const apiKey = '83ae558eb34c7d75e2bde972db504fd5';
+      const url = `https://www.career.go.kr/cnet/openapi/getOpenApi?apiKey=${apiKey}&svcType=api&svcCode=JOB&contentType=json&thisPage=1&perPage=9999`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      const allJobs: CareerNetJob[] = [];
+      const jobNamesSet = new Set<string>();
+      
+      if (data.dataSearch?.content) {
+        const contentList = Array.isArray(data.dataSearch.content) 
+          ? data.dataSearch.content 
+          : [data.dataSearch.content];
+        
+        contentList.forEach((item: any) => {
+          const job = item.job?.trim();
+          const jobdicSeq = item.jobdicSeq?.trim();
+          const aptd_type_code = item.aptd_type_code?.trim();
+          const summary = item.summary?.trim();
+          const similarJob = item.similarJob?.trim();
+          
+          if (job && jobdicSeq) {
+            const jobKey = `${jobdicSeq}`;
+            if (!jobNamesSet.has(jobKey)) {
+              allJobs.push({
+                job: job,
+                jobdicSeq: jobdicSeq,
+                aptd_type_code: aptd_type_code,
+                summary: summary,
+                profession: item.profession?.trim(),
+                similarJob: similarJob,
+              });
+              jobNamesSet.add(jobKey);
+            }
+          }
+        });
+      }
+      
       const finalResults: CareerNetJob[] = [];
       const finalJobSet = new Set<string>();
       
