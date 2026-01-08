@@ -1189,19 +1189,52 @@ ipcMain.handle('careernet-get-job-detail', async (event, jobdicSeq: string) => {
       
       res.on('end', () => {
         try {
-          const jsonData = JSON.parse(data);
-          
-          if (jsonData.dataSearch?.content) {
-            const content = Array.isArray(jsonData.dataSearch.content)
-              ? jsonData.dataSearch.content[0]
-              : jsonData.dataSearch.content;
+          // XML 또는 JSON 응답 처리
+          if (data.trim().startsWith('<?xml') || data.trim().startsWith('<')) {
+            // XML 파싱 (간단한 정규식 방식)
+            const result: any = {};
             
-            resolve(content);
+            // capacity_major 추출
+            const capacityMajorMatches = data.match(/<capacity_major[^>]*>([\s\S]*?)<\/capacity_major>/g);
+            if (capacityMajorMatches) {
+              const capacities: string[] = [];
+              capacityMajorMatches.forEach(match => {
+                const capacityMatches = match.match(/<capacity[^>]*>([^<]*)<\/capacity>/g);
+                if (capacityMatches) {
+                  capacityMatches.forEach(capMatch => {
+                    const capacity = capMatch.replace(/<\/?capacity[^>]*>/g, '').trim();
+                    if (capacity) {
+                      capacities.push(capacity);
+                    }
+                  });
+                }
+              });
+              
+              if (capacities.length > 0) {
+                result.capacity_major = {
+                  content: capacities.map(cap => ({ capacity: cap })),
+                };
+              }
+            }
+            
+            resolve(result);
           } else {
-            resolve(null);
+            // JSON 파싱
+            const jsonData = JSON.parse(data);
+            
+            if (jsonData.dataSearch?.content) {
+              const content = Array.isArray(jsonData.dataSearch.content)
+                ? jsonData.dataSearch.content[0]
+                : jsonData.dataSearch.content;
+              
+              resolve(content);
+            } else {
+              resolve(null);
+            }
           }
         } catch (error) {
           console.error('[CareerNet IPC] Parse error:', error);
+          console.error('[CareerNet IPC] Data preview:', data.substring(0, 200));
           reject(error);
         }
       });
