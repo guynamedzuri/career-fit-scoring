@@ -225,11 +225,39 @@ export default function JobConfigForm({
       if (window.electron?.careernetGetJobDetail) {
         const data = await window.electron.careernetGetJobDetail(jobdicSeq);
         
+        console.log('[Job Detail] IPC Response:', JSON.stringify(data, null, 2));
+        
         if (data) {
-          // JSON 형식 처리
+          // IPC 핸들러가 반환하는 구조: { capacity_major: { content: [{ capacity: '...' }, ...] } }
           if (data.capacity_major) {
             const capacityMajor = data.capacity_major;
-            if (Array.isArray(capacityMajor)) {
+            
+            // content 배열이 있는 경우 (IPC 핸들러가 XML을 파싱한 경우)
+            if (capacityMajor.content && Array.isArray(capacityMajor.content)) {
+              capacityMajor.content.forEach((item: any) => {
+                if (item.capacity) {
+                  const capacityText = typeof item.capacity === 'string' ? item.capacity : item.capacity.toString();
+                  const certList = capacityText.split(',').map((cert: string) => cert.trim()).filter((cert: string) => cert.length > 0);
+                  certList.forEach((cert: string) => {
+                    certifications.push(cert);
+                  });
+                }
+              });
+            }
+            // content가 배열인 경우 (직접 배열로 반환된 경우)
+            else if (Array.isArray(capacityMajor.content)) {
+              capacityMajor.content.forEach((item: any) => {
+                if (item.capacity) {
+                  const capacityText = typeof item.capacity === 'string' ? item.capacity : item.capacity.toString();
+                  const certList = capacityText.split(',').map((cert: string) => cert.trim()).filter((cert: string) => cert.length > 0);
+                  certList.forEach((cert: string) => {
+                    certifications.push(cert);
+                  });
+                }
+              });
+            }
+            // capacityMajor가 직접 배열인 경우
+            else if (Array.isArray(capacityMajor)) {
               capacityMajor.forEach((item: any) => {
                 if (item.capacity) {
                   const capacityText = typeof item.capacity === 'string' ? item.capacity : item.capacity.toString();
@@ -239,7 +267,9 @@ export default function JobConfigForm({
                   });
                 }
               });
-            } else if (capacityMajor.capacity) {
+            }
+            // 단일 capacity 객체인 경우
+            else if (capacityMajor.capacity) {
               const capacityText = typeof capacityMajor.capacity === 'string' ? capacityMajor.capacity : capacityMajor.capacity.toString();
               const certList = capacityText.split(',').map((cert: string) => cert.trim()).filter((cert: string) => cert.length > 0);
               certList.forEach((cert: string) => {
@@ -247,6 +277,8 @@ export default function JobConfigForm({
               });
             }
           }
+          
+          console.log('[Job Detail] Extracted certifications:', certifications);
         }
       } else {
         // Electron이 아닌 환경에서는 직접 fetch
@@ -309,9 +341,11 @@ export default function JobConfigForm({
         }
       }
       
+      console.log('[Job Detail] Final certifications array:', certifications);
       setRelatedCertifications(certifications);
     } catch (error) {
       console.error('Failed to fetch job detail:', error);
+      setRelatedCertifications([]);
     } finally {
       setLoadingJobDetail(false);
     }
