@@ -296,8 +296,15 @@ ipcMain.handle('qnet-search-certifications', async () => {
     const apiKey = '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f';
     const url = `http://openapi.q-net.or.kr/api/service/rest/InquiryListNationalQualifcationSVC/getList?ServiceKey=${apiKey}`;
     
-    http.get(url, (res) => {
+    console.log('[Q-Net IPC] Calling API:', url);
+    
+    const request = http.get(url, {
+      timeout: 10000, // 10초 타임아웃
+    }, (res) => {
       let data = '';
+      
+      console.log('[Q-Net IPC] Response status:', res.statusCode);
+      console.log('[Q-Net IPC] Response headers:', res.headers);
       
       res.on('data', (chunk) => {
         data += chunk;
@@ -305,11 +312,26 @@ ipcMain.handle('qnet-search-certifications', async () => {
       
       res.on('end', () => {
         try {
+          console.log('[Q-Net IPC] Response data length:', data.length);
+          console.log('[Q-Net IPC] Response data preview:', data.substring(0, 200));
+          
           const certifications: string[] = [];
           
           // XML 또는 JSON 응답 처리
           if (data.trim().startsWith('<?xml') || data.trim().startsWith('<')) {
             // XML 파싱 (간단한 정규식 방식)
+            // 에러 응답 확인
+            const errorMatch = data.match(/<resultCode>(\d+)<\/resultCode>/);
+            const errorMsgMatch = data.match(/<resultMsg>([^<]*)<\/resultMsg>/);
+            
+            if (errorMatch && errorMatch[1] !== '00') {
+              const errorCode = errorMatch[1];
+              const errorMsg = errorMsgMatch ? errorMsgMatch[1] : 'Unknown error';
+              console.error(`[Q-Net IPC] API Error: Code ${errorCode}, Message: ${errorMsg}`);
+              reject(new Error(`Q-Net API 오류 (코드: ${errorCode}): ${errorMsg}`));
+              return;
+            }
+            
             const jmfldnmMatches = data.match(/<jmfldnm[^>]*>([^<]*)<\/jmfldnm>/g);
             if (jmfldnmMatches) {
               jmfldnmMatches.forEach((match: string) => {
@@ -322,6 +344,16 @@ ipcMain.handle('qnet-search-certifications', async () => {
           } else {
             // JSON 파싱
             const jsonData = JSON.parse(data);
+            
+            // 에러 응답 확인
+            if (jsonData.response?.header?.resultCode && jsonData.response.header.resultCode !== '00') {
+              const errorCode = jsonData.response.header.resultCode;
+              const errorMsg = jsonData.response.header.resultMsg || 'Unknown error';
+              console.error(`[Q-Net IPC] API Error: Code ${errorCode}, Message: ${errorMsg}`);
+              reject(new Error(`Q-Net API 오류 (코드: ${errorCode}): ${errorMsg}`));
+              return;
+            }
+            
             const items = jsonData.response?.body?.items?.item || [];
             const itemList = Array.isArray(items) ? items : (items ? [items] : []);
             
@@ -332,15 +364,26 @@ ipcMain.handle('qnet-search-certifications', async () => {
             });
           }
           
+          console.log('[Q-Net IPC] Successfully parsed', certifications.length, 'certifications');
           resolve(certifications);
         } catch (error) {
           console.error('[Q-Net IPC] Parse error:', error);
+          console.error('[Q-Net IPC] Data that failed to parse:', data.substring(0, 500));
           reject(error);
         }
       });
-    }).on('error', (error) => {
+    });
+    
+    request.on('error', (error) => {
       console.error('[Q-Net IPC] Request error:', error);
+      console.error('[Q-Net IPC] Error details:', error.message, error.code);
       reject(error);
+    });
+    
+    request.on('timeout', () => {
+      console.error('[Q-Net IPC] Request timeout');
+      request.destroy();
+      reject(new Error('Q-Net API 요청 시간 초과'));
     });
   });
 });
