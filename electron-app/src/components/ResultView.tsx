@@ -30,13 +30,14 @@ interface ScoringResult {
 interface ResultViewProps {
   selectedFiles: DocxFile[];
   jobMetadata: any;
+  selectedFolder: string; // 캐시를 위해 폴더 경로 필요
   onBack: () => void;
 }
 
 type SortField = 'name' | 'age' | 'lastCompany' | 'totalScore' | 'status';
 type SortOrder = 'asc' | 'desc';
 
-export default function ResultView({ selectedFiles, jobMetadata, onBack }: ResultViewProps) {
+export default function ResultView({ selectedFiles, jobMetadata, selectedFolder, onBack }: ResultViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('totalScore');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -60,22 +61,91 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
 
   // TODO: 실제로 DOCX 파일을 파싱하고 점수를 계산하는 로직 구현
   // 지금은 임시로 플레이스홀더 데이터를 표시
-  // 플레이스홀더: 선택된 파일들에 대해 초기 상태 설정
+  // 캐시 로드 및 초기 상태 설정
   useEffect(() => {
-      const placeholderResults: ScoringResult[] = selectedFiles.map(file => ({
-      fileName: file.name,
-      filePath: file.path,
-      totalScore: 0,
-      status: 'pending' as const,
-      candidateStatus: 'pending' as const, // 초기 상태는 대기
-      name: undefined, // TODO: DOCX 파싱 후 실제 이름으로 교체
-      age: undefined,
-      lastCompany: undefined,
-      lastSalary: undefined,
-      searchableText: file.name, // 초기값은 파일명
-    }));
-    setResults(placeholderResults);
-  }, [selectedFiles]);
+    const loadCachedData = async () => {
+      if (!selectedFolder || !window.electron?.loadCache || selectedFiles.length === 0) {
+        // 캐시 로드 불가능하거나 파일이 없으면 플레이스홀더만 설정
+        const placeholderResults: ScoringResult[] = selectedFiles.map(file => ({
+          fileName: file.name,
+          filePath: file.path,
+          totalScore: 0,
+          status: 'pending' as const,
+          candidateStatus: 'pending' as const,
+          name: undefined,
+          age: undefined,
+          lastCompany: undefined,
+          lastSalary: undefined,
+          searchableText: file.name,
+        }));
+        setResults(placeholderResults);
+        return;
+      }
+
+      try {
+        const filePaths = selectedFiles.map(f => f.path);
+        const { cached, toProcess } = await window.electron.loadCache(selectedFolder, filePaths);
+
+        const results: ScoringResult[] = selectedFiles.map(file => {
+          // 캐시된 데이터가 있으면 사용
+          if (cached[file.path]) {
+            const cachedData = cached[file.path];
+            return {
+              fileName: file.name,
+              filePath: file.path,
+              totalScore: cachedData.totalScore || 0,
+              status: 'completed' as const,
+              candidateStatus: cachedData.candidateStatus || 'pending',
+              name: cachedData.name,
+              age: cachedData.age,
+              lastCompany: cachedData.lastCompany,
+              lastSalary: cachedData.lastSalary,
+              applicationData: cachedData.applicationData,
+              aiGrade: cachedData.aiGrade,
+              aiReport: cachedData.aiReport,
+              aiChecked: cachedData.aiChecked,
+              searchableText: cachedData.searchableText || file.name,
+            };
+          } else {
+            // 캐시 없음 - 새로 처리 필요
+            return {
+              fileName: file.name,
+              filePath: file.path,
+              totalScore: 0,
+              status: 'pending' as const,
+              candidateStatus: 'pending' as const,
+              name: undefined,
+              age: undefined,
+              lastCompany: undefined,
+              lastSalary: undefined,
+              searchableText: file.name,
+            };
+          }
+        });
+
+        setResults(results);
+        console.log('[Cache] Loaded', Object.keys(cached).length, 'cached entries,', toProcess.length, 'files to process');
+      } catch (error) {
+        console.error('[Cache] Error loading cache:', error);
+        // 에러 발생 시 플레이스홀더만 설정
+        const placeholderResults: ScoringResult[] = selectedFiles.map(file => ({
+          fileName: file.name,
+          filePath: file.path,
+          totalScore: 0,
+          status: 'pending' as const,
+          candidateStatus: 'pending' as const,
+          name: undefined,
+          age: undefined,
+          lastCompany: undefined,
+          lastSalary: undefined,
+          searchableText: file.name,
+        }));
+        setResults(placeholderResults);
+      }
+    };
+
+    loadCachedData();
+  }, [selectedFiles, selectedFolder]);
 
   // 검색 및 정렬된 결과
   const filteredAndSortedResults = useMemo(() => {
@@ -260,6 +330,34 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
     // 상태 변경 후 선택 해제
     setSelectedCandidates(new Set());
     setShowStatusModal(false);
+
+    // 캐시에 저장
+    if (window.electron?.saveCache && selectedFolder) {
+      const updatedResults = results.filter(r => selectedCandidates.has(r.filePath));
+      const resultsToSave = updatedResults.map(result => ({
+        filePath: result.filePath,
+        fileName: result.fileName,
+        data: {
+          totalScore: result.totalScore,
+          name: result.name,
+          age: result.age,
+          lastCompany: result.lastCompany,
+          lastSalary: result.lastSalary,
+          applicationData: result.applicationData,
+          aiGrade: result.aiGrade,
+          aiReport: result.aiReport,
+          aiChecked: result.aiChecked,
+          candidateStatus: result.candidateStatus,
+          searchableText: result.searchableText,
+        },
+      }));
+      
+      if (resultsToSave.length > 0) {
+        window.electron.saveCache(selectedFolder, resultsToSave).catch(err => {
+          console.error('[Cache] Error saving status change:', err);
+        });
+      }
+    }
   };
 
   // 필터 적용
@@ -330,16 +428,47 @@ export default function ResultView({ selectedFiles, jobMetadata, onBack }: Resul
         prevResults.map(result => {
           const aiResult = aiResults.find(r => r.filePath === result.filePath);
           if (aiResult) {
-            return {
+            const updated = {
               ...result,
               aiGrade: aiResult.aiGrade,
               aiReport: aiResult.aiReport,
               aiChecked: aiResult.aiChecked,
             };
+            return updated;
           }
           return result;
         })
       );
+
+      // 캐시에 저장
+      if (window.electron?.saveCache && selectedFolder) {
+        const resultsToSave = aiResults
+          .filter(r => r.aiChecked)
+          .map(r => {
+            const result = results.find(res => res.filePath === r.filePath);
+            return {
+              filePath: r.filePath,
+              fileName: result?.fileName || r.filePath.split(/[/\\]/).pop() || r.filePath,
+              data: {
+                totalScore: result?.totalScore || 0,
+                name: result?.name,
+                age: result?.age,
+                lastCompany: result?.lastCompany,
+                lastSalary: result?.lastSalary,
+                applicationData: result?.applicationData,
+                aiGrade: r.aiGrade,
+                aiReport: r.aiReport,
+                aiChecked: r.aiChecked,
+                candidateStatus: result?.candidateStatus,
+                searchableText: result?.searchableText,
+              },
+            };
+          });
+        
+        if (resultsToSave.length > 0) {
+          await window.electron.saveCache(selectedFolder, resultsToSave);
+        }
+      }
 
       // 선택 해제
       setSelectedCandidates(new Set());

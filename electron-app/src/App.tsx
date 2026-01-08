@@ -50,6 +50,7 @@ function App() {
           <ResultView 
             selectedFiles={selectedFiles}
             jobMetadata={jobMetadata}
+            selectedFolder={selectedFolder}
             onBack={handleBackToConfig}
           />
         </div>

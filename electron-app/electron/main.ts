@@ -265,6 +265,91 @@ ipcMain.handle('select-folder', async () => {
   return result.filePaths[0];
 });
 
+// 캐시 파일 인터페이스
+interface CacheEntry {
+  filePath: string;
+  fileName: string;
+  size: number;
+  mtime: number; // 수정 시간 (timestamp)
+  data: {
+    totalScore: number;
+    name?: string;
+    age?: number;
+    lastCompany?: string;
+    lastSalary?: string;
+    applicationData?: any;
+    aiGrade?: string;
+    aiReport?: string;
+    aiChecked?: boolean;
+    candidateStatus?: 'pending' | 'review' | 'rejected';
+  };
+}
+
+interface CacheData {
+  folderPath: string;
+  lastUpdated: number;
+  entries: { [filePath: string]: CacheEntry };
+}
+
+// 캐시 파일 경로 가져오기
+function getCacheFilePath(folderPath: string): string {
+  return path.join(folderPath, '.career-fit-cache.json');
+}
+
+// 캐시 파일 읽기
+function loadCache(folderPath: string): CacheData | null {
+  try {
+    const cachePath = getCacheFilePath(folderPath);
+    if (!fs.existsSync(cachePath)) {
+      return null;
+    }
+    
+    const cacheContent = fs.readFileSync(cachePath, 'utf-8');
+    const cacheData: CacheData = JSON.parse(cacheContent);
+    
+    // 폴더 경로가 일치하는지 확인
+    if (cacheData.folderPath !== folderPath) {
+      console.warn('[Cache] Folder path mismatch, ignoring cache');
+      return null;
+    }
+    
+    return cacheData;
+  } catch (error) {
+    console.error('[Cache] Error loading cache:', error);
+    return null;
+  }
+}
+
+// 캐시 파일 저장
+function saveCache(folderPath: string, cacheData: CacheData): void {
+  try {
+    const cachePath = getCacheFilePath(folderPath);
+    cacheData.folderPath = folderPath;
+    cacheData.lastUpdated = Date.now();
+    fs.writeFileSync(cachePath, JSON.stringify(cacheData, null, 2), 'utf-8');
+    console.log('[Cache] Cache saved to:', cachePath);
+  } catch (error) {
+    console.error('[Cache] Error saving cache:', error);
+  }
+}
+
+// 파일 메타데이터 가져오기
+function getFileMetadata(filePath: string): { size: number; mtime: number } | null {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return null;
+    }
+    const stats = fs.statSync(filePath);
+    return {
+      size: stats.size,
+      mtime: stats.mtime.getTime(),
+    };
+  } catch (error) {
+    console.error('[Cache] Error getting file metadata:', error);
+    return null;
+  }
+}
+
 // 폴더 내 DOCX 파일 목록 가져오기 IPC 핸들러
 ipcMain.handle('get-docx-files', async (event, folderPath: string) => {
   try {
@@ -287,6 +372,92 @@ ipcMain.handle('get-docx-files', async (event, folderPath: string) => {
   } catch (error) {
     console.error('[Get DOCX Files] Error:', error);
     return [];
+  }
+});
+
+// 캐시 데이터 로드 IPC 핸들러
+ipcMain.handle('load-cache', async (event, folderPath: string, filePaths: string[]) => {
+  try {
+    if (!folderPath || !fs.existsSync(folderPath)) {
+      return { cached: {}, toProcess: filePaths };
+    }
+    
+    const cacheData = loadCache(folderPath);
+    if (!cacheData) {
+      return { cached: {}, toProcess: filePaths };
+    }
+    
+    const cached: { [filePath: string]: any } = {};
+    const toProcess: string[] = [];
+    
+    for (const filePath of filePaths) {
+      const metadata = getFileMetadata(filePath);
+      if (!metadata) {
+        toProcess.push(filePath);
+        continue;
+      }
+      
+      const cacheEntry = cacheData.entries[filePath];
+      
+      // 캐시에 있고, 파일이 변경되지 않았는지 확인
+      if (cacheEntry && 
+          cacheEntry.size === metadata.size && 
+          cacheEntry.mtime === metadata.mtime) {
+        // 캐시 데이터 사용
+        cached[filePath] = cacheEntry.data;
+        console.log('[Cache] Using cached data for:', path.basename(filePath));
+      } else {
+        // 새로 처리 필요
+        toProcess.push(filePath);
+        console.log('[Cache] File changed or not cached:', path.basename(filePath));
+      }
+    }
+    
+    return { cached, toProcess };
+  } catch (error) {
+    console.error('[Cache] Error loading cache:', error);
+    return { cached: {}, toProcess: filePaths };
+  }
+});
+
+// 캐시 데이터 저장 IPC 핸들러
+ipcMain.handle('save-cache', async (event, folderPath: string, results: Array<{
+  filePath: string;
+  fileName: string;
+  data: any;
+}>) => {
+  try {
+    if (!folderPath || !fs.existsSync(folderPath)) {
+      return;
+    }
+    
+    let cacheData = loadCache(folderPath);
+    if (!cacheData) {
+      cacheData = {
+        folderPath,
+        lastUpdated: Date.now(),
+        entries: {},
+      };
+    }
+    
+    // 결과를 캐시에 저장
+    for (const result of results) {
+      const metadata = getFileMetadata(result.filePath);
+      if (!metadata) continue;
+      
+      cacheData.entries[result.filePath] = {
+        filePath: result.filePath,
+        fileName: result.fileName,
+        size: metadata.size,
+        mtime: metadata.mtime,
+        data: result.data,
+      };
+    }
+    
+    saveCache(folderPath, cacheData);
+    console.log('[Cache] Saved', results.length, 'entries to cache');
+  } catch (error) {
+    console.error('[Cache] Error saving cache:', error);
   }
 });
 
