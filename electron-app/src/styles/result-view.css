@@ -192,6 +192,7 @@
   overflow-x: auto;
   overflow-y: hidden;
   width: 100%;
+  position: relative;
 }
 
 /* 테이블 헤더 (참고한 스타일) */
@@ -206,7 +207,9 @@
   font-weight: 600;
   color: #6b7280;
   min-width: 800px;
+  width: max-content;
   flex-shrink: 0;
+  position: relative;
 }
 
 .table-cell {
@@ -487,6 +490,9 @@
   background: #fff;
   min-height: 200px;
   min-width: 800px;
+  width: max-content;
+  flex-shrink: 0;
+  position: relative;
 }
 
 .candidate-list-empty {
@@ -497,6 +503,8 @@
 
 .candidate-row {
   display: flex;
+  width: max-content;
+  min-width: 800px;
   align-items: center;
   padding: 1rem;
   border-bottom: 1px solid #f3f4f6;
