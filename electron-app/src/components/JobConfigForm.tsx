@@ -283,28 +283,29 @@ export default function JobConfigForm({
           try {
             const data = JSON.parse(responseText);
             const content = data.dataSearch?.content;
-          if (content?.capacity_major?.content) {
-            const contentList = Array.isArray(content.capacity_major.content)
-              ? content.capacity_major.content
-              : [content.capacity_major.content];
-            
-            contentList.forEach((contentItem: any) => {
-              if (contentItem?.capacity) {
-                const capacityText = typeof contentItem.capacity === 'string' 
-                  ? contentItem.capacity 
-                  : contentItem.capacity.text || contentItem.capacity.name || '';
-                
-                if (capacityText && capacityText.trim()) {
-                  const certList = capacityText.split(',').map((cert: string) => cert.trim()).filter((cert: string) => cert.length > 0);
-                  certList.forEach((cert: string) => {
-                    certifications.push(cert);
-                  });
+            if (content?.capacity_major?.content) {
+              const contentList = Array.isArray(content.capacity_major.content)
+                ? content.capacity_major.content
+                : [content.capacity_major.content];
+              
+              contentList.forEach((contentItem: any) => {
+                if (contentItem?.capacity) {
+                  const capacityText = typeof contentItem.capacity === 'string' 
+                    ? contentItem.capacity 
+                    : contentItem.capacity.text || contentItem.capacity.name || '';
+                  
+                  if (capacityText && capacityText.trim()) {
+                    const certList = capacityText.split(',').map((cert: string) => cert.trim()).filter((cert: string) => cert.length > 0);
+                    certList.forEach((cert: string) => {
+                      certifications.push(cert);
+                    });
+                  }
                 }
-              }
-            });
+              });
+            }
+          } catch (jsonError) {
+            console.error('[Job Detail] JSON parse error:', jsonError);
           }
-        } catch (jsonError) {
-          console.error('[Job Detail] JSON parse error:', jsonError);
         }
       }
       
