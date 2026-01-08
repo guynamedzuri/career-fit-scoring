@@ -409,7 +409,8 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
       minScore: '',
       maxScore: '',
       company: '',
-      status: '',
+      status: '' as '' | 'pending' | 'processing' | 'completed' | 'error',
+      residence: 3 as 0 | 1 | 2 | 3, // 전국으로 초기화
     });
   };
 
