@@ -604,70 +604,72 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
         </button>
       </div>
 
-      {/* 테이블 헤더 */}
-      <div className="candidate-table-header">
-        <div className="table-cell cell-checkbox">
-          <input
-            type="checkbox"
-            checked={isAllSelected}
-            onChange={handleSelectAll}
-            className="header-checkbox"
-            title="전체 선택/해제"
-          />
-        </div>
-        <div className="table-cell cell-status">
-          <div 
-            className={`sortable ${sortField === 'status' ? 'active' : ''}`}
-            onClick={() => handleSort('status')}
-          >
-            상태 <SortIcon field="status" />
+      {/* 테이블 컨테이너 (헤더 + 리스트 함께 스크롤) */}
+      <div className="candidate-table-container">
+        {/* 테이블 헤더 */}
+        <div className="candidate-table-header">
+          <div className="table-cell cell-checkbox">
+            <input
+              type="checkbox"
+              checked={isAllSelected}
+              onChange={handleSelectAll}
+              className="header-checkbox"
+              title="전체 선택/해제"
+            />
+          </div>
+          <div className="table-cell cell-status">
+            <div 
+              className={`sortable ${sortField === 'status' ? 'active' : ''}`}
+              onClick={() => handleSort('status')}
+            >
+              상태 <SortIcon field="status" />
+            </div>
+          </div>
+          <div className="table-cell cell-name">
+            <div 
+              className={`sortable ${sortField === 'name' ? 'active' : ''}`}
+              onClick={() => handleSort('name')}
+            >
+              이름 <SortIcon field="name" />
+            </div>
+          </div>
+          <div className="table-cell cell-age">
+            <div 
+              className={`sortable ${sortField === 'age' ? 'active' : ''}`}
+              onClick={() => handleSort('age')}
+            >
+              나이 <SortIcon field="age" />
+            </div>
+          </div>
+          <div className="table-cell cell-company">
+            <div 
+              className={`sortable ${sortField === 'lastCompany' ? 'active' : ''}`}
+              onClick={() => handleSort('lastCompany')}
+            >
+              직전 회사 <SortIcon field="lastCompany" />
+            </div>
+          </div>
+          <div className="table-cell cell-score">
+            <div 
+              className={`sortable ${sortField === 'totalScore' ? 'active' : ''}`}
+              onClick={() => handleSort('totalScore')}
+            >
+              총점수 <SortIcon field="totalScore" />
+            </div>
+          </div>
+          <div className="table-cell cell-ai-grade">
+            <div>AI 평가</div>
+          </div>
+          <div className="table-cell cell-detail">
+            <div>상세</div>
+          </div>
+          <div className="table-cell cell-ai-comment">
+            <div>AI Comment</div>
           </div>
         </div>
-        <div className="table-cell cell-name">
-          <div 
-            className={`sortable ${sortField === 'name' ? 'active' : ''}`}
-            onClick={() => handleSort('name')}
-          >
-            이름 <SortIcon field="name" />
-          </div>
-        </div>
-        <div className="table-cell cell-age">
-          <div 
-            className={`sortable ${sortField === 'age' ? 'active' : ''}`}
-            onClick={() => handleSort('age')}
-          >
-            나이 <SortIcon field="age" />
-          </div>
-        </div>
-        <div className="table-cell cell-company">
-          <div 
-            className={`sortable ${sortField === 'lastCompany' ? 'active' : ''}`}
-            onClick={() => handleSort('lastCompany')}
-          >
-            직전 회사 <SortIcon field="lastCompany" />
-          </div>
-        </div>
-        <div className="table-cell cell-score">
-          <div 
-            className={`sortable ${sortField === 'totalScore' ? 'active' : ''}`}
-            onClick={() => handleSort('totalScore')}
-          >
-            총점수 <SortIcon field="totalScore" />
-          </div>
-        </div>
-        <div className="table-cell cell-ai-grade">
-          <div>AI 평가</div>
-        </div>
-        <div className="table-cell cell-detail">
-          <div>상세</div>
-        </div>
-        <div className="table-cell cell-ai-comment">
-          <div>AI Comment</div>
-        </div>
-      </div>
 
-      {/* 결과 리스트 */}
-      <div className="candidate-list">
+        {/* 결과 리스트 */}
+        <div className="candidate-list">
         {loading ? (
           <div className="candidate-list-empty">점수를 계산하는 중...</div>
         ) : filteredAndSortedResults.length === 0 ? (
@@ -763,6 +765,7 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
             </div>
           ))
         )}
+        </div>
       </div>
 
       {/* 상세 정보 패널 (플레이스홀더) */}
