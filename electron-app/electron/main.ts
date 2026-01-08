@@ -461,6 +461,57 @@ ipcMain.handle('save-cache', async (event, folderPath: string, results: Array<{
   }
 });
 
+// Q-Net 비상용 로컬 데이터 파일 경로
+function getQNetBackupPath(): string {
+  const projectRoot = findProjectRoot();
+  if (projectRoot) {
+    return path.join(projectRoot, 'qnet_certifications_backup.json');
+  }
+  // 프로젝트 루트를 찾지 못한 경우
+  return path.join(__dirname, '../../qnet_certifications_backup.json');
+}
+
+// Q-Net 비상용 로컬 데이터 저장
+function saveQNetBackup(certifications: string[]): void {
+  try {
+    const backupPath = getQNetBackupPath();
+    const backupData = {
+      lastUpdated: new Date().toISOString(),
+      count: certifications.length,
+      certifications: certifications,
+    };
+    fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2), 'utf-8');
+    console.log('[Q-Net Backup] Saved', certifications.length, 'certifications to:', backupPath);
+  } catch (error) {
+    console.error('[Q-Net Backup] Error saving backup:', error);
+  }
+}
+
+// Q-Net 비상용 로컬 데이터 로드
+function loadQNetBackup(): string[] | null {
+  try {
+    const backupPath = getQNetBackupPath();
+    if (!fs.existsSync(backupPath)) {
+      console.log('[Q-Net Backup] Backup file not found:', backupPath);
+      return null;
+    }
+    
+    const backupContent = fs.readFileSync(backupPath, 'utf-8');
+    const backupData = JSON.parse(backupContent);
+    
+    if (backupData.certifications && Array.isArray(backupData.certifications)) {
+      console.log('[Q-Net Backup] Loaded', backupData.certifications.length, 'certifications from backup');
+      console.log('[Q-Net Backup] Last updated:', backupData.lastUpdated);
+      return backupData.certifications;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[Q-Net Backup] Error loading backup:', error);
+    return null;
+  }
+}
+
 // Q-Net API 호출 IPC 핸들러
 ipcMain.handle('qnet-search-certifications', async () => {
   return new Promise((resolve, reject) => {
@@ -502,6 +553,16 @@ ipcMain.handle('qnet-search-certifications', async () => {
               const errorCode = errorMatch[1];
               const errorMsg = errorMsgMatch ? errorMsgMatch[1] : 'Unknown error';
               console.error(`[Q-Net IPC] API Error: Code ${errorCode}, Message: ${errorMsg}`);
+              
+              // API 오류 시 비상용 백업 데이터 사용
+              console.log('[Q-Net IPC] API failed, trying to load backup data...');
+              const backupData = loadQNetBackup();
+              if (backupData && backupData.length > 0) {
+                console.log('[Q-Net IPC] Using backup data:', backupData.length, 'certifications');
+                resolve(backupData);
+                return;
+              }
+              
               reject(new Error(`Q-Net API 오류 (코드: ${errorCode}): ${errorMsg}`));
               return;
             }
@@ -524,6 +585,16 @@ ipcMain.handle('qnet-search-certifications', async () => {
               const errorCode = jsonData.response.header.resultCode;
               const errorMsg = jsonData.response.header.resultMsg || 'Unknown error';
               console.error(`[Q-Net IPC] API Error: Code ${errorCode}, Message: ${errorMsg}`);
+              
+              // API 오류 시 비상용 백업 데이터 사용
+              console.log('[Q-Net IPC] API failed, trying to load backup data...');
+              const backupData = loadQNetBackup();
+              if (backupData && backupData.length > 0) {
+                console.log('[Q-Net IPC] Using backup data:', backupData.length, 'certifications');
+                resolve(backupData);
+                return;
+              }
+              
               reject(new Error(`Q-Net API 오류 (코드: ${errorCode}): ${errorMsg}`));
               return;
             }
@@ -538,11 +609,26 @@ ipcMain.handle('qnet-search-certifications', async () => {
             });
           }
           
+          // API 호출 성공 시 비상용 백업 저장
+          if (certifications.length > 0) {
+            saveQNetBackup(certifications);
+          }
+          
           console.log('[Q-Net IPC] Successfully parsed', certifications.length, 'certifications');
           resolve(certifications);
         } catch (error) {
           console.error('[Q-Net IPC] Parse error:', error);
           console.error('[Q-Net IPC] Data that failed to parse:', data.substring(0, 500));
+          
+          // 파싱 오류 시에도 비상용 백업 데이터 시도
+          console.log('[Q-Net IPC] Parse failed, trying to load backup data...');
+          const backupData = loadQNetBackup();
+          if (backupData && backupData.length > 0) {
+            console.log('[Q-Net IPC] Using backup data:', backupData.length, 'certifications');
+            resolve(backupData);
+            return;
+          }
+          
           reject(error);
         }
       });
@@ -551,12 +637,32 @@ ipcMain.handle('qnet-search-certifications', async () => {
     request.on('error', (error) => {
       console.error('[Q-Net IPC] Request error:', error);
       console.error('[Q-Net IPC] Error details:', error.message, error.code);
+      
+      // 네트워크 오류 시 비상용 백업 데이터 사용
+      console.log('[Q-Net IPC] Network error, trying to load backup data...');
+      const backupData = loadQNetBackup();
+      if (backupData && backupData.length > 0) {
+        console.log('[Q-Net IPC] Using backup data:', backupData.length, 'certifications');
+        resolve(backupData);
+        return;
+      }
+      
       reject(error);
     });
     
     request.on('timeout', () => {
       console.error('[Q-Net IPC] Request timeout');
       request.destroy();
+      
+      // 타임아웃 시 비상용 백업 데이터 사용
+      console.log('[Q-Net IPC] Timeout, trying to load backup data...');
+      const backupData = loadQNetBackup();
+      if (backupData && backupData.length > 0) {
+        console.log('[Q-Net IPC] Using backup data:', backupData.length, 'certifications');
+        resolve(backupData);
+        return;
+      }
+      
       reject(new Error('Q-Net API 요청 시간 초과'));
     });
   });
