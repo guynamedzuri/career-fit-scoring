@@ -944,9 +944,9 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
       {showFilterModal && (
         <div className="status-modal-overlay" onClick={() => setShowFilterModal(false)}>
           <div className="filter-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="status-modal-header">
+            <div className="filter-modal-header">
               <h3>상세 필터</h3>
-              <button className="status-modal-close" onClick={() => setShowFilterModal(false)}>
+              <button className="filter-modal-close" onClick={() => setShowFilterModal(false)}>
                 ✕
               </button>
             </div>
