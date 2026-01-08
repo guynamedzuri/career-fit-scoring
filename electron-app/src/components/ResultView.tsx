@@ -20,6 +20,7 @@ interface ScoringResult {
   age?: number; // 나이
   lastCompany?: string; // 직전 회사 이름
   lastSalary?: string; // 직전 연봉
+  residence?: string; // 거주지 (서울, 수도권, 시흥, 안산, 지방)
   searchableText?: string; // 검색 가능한 전체 텍스트 (이름, 회사, 자격증 등 모든 정보)
   // AI 검사 결과
   aiGrade?: string; // AI 평가 등급 (예: 'A', 'B', 'C', 'D')
@@ -34,7 +35,7 @@ interface ResultViewProps {
   onBack: () => void;
 }
 
-type SortField = 'name' | 'age' | 'lastCompany' | 'totalScore' | 'status';
+type SortField = 'name' | 'age' | 'lastCompany' | 'residence' | 'totalScore' | 'status';
 type SortOrder = 'asc' | 'desc';
 
 export default function ResultView({ selectedFiles, jobMetadata, selectedFolder, onBack }: ResultViewProps) {
@@ -100,6 +101,7 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
               age: cachedData.age,
               lastCompany: cachedData.lastCompany,
               lastSalary: cachedData.lastSalary,
+              residence: cachedData.residence,
               applicationData: cachedData.applicationData,
               aiGrade: cachedData.aiGrade,
               aiReport: cachedData.aiReport,
@@ -118,6 +120,7 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
               age: undefined,
               lastCompany: undefined,
               lastSalary: undefined,
+              residence: undefined,
               searchableText: file.name,
             };
           }
@@ -218,6 +221,11 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
         case 'lastCompany':
           compareA = a.lastCompany || '';
           compareB = b.lastCompany || '';
+          break;
+        case 'residence':
+          const residenceOrder = { '서울': 1, '수도권': 2, '시흥': 3, '안산': 4, '지방': 5 };
+          compareA = residenceOrder[a.residence as keyof typeof residenceOrder] ?? 6;
+          compareB = residenceOrder[b.residence as keyof typeof residenceOrder] ?? 6;
           break;
         case 'totalScore':
           compareA = a.totalScore;
@@ -641,15 +649,23 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
               나이 <SortIcon field="age" />
             </div>
           </div>
-          <div className="table-cell cell-company">
-            <div 
-              className={`sortable ${sortField === 'lastCompany' ? 'active' : ''}`}
-              onClick={() => handleSort('lastCompany')}
-            >
-              직전 회사 <SortIcon field="lastCompany" />
-            </div>
+        <div className="table-cell cell-company">
+          <div 
+            className={`sortable ${sortField === 'lastCompany' ? 'active' : ''}`}
+            onClick={() => handleSort('lastCompany')}
+          >
+            직전 회사 <SortIcon field="lastCompany" />
           </div>
-          <div className="table-cell cell-score">
+        </div>
+        <div className="table-cell cell-residence">
+          <div 
+            className={`sortable ${sortField === 'residence' ? 'active' : ''}`}
+            onClick={() => handleSort('residence')}
+          >
+            거주지 <SortIcon field="residence" />
+          </div>
+        </div>
+        <div className="table-cell cell-score">
             <div 
               className={`sortable ${sortField === 'totalScore' ? 'active' : ''}`}
               onClick={() => handleSort('totalScore')}
@@ -717,6 +733,11 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
                       <span className="company-salary">({result.lastSalary})</span>
                     )}
                   </div>
+                ) : '-'}
+              </div>
+              <div className="table-cell cell-residence">
+                {result.status === 'completed' && result.residence ? (
+                  <span className="residence-value">{result.residence}</span>
                 ) : '-'}
               </div>
               <div className="table-cell cell-score">

@@ -71,6 +71,13 @@ export interface ResumeMappingConfig {
     maxGpaColumn?: number | { searchText: string };
     maxCount?: number;
   };
+  
+  // 주소 정보
+  address?: {
+    tableIndex: number;
+    addressColumn?: number | { searchText: string };
+    rowIndex?: number | { searchRow: string; searchCol: string };
+  };
 }
 
 /**
@@ -180,6 +187,64 @@ function resolveColumnIndex(
   }
   
   return -1;
+}
+
+/**
+ * 주소 문자열을 거주지 카테고리로 분류
+ * 
+ * @param address 주소 문자열
+ * @returns 거주지 카테고리 (서울, 수도권, 시흥, 안산, 지방)
+ */
+export function classifyResidence(address: string | undefined): string | undefined {
+  if (!address) return undefined;
+  
+  const addressLower = address.toLowerCase();
+  
+  // 시흥시 체크 (가장 가까운 도시)
+  if (addressLower.includes('시흥') || addressLower.includes('시흥시')) {
+    return '시흥';
+  }
+  
+  // 안산시 체크 (가장 가까운 도시)
+  if (addressLower.includes('안산') || addressLower.includes('안산시')) {
+    return '안산';
+  }
+  
+  // 서울 체크
+  if (addressLower.includes('서울') || addressLower.includes('서울시') || addressLower.includes('서울특별시')) {
+    return '서울';
+  }
+  
+  // 수도권 체크 (경기도, 인천 등)
+  if (
+    addressLower.includes('경기') ||
+    addressLower.includes('경기도') ||
+    addressLower.includes('인천') ||
+    addressLower.includes('인천시') ||
+    addressLower.includes('인천광역시') ||
+    addressLower.includes('수원') ||
+    addressLower.includes('성남') ||
+    addressLower.includes('고양') ||
+    addressLower.includes('용인') ||
+    addressLower.includes('부천') ||
+    addressLower.includes('안양') ||
+    addressLower.includes('평택') ||
+    addressLower.includes('의정부') ||
+    addressLower.includes('광명') ||
+    addressLower.includes('과천') ||
+    addressLower.includes('구리') ||
+    addressLower.includes('남양주') ||
+    addressLower.includes('오산') ||
+    addressLower.includes('의왕') ||
+    addressLower.includes('이천') ||
+    addressLower.includes('하남') ||
+    addressLower.includes('화성')
+  ) {
+    return '수도권';
+  }
+  
+  // 그 외는 지방
+  return '지방';
 }
 
 /**
@@ -473,6 +538,45 @@ export function mapResumeDataToApplicationData(
             
             gradIndex++;
           }
+        }
+      }
+    }
+  }
+  
+  // 6. 주소 정보 추출 및 거주지 분류
+  if (mappingConfig.address) {
+    const addressInfo = mappingConfig.address;
+    if (addressInfo.tableIndex >= 0 && addressInfo.tableIndex < tables.length) {
+      let addressText = '';
+      
+      if (addressInfo.rowIndex !== undefined) {
+        // 직접 인덱스로 찾기
+        if (typeof addressInfo.rowIndex === 'number') {
+          const col = typeof addressInfo.addressColumn === 'number' 
+            ? addressInfo.addressColumn 
+            : resolveColumnIndex(tables, addressInfo.tableIndex, addressInfo.addressColumn, addressInfo.rowIndex);
+          if (col >= 0) {
+            addressText = getCellValue(tables, addressInfo.tableIndex, addressInfo.rowIndex, col);
+          }
+        } else {
+          // 검색으로 찾기
+          const pos = resolveCellPosition(tables, addressInfo.tableIndex, addressInfo.rowIndex);
+          if (pos) {
+            addressText = getCellValue(tables, addressInfo.tableIndex, pos.rowIndex, pos.cellIndex);
+          }
+        }
+      } else if (addressInfo.addressColumn !== undefined) {
+        // 열만 지정된 경우 (첫 번째 행에서 찾기)
+        const col = resolveColumnIndex(tables, addressInfo.tableIndex, addressInfo.addressColumn, 0);
+        if (col >= 0) {
+          addressText = getCellValue(tables, addressInfo.tableIndex, 0, col);
+        }
+      }
+      
+      if (addressText) {
+        const residence = classifyResidence(addressText);
+        if (residence) {
+          applicationData.residence = residence;
         }
       }
     }

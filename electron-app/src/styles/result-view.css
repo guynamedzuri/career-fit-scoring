@@ -316,6 +316,19 @@
   justify-content: flex-start;
 }
 
+.cell-residence {
+  width: 90px;
+  flex-shrink: 0;
+  text-align: center;
+  justify-content: center;
+}
+
+.residence-value {
+  font-size: 0.875rem;
+  color: #374151;
+  font-weight: 500;
+}
+
 .cell-score {
   width: 90px;
   flex-shrink: 0;
