@@ -417,9 +417,10 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
   // 초기 로드 시 모든 이력서에 대해 AI 분석 실행
   useEffect(() => {
     const runInitialAiAnalysis = async () => {
-      if (!userPrompt || userPrompt.trim() === '' || selectedFiles.length === 0 || !window.electron?.aiCheckResume) {
+      if (!userPrompt || !userPrompt.jobDescription || userPrompt.jobDescription.trim() === '' || selectedFiles.length === 0 || !window.electron?.aiCheckResume) {
         console.log('[AI Analysis] Skipping - missing requirements:', {
           hasUserPrompt: !!userPrompt,
+          hasJobDescription: !!(userPrompt?.jobDescription),
           hasFiles: selectedFiles.length > 0,
           hasElectron: !!window.electron?.aiCheckResume,
         });

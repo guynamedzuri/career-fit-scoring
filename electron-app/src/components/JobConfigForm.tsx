@@ -13,12 +13,38 @@ declare global {
 interface JobConfigFormProps {
   validationErrors?: {
     folder?: boolean;
-    userPrompt?: boolean;
+    jobDescription?: boolean;
+    gradeCriteria?: {
+      최상?: boolean;
+      상?: boolean;
+      중?: boolean;
+      하?: boolean;
+      최하?: boolean;
+    };
   };
-  setValidationErrors?: (errors: { folder?: boolean; userPrompt?: boolean }) => void;
+  setValidationErrors?: (errors: {
+    folder?: boolean;
+    jobDescription?: boolean;
+    gradeCriteria?: {
+      최상?: boolean;
+      상?: boolean;
+      중?: boolean;
+      하?: boolean;
+      최하?: boolean;
+    };
+  }) => void;
   selectedFolder?: string;
   onFolderChange?: (folderPath: string) => void;
-  onUserPromptChange?: (prompt: string) => void;
+  onUserPromptChange?: (prompt: {
+    jobDescription: string;
+    gradeCriteria: {
+      최상: string;
+      상: string;
+      중: string;
+      하: string;
+      최하: string;
+    };
+  }) => void;
   onExecute?: () => void;
 }
 
@@ -31,7 +57,14 @@ export default function JobConfigForm({
   onExecute 
 }: JobConfigFormProps) {
   const [selectedFolder, setSelectedFolder] = useState<string>(propSelectedFolder || '');
-  const [userPrompt, setUserPrompt] = useState<string>('');
+  const [jobDescription, setJobDescription] = useState<string>('');
+  const [gradeCriteria, setGradeCriteria] = useState({
+    최상: '',
+    상: '',
+    중: '',
+    하: '',
+    최하: '',
+  });
 
   // 폴더 선택
   const handleSelectFolder = async () => {
@@ -63,13 +96,26 @@ export default function JobConfigForm({
   // userPrompt 변경 시 상위 컴포넌트에 전달
   useEffect(() => {
     if (onUserPromptChange) {
-      onUserPromptChange(userPrompt);
+      onUserPromptChange({
+        jobDescription,
+        gradeCriteria,
+      });
     }
-  }, [userPrompt, onUserPromptChange]);
+  }, [jobDescription, gradeCriteria, onUserPromptChange]);
 
   // 필수 입력 검증 및 실행
   const handleExecuteClick = () => {
-    const errors: { folder?: boolean; userPrompt?: boolean } = {};
+    const errors: {
+      folder?: boolean;
+      jobDescription?: boolean;
+      gradeCriteria?: {
+        최상?: boolean;
+        상?: boolean;
+        중?: boolean;
+        하?: boolean;
+        최하?: boolean;
+      };
+    } = {};
     let hasError = false;
 
     // 이력서 폴더 검증
@@ -78,10 +124,37 @@ export default function JobConfigForm({
       hasError = true;
     }
 
-    // 사용자 프롬프트 검증
-    if (!userPrompt || userPrompt.trim() === '') {
-      errors.userPrompt = true;
+    // 업무 내용 검증
+    if (!jobDescription || jobDescription.trim() === '') {
+      errors.jobDescription = true;
       hasError = true;
+    }
+
+    // 등급 기준 검증
+    const gradeErrors: { 최상?: boolean; 상?: boolean; 중?: boolean; 하?: boolean; 최하?: boolean } = {};
+    if (!gradeCriteria.최상 || gradeCriteria.최상.trim() === '') {
+      gradeErrors.최상 = true;
+      hasError = true;
+    }
+    if (!gradeCriteria.상 || gradeCriteria.상.trim() === '') {
+      gradeErrors.상 = true;
+      hasError = true;
+    }
+    if (!gradeCriteria.중 || gradeCriteria.중.trim() === '') {
+      gradeErrors.중 = true;
+      hasError = true;
+    }
+    if (!gradeCriteria.하 || gradeCriteria.하.trim() === '') {
+      gradeErrors.하 = true;
+      hasError = true;
+    }
+    if (!gradeCriteria.최하 || gradeCriteria.최하.trim() === '') {
+      gradeErrors.최하 = true;
+      hasError = true;
+    }
+    
+    if (Object.keys(gradeErrors).length > 0) {
+      errors.gradeCriteria = gradeErrors;
     }
 
     if (setValidationErrors) {
@@ -95,10 +168,15 @@ export default function JobConfigForm({
         if (folderElement) {
           folderElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-      } else if (errors.userPrompt) {
-        const promptElement = document.querySelector('.user-prompt-wrapper');
-        if (promptElement) {
-          promptElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (errors.jobDescription) {
+        const jobDescElement = document.querySelector('.job-description-wrapper');
+        if (jobDescElement) {
+          jobDescElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      } else if (errors.gradeCriteria) {
+        const gradeElement = document.querySelector('.grade-criteria-wrapper');
+        if (gradeElement) {
+          gradeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }
       return;
@@ -106,7 +184,10 @@ export default function JobConfigForm({
 
     // userPrompt 전달
     if (onUserPromptChange) {
-      onUserPromptChange(userPrompt);
+      onUserPromptChange({
+        jobDescription,
+        gradeCriteria,
+      });
     }
 
     // 모든 검증 통과 시 실행
@@ -125,7 +206,7 @@ export default function JobConfigForm({
       delete (window as any).__handleJobConfigExecute;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFolder, userPrompt, validationErrors, onExecute]);
+  }, [selectedFolder, jobDescription, gradeCriteria, validationErrors, onExecute]);
 
   return (
     <div className="job-config-form">
@@ -152,22 +233,133 @@ export default function JobConfigForm({
           </div>
         </div>
 
-        {/* 사용자 프롬프트 입력 */}
-        <div className={`form-group user-prompt-wrapper ${validationErrors.userPrompt ? 'error' : ''}`}>
-          <label className="form-label">평가 기준 *</label>
-          <p className="field-hint">AI가 이력서를 평가할 기준을 입력하세요.</p>
-          <textarea
-            className="user-prompt-input"
-            value={userPrompt}
-            onChange={(e) => {
-              setUserPrompt(e.target.value);
-              if (setValidationErrors && validationErrors.userPrompt) {
-                setValidationErrors({ ...validationErrors, userPrompt: false });
-              }
-            }}
-            placeholder="예: 5년 이상의 개발 경력, React/TypeScript 경험, 대학 졸업 이상의 학력 등을 우대합니다."
-            rows={6}
-          />
+        {/* 구분선 */}
+        <div className="form-divider"></div>
+
+        {/* 적합도 평가 기준 섹션 */}
+        <div className="evaluation-criteria-section">
+          <h2 className="evaluation-criteria-header">적합도 평가 기준</h2>
+
+          {/* 업무 내용 */}
+          <div className={`form-group job-description-wrapper ${validationErrors.jobDescription ? 'error' : ''}`}>
+            <label className="form-label">업무 내용 *</label>
+            <p className="field-hint">채용할 사람이 하게 될 업무 내용이나 필요로 하는 skill 등을 작성하세요.</p>
+            <textarea
+              className="job-description-input"
+              value={jobDescription}
+              onChange={(e) => {
+                setJobDescription(e.target.value);
+                if (setValidationErrors && validationErrors.jobDescription) {
+                  setValidationErrors({ ...validationErrors, jobDescription: false });
+                }
+              }}
+              placeholder="예: React/TypeScript를 사용한 프론트엔드 개발, RESTful API 설계 및 개발, AWS 클라우드 인프라 관리 등"
+              rows={6}
+            />
+          </div>
+
+          {/* 경력 적합도 등급 기준 */}
+          <div className="grade-criteria-section">
+            <h3 className="grade-criteria-header">경력 적합도 등급 기준 *</h3>
+            <p className="field-hint">각 등급별 기준을 작성하세요. 이력서의 경력과 업무 내용을 비교하여 평가합니다.</p>
+            
+            <div className="grade-criteria-wrapper">
+              <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.최상 ? 'error' : ''}`}>
+                <label className="form-label">최상 등급 기준 *</label>
+                <textarea
+                  className="grade-criteria-input"
+                  value={gradeCriteria.최상}
+                  onChange={(e) => {
+                    setGradeCriteria({ ...gradeCriteria, 최상: e.target.value });
+                    if (setValidationErrors && validationErrors.gradeCriteria?.최상) {
+                      setValidationErrors({
+                        ...validationErrors,
+                        gradeCriteria: { ...validationErrors.gradeCriteria, 최상: false },
+                      });
+                    }
+                  }}
+                  placeholder="예: 업무 내용과 완벽히 일치하는 경력, 모든 필수 skill 보유, 관련 프로젝트 경험 풍부"
+                  rows={3}
+                />
+              </div>
+
+              <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.상 ? 'error' : ''}`}>
+                <label className="form-label">상 등급 기준 *</label>
+                <textarea
+                  className="grade-criteria-input"
+                  value={gradeCriteria.상}
+                  onChange={(e) => {
+                    setGradeCriteria({ ...gradeCriteria, 상: e.target.value });
+                    if (setValidationErrors && validationErrors.gradeCriteria?.상) {
+                      setValidationErrors({
+                        ...validationErrors,
+                        gradeCriteria: { ...validationErrors.gradeCriteria, 상: false },
+                      });
+                    }
+                  }}
+                  placeholder="예: 업무 내용과 대부분 일치하는 경력, 주요 skill 보유, 관련 경험 있음"
+                  rows={3}
+                />
+              </div>
+
+              <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.중 ? 'error' : ''}`}>
+                <label className="form-label">중 등급 기준 *</label>
+                <textarea
+                  className="grade-criteria-input"
+                  value={gradeCriteria.중}
+                  onChange={(e) => {
+                    setGradeCriteria({ ...gradeCriteria, 중: e.target.value });
+                    if (setValidationErrors && validationErrors.gradeCriteria?.중) {
+                      setValidationErrors({
+                        ...validationErrors,
+                        gradeCriteria: { ...validationErrors.gradeCriteria, 중: false },
+                      });
+                    }
+                  }}
+                  placeholder="예: 업무 내용과 부분적으로 일치하는 경력, 일부 skill 보유, 관련 경험 제한적"
+                  rows={3}
+                />
+              </div>
+
+              <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.하 ? 'error' : ''}`}>
+                <label className="form-label">하 등급 기준 *</label>
+                <textarea
+                  className="grade-criteria-input"
+                  value={gradeCriteria.하}
+                  onChange={(e) => {
+                    setGradeCriteria({ ...gradeCriteria, 하: e.target.value });
+                    if (setValidationErrors && validationErrors.gradeCriteria?.하) {
+                      setValidationErrors({
+                        ...validationErrors,
+                        gradeCriteria: { ...validationErrors.gradeCriteria, 하: false },
+                      });
+                    }
+                  }}
+                  placeholder="예: 업무 내용과 거의 일치하지 않는 경력, 필수 skill 부족, 관련 경험 부족"
+                  rows={3}
+                />
+              </div>
+
+              <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.최하 ? 'error' : ''}`}>
+                <label className="form-label">최하 등급 기준 *</label>
+                <textarea
+                  className="grade-criteria-input"
+                  value={gradeCriteria.최하}
+                  onChange={(e) => {
+                    setGradeCriteria({ ...gradeCriteria, 최하: e.target.value });
+                    if (setValidationErrors && validationErrors.gradeCriteria?.최하) {
+                      setValidationErrors({
+                        ...validationErrors,
+                        gradeCriteria: { ...validationErrors.gradeCriteria, 최하: false },
+                      });
+                    }
+                  }}
+                  placeholder="예: 업무 내용과 전혀 관련 없는 경력, 필수 skill 미보유, 관련 경험 없음"
+                  rows={3}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -862,7 +862,16 @@ ipcMain.handle('read-official-certificates', async () => {
 // Azure OpenAI API 호출 IPC 핸들러
 ipcMain.handle('ai-check-resume', async (event, data: {
   applicationData: any;
-  userPrompt: string;
+  userPrompt: {
+    jobDescription: string;
+    gradeCriteria: {
+      최상: string;
+      상: string;
+      중: string;
+      하: string;
+      최하: string;
+    };
+  };
   fileName: string;
 }) => {
   try {
@@ -892,27 +901,29 @@ ipcMain.handle('ai-check-resume', async (event, data: {
     const resumeText = formatResumeDataForAI(data.applicationData);
     
     // AI 프롬프트 구성
-    const systemPrompt = `당신은 채용 담당자입니다. 이력서를 분석하여 후보자의 적합도를 평가하고 등급을 부여해야 합니다.
+    const systemPrompt = `당신은 채용 담당자입니다. 이력서의 경력을 분석하여 업무 내용과의 적합도를 평가하고 등급을 부여해야 합니다.
 
-평가 기준:
-- A등급: 평가 기준을 완벽히 충족하고, 우수한 경력과 자격을 보유한 후보자
-- B등급: 평가 기준을 대부분 충족하고, 적절한 경력과 자격을 보유한 후보자
-- C등급: 평가 기준을 부분적으로 충족하지만, 일부 부족한 점이 있는 후보자
-- D등급: 평가 기준을 충족하지 못하거나, 경력/자격이 부족한 후보자
+등급 체계:
+- 최상: ${data.userPrompt.gradeCriteria.최상 || '업무 내용과 완벽히 일치하는 경력'}
+- 상: ${data.userPrompt.gradeCriteria.상 || '업무 내용과 대부분 일치하는 경력'}
+- 중: ${data.userPrompt.gradeCriteria.중 || '업무 내용과 부분적으로 일치하는 경력'}
+- 하: ${data.userPrompt.gradeCriteria.하 || '업무 내용과 거의 일치하지 않는 경력'}
+- 최하: ${data.userPrompt.gradeCriteria.최하 || '업무 내용과 전혀 관련 없는 경력'}
 
 응답 형식:
-1. 등급: [A/B/C/D 중 하나]
+1. 등급: [최상/상/중/하/최하 중 하나]
 2. 평가 요약: [한 문장으로 요약]
 3. 주요 강점: [3-5개 항목]
 4. 주요 약점: [3-5개 항목]
 5. 종합 의견: [2-3문단으로 상세 분석]`;
 
-    const userPromptText = `${data.userPrompt || '이력서를 평가해주세요.'}
+    const userPromptText = `업무 내용:
+${data.userPrompt.jobDescription || '업무 내용이 없습니다.'}
 
-이력서 정보:
+이력서 경력 정보:
 ${resumeText}
 
-위 정보를 바탕으로 후보자를 평가하고 등급을 부여해주세요.`;
+위 업무 내용과 이력서의 경력을 비교하여, 제공된 등급 기준에 따라 적합도를 평가하고 등급을 부여해주세요.`;
 
     console.log('[AI Check] Calling Azure OpenAI API for:', data.fileName);
 
