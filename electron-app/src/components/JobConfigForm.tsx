@@ -986,27 +986,47 @@ export default function JobConfigForm({
                             const newLeftSum = (adjacentInitialSum * leftPercent) / 100;
                             const newRightSum = (adjacentInitialSum * rightPercent) / 100;
                             
+                            // 최소 가중치 보장 (전체 가중치의 1%)
+                            const minWeight = Math.max(1, Math.round(totalWeight * 0.01));
+                            
                             const newWeights = { ...initialWeights };
                             
                             // 왼쪽 구간 항목들 조정 (상대 비율 유지)
                             if (slider.leftSegment === 'career') {
-                              newWeights.career = Math.max(0, Math.round(newLeftSum));
+                              newWeights.career = Math.max(minWeight, Math.round(newLeftSum));
                             } else if (slider.leftSegment === 'requirements') {
                               const prevLeftSum = initialWeights.career + initialWeights.requirements;
-                              if (prevLeftSum > 0) {
+                              if (prevLeftSum > 0 && newLeftSum > 0) {
                                 const careerRatio = initialWeights.career / prevLeftSum;
-                                newWeights.career = Math.max(0, Math.round(newLeftSum * careerRatio));
-                                newWeights.requirements = Math.max(0, Math.round(newLeftSum * (1 - careerRatio)));
+                                const reqRatio = initialWeights.requirements / prevLeftSum;
+                                const newCareer = Math.max(minWeight, Math.round(newLeftSum * careerRatio));
+                                const newReq = Math.max(minWeight, Math.round(newLeftSum * reqRatio));
+                                // 합이 맞도록 조정
+                                const total = newCareer + newReq;
+                                if (total > 0) {
+                                  newWeights.career = Math.round((newLeftSum * newCareer) / total);
+                                  newWeights.requirements = Math.round((newLeftSum * newReq) / total);
+                                } else {
+                                  newWeights.career = Math.max(minWeight, Math.round(newLeftSum / 2));
+                                  newWeights.requirements = Math.max(minWeight, Math.round(newLeftSum / 2));
+                                }
                               }
                             } else if (slider.leftSegment === 'preferred') {
                               const prevLeftSum = initialWeights.career + initialWeights.requirements + initialWeights.preferred;
-                              if (prevLeftSum > 0) {
+                              if (prevLeftSum > 0 && newLeftSum > 0) {
                                 const careerRatio = initialWeights.career / prevLeftSum;
                                 const reqRatio = initialWeights.requirements / prevLeftSum;
                                 const prefRatio = initialWeights.preferred / prevLeftSum;
-                                newWeights.career = Math.max(0, Math.round(newLeftSum * careerRatio));
-                                newWeights.requirements = Math.max(0, Math.round(newLeftSum * reqRatio));
-                                newWeights.preferred = Math.max(0, Math.round(newLeftSum * prefRatio));
+                                newWeights.career = Math.max(minWeight, Math.round(newLeftSum * careerRatio));
+                                newWeights.requirements = Math.max(minWeight, Math.round(newLeftSum * reqRatio));
+                                newWeights.preferred = Math.max(minWeight, Math.round(newLeftSum * prefRatio));
+                                // 합이 맞도록 조정
+                                const total = newWeights.career + newWeights.requirements + newWeights.preferred;
+                                if (total > 0) {
+                                  newWeights.career = Math.round((newLeftSum * newWeights.career) / total);
+                                  newWeights.requirements = Math.round((newLeftSum * newWeights.requirements) / total);
+                                  newWeights.preferred = Math.round((newLeftSum * newWeights.preferred) / total);
+                                }
                               }
                             }
                             
@@ -1014,29 +1034,28 @@ export default function JobConfigForm({
                             if (!rightHasMultiple) {
                               // 오른쪽에 단일 항목만 있는 경우
                               if (slider.rightSegment === 'requirements') {
-                                newWeights.requirements = Math.max(0, Math.round(newRightSum));
+                                newWeights.requirements = Math.max(minWeight, Math.round(newRightSum));
                               } else if (slider.rightSegment === 'preferred') {
-                                newWeights.preferred = Math.max(0, Math.round(newRightSum));
+                                newWeights.preferred = Math.max(minWeight, Math.round(newRightSum));
                               } else if (slider.rightSegment === 'certifications') {
-                                newWeights.certifications = Math.max(0, Math.round(newRightSum));
+                                newWeights.certifications = Math.max(minWeight, Math.round(newRightSum));
                               }
                             } else {
                               // 오른쪽에 여러 항목이 있는 경우 (preferred + certifications)
                               const prevRightSum = initialWeights.preferred + initialWeights.certifications;
-                              if (prevRightSum > 0) {
+                              if (prevRightSum > 0 && newRightSum > 0) {
                                 const prefRatio = initialWeights.preferred / prevRightSum;
                                 const certRatio = initialWeights.certifications / prevRightSum;
-                                newWeights.preferred = Math.max(0, Math.round(newRightSum * prefRatio));
-                                newWeights.certifications = Math.max(0, Math.round(newRightSum * certRatio));
+                                newWeights.preferred = Math.max(minWeight, Math.round(newRightSum * prefRatio));
+                                newWeights.certifications = Math.max(minWeight, Math.round(newRightSum * certRatio));
+                                // 합이 맞도록 조정
+                                const total = newWeights.preferred + newWeights.certifications;
+                                if (total > 0) {
+                                  newWeights.preferred = Math.round((newRightSum * newWeights.preferred) / total);
+                                  newWeights.certifications = Math.round((newRightSum * newWeights.certifications) / total);
+                                }
                               }
                             }
-                            
-                            // 최소 1% 보장 (전체 가중치의 1%)
-                            const minWeight = Math.max(1, Math.round(totalWeight * 0.01));
-                            if (newWeights.career > 0) newWeights.career = Math.max(minWeight, newWeights.career);
-                            if (newWeights.requirements > 0) newWeights.requirements = Math.max(minWeight, newWeights.requirements);
-                            if (newWeights.preferred > 0) newWeights.preferred = Math.max(minWeight, newWeights.preferred);
-                            if (newWeights.certifications > 0) newWeights.certifications = Math.max(minWeight, newWeights.certifications);
                             
                             setScoringWeights(newWeights);
                           };
