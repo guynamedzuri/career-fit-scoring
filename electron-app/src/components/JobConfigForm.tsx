@@ -440,124 +440,6 @@ export default function JobConfigForm({
                 />
               </div>
 
-              {/* 필수 요구사항 */}
-              <div className="form-group">
-                <label className="form-label">필수 요구사항</label>
-                <p className="field-hint">반드시 충족해야 하는 요구사항을 작성하세요.</p>
-                <textarea
-                  className="qualifications-input"
-                  value={requiredQualifications}
-                  onChange={(e) => {
-                    setRequiredQualifications(e.target.value);
-                  }}
-                  onBlur={(e) => {
-                    setRequiredQualifications(e.target.value.trim());
-                  }}
-                  placeholder="예: 5년 이상의 개발 경력, 대학 졸업 이상의 학력 등"
-                  rows={4}
-                />
-              </div>
-
-              {/* 우대 사항 */}
-              <div className="form-group">
-                <label className="form-label">우대 사항</label>
-                <p className="field-hint">있으면 좋은 우대 사항을 작성하세요.</p>
-                <textarea
-                  className="qualifications-input"
-                  value={preferredQualifications}
-                  onChange={(e) => {
-                    setPreferredQualifications(e.target.value);
-                  }}
-                  onBlur={(e) => {
-                    setPreferredQualifications(e.target.value.trim());
-                  }}
-                  placeholder="예: 대학원 졸업, 특정 자격증 보유, 특정 기술 스택 경험 등"
-                  rows={4}
-                />
-              </div>
-
-              {/* 필수 자격증 */}
-              <div className="form-group">
-                <label className="form-label">필수 자격증</label>
-                <p className="field-hint">자격증을 검색하여 필수 자격증으로 추가할 수 있습니다.</p>
-                <div className="cert-search-wrapper">
-                  <input
-                    type="text"
-                    className="cert-search-input"
-                    placeholder="자격증명을 검색하세요"
-                    value={certSearchQuery}
-                    onChange={(e) => {
-                      const newValue = e.target.value;
-                      setCertSearchQuery(newValue);
-                      handleCertSearch(newValue);
-                    }}
-                    onFocus={() => {
-                      if (certSearchQuery.trim().length > 0) {
-                        handleCertSearch(certSearchQuery);
-                      }
-                    }}
-                    onBlur={() => {
-                      setTimeout(() => setShowCertDropdown(false), 200);
-                    }}
-                  />
-                  {showCertDropdown && certSearchQuery.trim().length > 0 && (
-                    <div className="cert-search-dropdown">
-                      {certSearchResults.map((cert, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          className="cert-search-item"
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleAddCertification(cert.name);
-                          }}
-                        >
-                          <div className="cert-search-name">{cert.name}</div>
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        className="cert-search-item"
-                        style={{ borderTop: '1px solid #e5e7eb', fontWeight: '500' }}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleAddCertification(certSearchQuery.trim());
-                        }}
-                      >
-                        <div className="cert-search-name">"{certSearchQuery.trim()}"</div>
-                      </button>
-                    </div>
-                  )}
-                  {loadingCerts && (
-                    <div className="loading-indicator">자격증 검색 중...</div>
-                  )}
-                </div>
-                
-                {requiredCertifications.length > 0 && (
-                  <div className="added-required-certs">
-                    <div className="certification-list">
-                      {requiredCertifications.map((cert, idx) => (
-                        <div key={idx} className="certification-tag required">
-                          {cert}
-                          <button
-                            type="button"
-                            className="cert-remove-btn"
-                            onClick={() => {
-                              setRequiredCertifications(requiredCertifications.filter((_, i) => i !== idx));
-                            }}
-                            title="제거"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
               {/* 경력 적합도 등급 기준 */}
               <div className="grade-criteria-section">
                 <h3 className="grade-criteria-header">경력 적합도 등급 기준 *</h3>
@@ -661,6 +543,124 @@ export default function JobConfigForm({
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 필수 요구사항 */}
+        <div className="form-group">
+          <label className="form-label">필수 요구사항</label>
+          <p className="field-hint">반드시 충족해야 하는 요구사항을 작성하세요.</p>
+          <textarea
+            className="qualifications-input"
+            value={requiredQualifications}
+            onChange={(e) => {
+              setRequiredQualifications(e.target.value);
+            }}
+            onBlur={(e) => {
+              setRequiredQualifications(e.target.value.trim());
+            }}
+            placeholder="예: 5년 이상의 개발 경력, 대학 졸업 이상의 학력 등"
+            rows={4}
+          />
+        </div>
+
+        {/* 우대 사항 */}
+        <div className="form-group">
+          <label className="form-label">우대 사항</label>
+          <p className="field-hint">있으면 좋은 우대 사항을 작성하세요.</p>
+          <textarea
+            className="qualifications-input"
+            value={preferredQualifications}
+            onChange={(e) => {
+              setPreferredQualifications(e.target.value);
+            }}
+            onBlur={(e) => {
+              setPreferredQualifications(e.target.value.trim());
+            }}
+            placeholder="예: 대학원 졸업, 특정 자격증 보유, 특정 기술 스택 경험 등"
+            rows={4}
+          />
+        </div>
+
+        {/* 필수 자격증 */}
+        <div className="form-group">
+          <label className="form-label">필수 자격증</label>
+          <p className="field-hint">자격증을 검색하여 필수 자격증으로 추가할 수 있습니다.</p>
+          <div className="cert-search-wrapper">
+            <input
+              type="text"
+              className="cert-search-input"
+              placeholder="자격증명을 검색하세요"
+              value={certSearchQuery}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                setCertSearchQuery(newValue);
+                handleCertSearch(newValue);
+              }}
+              onFocus={() => {
+                if (certSearchQuery.trim().length > 0) {
+                  handleCertSearch(certSearchQuery);
+                }
+              }}
+              onBlur={() => {
+                setTimeout(() => setShowCertDropdown(false), 200);
+              }}
+            />
+            {showCertDropdown && certSearchQuery.trim().length > 0 && (
+              <div className="cert-search-dropdown">
+                {certSearchResults.map((cert, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="cert-search-item"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleAddCertification(cert.name);
+                    }}
+                  >
+                    <div className="cert-search-name">{cert.name}</div>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="cert-search-item"
+                  style={{ borderTop: '1px solid #e5e7eb', fontWeight: '500' }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAddCertification(certSearchQuery.trim());
+                  }}
+                >
+                  <div className="cert-search-name">"{certSearchQuery.trim()}"</div>
+                </button>
+              </div>
+            )}
+            {loadingCerts && (
+              <div className="loading-indicator">자격증 검색 중...</div>
+            )}
+          </div>
+          
+          {requiredCertifications.length > 0 && (
+            <div className="added-required-certs">
+              <div className="certification-list">
+                {requiredCertifications.map((cert, idx) => (
+                  <div key={idx} className="certification-tag required">
+                    {cert}
+                    <button
+                      type="button"
+                      className="cert-remove-btn"
+                      onClick={() => {
+                        setRequiredCertifications(requiredCertifications.filter((_, i) => i !== idx));
+                      }}
+                      title="제거"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           )}
