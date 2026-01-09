@@ -930,7 +930,7 @@ ${resumeText}
           },
           {
             role: 'user',
-            content: userPrompt,
+            content: userPromptText,
           },
         ],
         max_tokens: 2000,
