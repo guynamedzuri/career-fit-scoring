@@ -776,100 +776,119 @@ export default function JobConfigForm({
                   </div>
                   
                   {/* 슬라이더들 */}
-                  {sliders.map((slider, idx) => (
-                    <div
-                      key={idx}
-                      className="weight-bar-slider"
-                      style={{ left: `${slider.position}%` }}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        const barContainer = (e.currentTarget.parentElement as HTMLElement)?.querySelector('.weight-summary-bar') as HTMLElement;
-                        if (!barContainer) return;
-                        
-                        const startX = e.clientX;
-                        const startLeft = slider.position;
-                        const barRect = barContainer.getBoundingClientRect();
-                        const barWidth = barRect.width;
-                        
-                        const handleMouseMove = (moveEvent: MouseEvent) => {
-                          const deltaX = moveEvent.clientX - startX;
-                          const deltaPercent = (deltaX / barWidth) * 100;
-                          const newPosition = Math.max(0, Math.min(100, startLeft + deltaPercent));
+                  {sliders.map((slider, idx) => {
+                    // 왼쪽/오른쪽 항목의 현재 가중치 합 계산
+                    const getLeftSum = () => {
+                      if (slider.leftSegment === 'career') return scoringWeights.career;
+                      if (slider.leftSegment === 'requirements') return scoringWeights.career + scoringWeights.requirements;
+                      if (slider.leftSegment === 'preferred') return scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred;
+                      return 0;
+                    };
+                    
+                    const getRightSum = () => {
+                      if (slider.rightSegment === 'requirements') return scoringWeights.requirements;
+                      if (slider.rightSegment === 'preferred') return scoringWeights.preferred;
+                      if (slider.rightSegment === 'certifications') return scoringWeights.certifications;
+                      return 0;
+                    };
+                    
+                    const leftSum = getLeftSum();
+                    const rightSum = getRightSum();
+                    const totalSum = leftSum + rightSum;
+                    
+                    return (
+                      <div
+                        key={idx}
+                        className="weight-bar-slider"
+                        style={{ left: `${slider.position}%` }}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const barContainer = (e.currentTarget.parentElement as HTMLElement)?.querySelector('.weight-summary-bar') as HTMLElement;
+                          if (!barContainer || totalSum === 0) return;
                           
-                          // 1% 단위로 반올림
-                          const roundedPosition = Math.round(newPosition);
+                          const startX = e.clientX;
+                          const startLeft = slider.position;
+                          const barRect = barContainer.getBoundingClientRect();
+                          const barWidth = barRect.width;
                           
-                          // 양쪽 구간의 비율 조정
-                          const leftPercent = roundedPosition;
-                          const rightPercent = 100 - roundedPosition;
+                          const handleMouseMove = (moveEvent: MouseEvent) => {
+                            const deltaX = moveEvent.clientX - startX;
+                            const deltaPercent = (deltaX / barWidth) * 100;
+                            let newPosition = Math.max(0, Math.min(100, startLeft + deltaPercent));
+                            
+                            // 1% 단위로 반올림
+                            newPosition = Math.round(newPosition);
+                            
+                            // 양쪽 구간의 비율 계산
+                            const leftPercent = newPosition;
+                            const rightPercent = 100 - newPosition;
+                            
+                            // 새로운 가중치 합 계산
+                            const newLeftSum = (totalSum * leftPercent) / 100;
+                            const newRightSum = (totalSum * rightPercent) / 100;
+                            
+                            // 각 항목의 비율 유지하면서 조정
+                            const newWeights = { ...scoringWeights };
+                            
+                            if (slider.leftSegment === 'career') {
+                              newWeights.career = newLeftSum;
+                            } else if (slider.leftSegment === 'requirements') {
+                              const careerRatio = scoringWeights.career / (scoringWeights.career + scoringWeights.requirements);
+                              newWeights.career = newLeftSum * careerRatio;
+                              newWeights.requirements = newLeftSum * (1 - careerRatio);
+                            } else if (slider.leftSegment === 'preferred') {
+                              const prevLeftSum = scoringWeights.career + scoringWeights.requirements;
+                              const careerRatio = scoringWeights.career / prevLeftSum;
+                              const reqRatio = scoringWeights.requirements / prevLeftSum;
+                              newWeights.career = newLeftSum * careerRatio;
+                              newWeights.requirements = newLeftSum * reqRatio;
+                            }
+                            
+                            if (slider.rightSegment === 'requirements') {
+                              newWeights.requirements = newRightSum;
+                            } else if (slider.rightSegment === 'preferred') {
+                              newWeights.preferred = newRightSum;
+                            } else if (slider.rightSegment === 'certifications') {
+                              newWeights.certifications = newRightSum;
+                            }
+                            
+                            // 나머지 항목들도 비율 유지
+                            if (slider.rightSegment === 'preferred' && hasCerts) {
+                              const prevRightSum = scoringWeights.preferred + scoringWeights.certifications;
+                              if (prevRightSum > 0) {
+                                const prefRatio = scoringWeights.preferred / prevRightSum;
+                                const certRatio = scoringWeights.certifications / prevRightSum;
+                                const newRightTotal = newWeights.preferred + newWeights.certifications;
+                                newWeights.preferred = newRightTotal * prefRatio;
+                                newWeights.certifications = newRightTotal * certRatio;
+                              }
+                            } else if (slider.rightSegment === 'certifications' && hasPreferred) {
+                              const prevRightSum = scoringWeights.preferred + scoringWeights.certifications;
+                              if (prevRightSum > 0) {
+                                const prefRatio = scoringWeights.preferred / prevRightSum;
+                                const certRatio = scoringWeights.certifications / prevRightSum;
+                                const newRightTotal = newWeights.preferred + newWeights.certifications;
+                                newWeights.preferred = newRightTotal * prefRatio;
+                                newWeights.certifications = newRightTotal * certRatio;
+                              }
+                            }
+                            
+                            setScoringWeights(newWeights);
+                          };
                           
-                          // 현재 활성화된 항목들의 총합
-                          const activeItems = [
-                            { key: 'career', value: scoringWeights.career, enabled: true },
-                            { key: 'requirements', value: scoringWeights.requirements, enabled: hasRequirements },
-                            { key: 'preferred', value: scoringWeights.preferred, enabled: hasPreferred },
-                            { key: 'certifications', value: scoringWeights.certifications, enabled: hasCerts },
-                          ].filter(item => item.enabled);
+                          const handleMouseUp = () => {
+                            document.removeEventListener('mousemove', handleMouseMove);
+                            document.removeEventListener('mouseup', handleMouseUp);
+                          };
                           
-                          // 슬라이더 기준으로 왼쪽/오른쪽 항목 분류
-                          const leftItems = activeItems.filter((item, i) => {
-                            if (slider.leftSegment === 'career') return i === 0;
-                            if (slider.leftSegment === 'requirements') return i <= 1;
-                            if (slider.leftSegment === 'preferred') return i <= 2;
-                            return false;
-                          });
-                          
-                          const rightItems = activeItems.filter((item, i) => {
-                            if (slider.rightSegment === 'requirements') return i === 1;
-                            if (slider.rightSegment === 'preferred') return i === 2;
-                            if (slider.rightSegment === 'certifications') return i === 3;
-                            return false;
-                          });
-                          
-                          // 왼쪽 항목들의 현재 합
-                          const leftSum = leftItems.reduce((sum, item) => sum + item.value, 0);
-                          // 오른쪽 항목들의 현재 합
-                          const rightSum = rightItems.reduce((sum, item) => sum + item.value, 0);
-                          const totalSum = leftSum + rightSum;
-                          
-                          if (totalSum === 0) return;
-                          
-                          // 새로운 비율에 맞게 조정
-                          const newLeftSum = (totalSum * leftPercent) / 100;
-                          const newRightSum = (totalSum * rightPercent) / 100;
-                          
-                          // 각 항목의 비율 유지하면서 조정
-                          const newWeights = { ...scoringWeights };
-                          
-                          if (leftSum > 0) {
-                            leftItems.forEach(item => {
-                              const ratio = item.value / leftSum;
-                              (newWeights as any)[item.key] = newLeftSum * ratio;
-                            });
-                          }
-                          
-                          if (rightSum > 0) {
-                            rightItems.forEach(item => {
-                              const ratio = item.value / rightSum;
-                              (newWeights as any)[item.key] = newRightSum * ratio;
-                            });
-                          }
-                          
-                          setScoringWeights(newWeights);
-                        };
-                        
-                        const handleMouseUp = () => {
-                          document.removeEventListener('mousemove', handleMouseMove);
-                          document.removeEventListener('mouseup', handleMouseUp);
-                        };
-                        
-                        document.addEventListener('mousemove', handleMouseMove);
-                        document.addEventListener('mouseup', handleMouseUp);
-                      }}
-                    >
-                      <div className="weight-slider-handle"></div>
-                    </div>
-                  ))}
+                          document.addEventListener('mousemove', handleMouseMove);
+                          document.addEventListener('mouseup', handleMouseUp);
+                        }}
+                      >
+                        <div className="weight-slider-handle"></div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })()}
