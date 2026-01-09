@@ -240,6 +240,25 @@ export default function JobConfigForm({
     loadAllCertifications();
   }, []);
 
+  // 불러온 데이터 적용
+  useEffect(() => {
+    if (loadedData?.userPrompt) {
+      const prompt = loadedData.userPrompt;
+      setJobDescription(prompt.jobDescription || '');
+      setRequiredQualifications(prompt.requiredQualifications || '');
+      setPreferredQualifications(prompt.preferredQualifications || '');
+      setRequiredCertifications(prompt.requiredCertifications || []);
+      setGradeCriteria(prompt.gradeCriteria || { 최상: '', 상: '', 중: '', 하: '', 최하: '' });
+      setScoringWeights(prompt.scoringWeights || { career: 1, requirements: 1, preferred: 1, certifications: 1 });
+    }
+    if (loadedData?.selectedFolder) {
+      setSelectedFolder(loadedData.selectedFolder);
+      if (onFolderChange) {
+        onFolderChange(loadedData.selectedFolder);
+      }
+    }
+  }, [loadedData, onFolderChange]);
+
   // 가중치 계산 및 자동 조정
   useEffect(() => {
     const trimmedRequired = requiredQualifications.trim();
