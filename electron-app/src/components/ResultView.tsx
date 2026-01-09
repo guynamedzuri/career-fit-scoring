@@ -417,7 +417,12 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
   // 초기 로드 시 모든 이력서에 대해 AI 분석 실행
   useEffect(() => {
     const runInitialAiAnalysis = async () => {
-      if (!userPrompt || selectedFiles.length === 0 || !window.electron?.aiCheckResume) {
+      if (!userPrompt || userPrompt.trim() === '' || selectedFiles.length === 0 || !window.electron?.aiCheckResume) {
+        console.log('[AI Analysis] Skipping - missing requirements:', {
+          hasUserPrompt: !!userPrompt,
+          hasFiles: selectedFiles.length > 0,
+          hasElectron: !!window.electron?.aiCheckResume,
+        });
         return;
       }
 
@@ -429,15 +434,28 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       );
 
       if (needsAnalysis.length === 0) {
+        console.log('[AI Analysis] No files need analysis');
         return;
       }
 
+      console.log(`[AI Analysis] Starting analysis for ${needsAnalysis.length} files`);
       setAiProcessing(true);
       try {
         const aiPromises = needsAnalysis.map(async (result) => {
           try {
+            if (!result.applicationData) {
+              console.warn(`[AI Analysis] No applicationData for ${result.fileName}`);
+              return {
+                filePath: result.filePath,
+                aiGrade: undefined,
+                aiReport: undefined,
+                aiChecked: false,
+                error: '이력서 데이터가 없습니다',
+              };
+            }
+
             const response = await window.electron!.aiCheckResume({
-              applicationData: result.applicationData || {},
+              applicationData: result.applicationData,
               userPrompt: userPrompt,
               fileName: result.fileName,
             });
