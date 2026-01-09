@@ -29,7 +29,10 @@ interface SavedItem {
 export default function SaveLoadModal({ currentData, onClose, onLoad }: SaveLoadModalProps) {
   const [savedItems, setSavedItems] = useState<SavedItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null);
+  const [showSaveNameModal, setShowSaveNameModal] = useState<boolean>(false);
   const [newItemName, setNewItemName] = useState<string>('');
+  const [editingItem, setEditingItem] = useState<SavedItem | null>(null);
+  const [editingName, setEditingName] = useState<string>('');
 
   useEffect(() => {
     loadSavedItems();
@@ -38,6 +41,11 @@ export default function SaveLoadModal({ currentData, onClose, onLoad }: SaveLoad
   const loadSavedItems = () => {
     const items = JSON.parse(localStorage.getItem('jobConfigSaves') || '[]');
     setSavedItems(items);
+  };
+
+  const handleSaveClick = () => {
+    setNewItemName('');
+    setShowSaveNameModal(true);
   };
 
   const handleSave = () => {
@@ -63,8 +71,53 @@ export default function SaveLoadModal({ currentData, onClose, onLoad }: SaveLoad
     localStorage.setItem('jobConfigSaves', JSON.stringify(updatedItems));
     
     setNewItemName('');
+    setShowSaveNameModal(false);
     loadSavedItems();
     alert('저장되었습니다.');
+  };
+
+  const handleEditClick = (item: SavedItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (item.isAutoSave) {
+      alert('자동저장 항목은 수정할 수 없습니다.');
+      return;
+    }
+    setEditingItem(item);
+    setEditingName(item.name);
+  };
+
+  const handleEditSave = () => {
+    if (!editingName.trim()) {
+      alert('이름을 입력해주세요.');
+      return;
+    }
+
+    if (!editingItem) return;
+
+    const items = JSON.parse(localStorage.getItem('jobConfigSaves') || '[]');
+    const updatedItems = items.map((item: SavedItem) => {
+      if (item.name === editingItem.name && item.timestamp === editingItem.timestamp) {
+        return {
+          ...item,
+          name: editingName.trim(),
+        };
+      }
+      return item;
+    });
+    
+    localStorage.setItem('jobConfigSaves', JSON.stringify(updatedItems));
+    loadSavedItems();
+    setEditingItem(null);
+    setEditingName('');
+    if (selectedItem && selectedItem.name === editingItem.name && selectedItem.timestamp === editingItem.timestamp) {
+      setSelectedItem({ ...selectedItem, name: editingName.trim() });
+    }
+    alert('수정되었습니다.');
+  };
+
+  const handleEditCancel = () => {
+    setEditingItem(null);
+    setEditingName('');
   };
 
   const handleLoad = () => {
@@ -155,7 +208,22 @@ export default function SaveLoadModal({ currentData, onClose, onLoad }: SaveLoad
                 >
                   <div className="saved-item-name">
                     {item.isAutoSave && <span className="auto-save-badge">자동저장</span>}
-                    {item.name}
+                    {editingItem?.name === item.name && editingItem?.timestamp === item.timestamp ? (
+                      <span>{item.name}</span>
+                    ) : (
+                      <>
+                        <span>{item.name}</span>
+                        {!item.isAutoSave && (
+                          <button
+                            className="saved-item-edit-btn"
+                            onClick={(e) => handleEditClick(item, e)}
+                            title="이름 수정"
+                          >
+                            ✎
+                          </button>
+                        )}
+                      </>
+                    )}
                   </div>
                   <div className="saved-item-date">{formatDate(item.timestamp)}</div>
                 </div>
@@ -170,22 +238,10 @@ export default function SaveLoadModal({ currentData, onClose, onLoad }: SaveLoad
             <div className="save-load-actions">
               <button
                 className="save-load-action-btn save-btn"
-                onClick={handleSave}
+                onClick={handleSaveClick}
               >
                 저장하기
               </button>
-              <input
-                type="text"
-                className="save-name-input"
-                placeholder="저장할 이름을 입력하세요"
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSave();
-                  }
-                }}
-              />
               <button
                 className="save-load-action-btn load-btn"
                 onClick={handleLoad}
@@ -209,6 +265,79 @@ export default function SaveLoadModal({ currentData, onClose, onLoad }: SaveLoad
               </button>
             </div>
           </div>
+        </div>
+        
+        {showSaveNameModal && (
+          <div className="save-name-modal-overlay" onClick={() => setShowSaveNameModal(false)}>
+            <div className="save-name-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="save-name-modal-header">
+                <h3>저장할 이름을 입력하세요</h3>
+                <button className="save-name-modal-close" onClick={() => setShowSaveNameModal(false)}>×</button>
+              </div>
+              <div className="save-name-modal-content">
+                <input
+                  type="text"
+                  className="save-name-input"
+                  placeholder="저장할 이름을 입력하세요"
+                  value={newItemName}
+                  onChange={(e) => setNewItemName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSave();
+                    } else if (e.key === 'Escape') {
+                      setShowSaveNameModal(false);
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+              <div className="save-name-modal-footer">
+                <button className="save-name-cancel-btn" onClick={() => setShowSaveNameModal(false)}>
+                  취소
+                </button>
+                <button className="save-name-confirm-btn" onClick={handleSave}>
+                  저장
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {editingItem && (
+          <div className="save-name-modal-overlay" onClick={handleEditCancel}>
+            <div className="save-name-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="save-name-modal-header">
+                <h3>이름 수정</h3>
+                <button className="save-name-modal-close" onClick={handleEditCancel}>×</button>
+              </div>
+              <div className="save-name-modal-content">
+                <input
+                  type="text"
+                  className="save-name-input"
+                  placeholder="이름을 입력하세요"
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleEditSave();
+                    } else if (e.key === 'Escape') {
+                      handleEditCancel();
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+              <div className="save-name-modal-footer">
+                <button className="save-name-cancel-btn" onClick={handleEditCancel}>
+                  취소
+                </button>
+                <button className="save-name-confirm-btn" onClick={handleEditSave}>
+                  저장
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         </div>
       </div>
     </div>
