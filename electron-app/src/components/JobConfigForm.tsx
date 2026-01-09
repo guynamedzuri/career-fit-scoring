@@ -968,15 +968,20 @@ export default function JobConfigForm({
                           const handleMouseMove = (moveEvent: MouseEvent) => {
                             const deltaX = moveEvent.clientX - startX;
                             const deltaPercent = (deltaX / barWidth) * 100;
-                            let newPosition = Math.max(0, Math.min(100, startLeft + deltaPercent));
+                            let newPosition = startLeft + deltaPercent;
                             
-                            // 1% 단위로 반올림
+                            // 1% 단위로 반올림 (1% 단위로만 이동)
                             newPosition = Math.round(newPosition);
                             
                             // 최소 1% 제한 (인접한 두 구간 각각 최소 1%)
                             const minPercent = 1;
                             const maxPercent = 100 - minPercent;
                             newPosition = Math.max(minPercent, Math.min(maxPercent, newPosition));
+                            
+                            // 이전 위치와 같으면 업데이트하지 않음 (1% 단위로만 이동)
+                            if (newPosition === Math.round(startLeft)) {
+                              return;
+                            }
                             
                             // 인접한 두 구간의 새로운 비율 계산
                             const leftPercent = newPosition;
