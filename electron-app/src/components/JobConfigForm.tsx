@@ -561,7 +561,7 @@ export default function JobConfigForm({
                   onBlur={(e) => {
                     setJobDescription(e.target.value.trim());
                   }}
-                  placeholder="예: React/TypeScript를 사용한 프론트엔드 개발, RESTful API 설계 및 개발, AWS 클라우드 인프라 관리 등"
+                              placeholder="예: 일반프레스 (40~80톤) 설비 양산 운영 경험, 금형셋업 및 타발 업무, 자주검사 및 포장, 룸램프, RY TERMINAL, AMATEUR 터미널, F CONTACTOR ASSY 등 양산 경험 보유"
                   rows={6}
                 />
               </div>
