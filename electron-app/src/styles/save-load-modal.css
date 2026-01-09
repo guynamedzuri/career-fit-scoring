@@ -159,56 +159,58 @@
 
 .save-load-action-btn:hover:not(:disabled) {
   background: #f9fafb;
-  border-color: #d1d5db;
 }
 
 .save-load-action-btn:disabled {
-  opacity: 0.5;
+  background: #f3f4f6;
+  color: #9ca3af;
+  border-color: #e5e7eb;
   cursor: not-allowed;
 }
 
 .save-btn {
-  background: #1383ff;
-  color: #fff;
   border-color: #1383ff;
+  color: #1383ff;
 }
 
 .save-btn:hover:not(:disabled) {
-  background: #0d6efd;
-  border-color: #0d6efd;
+  background: #eff6ff;
+  border-color: #1383ff;
 }
 
 .load-btn {
-  background: #10b981;
-  color: #fff;
-  border-color: #10b981;
+  border-color: #1383ff;
+  color: #1383ff;
 }
 
 .load-btn:hover:not(:disabled) {
-  background: #059669;
-  border-color: #059669;
+  background: #eff6ff;
+  border-color: #1383ff;
 }
 
 .overwrite-btn {
-  background: #f59e0b;
-  color: #fff;
-  border-color: #f59e0b;
+  border-color: #1383ff;
+  color: #1383ff;
 }
 
 .overwrite-btn:hover:not(:disabled) {
-  background: #d97706;
-  border-color: #d97706;
+  background: #eff6ff;
+  border-color: #1383ff;
 }
 
 .delete-btn {
-  background: #ef4444;
-  color: #fff;
   border-color: #ef4444;
+  color: #ef4444;
 }
 
 .delete-btn:hover:not(:disabled) {
-  background: #dc2626;
-  border-color: #dc2626;
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
+.delete-btn:disabled {
+  border-color: #e5e7eb;
+  color: #9ca3af;
 }
 
 .saved-item-name {
