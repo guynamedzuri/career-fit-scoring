@@ -86,6 +86,110 @@
   background-color: #05193a;
 }
 
+/* 구분선 */
+.form-divider {
+  width: 80%;
+  height: 1px;
+  background: #e5e7eb;
+  margin: 2rem auto;
+}
+
+/* 적합도 평가 기준 섹션 */
+.evaluation-criteria-section {
+  margin-top: 1.5rem;
+}
+
+.evaluation-criteria-header {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 1.5rem 0;
+}
+
+/* 업무 내용 */
+.job-description-wrapper {
+  margin-bottom: 2rem;
+}
+
+.job-description-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease;
+  min-height: 150px;
+}
+
+.job-description-input:focus {
+  border-color: #1383ff;
+  box-shadow: 0 0 0 3px rgba(19, 131, 255, 0.1);
+}
+
+.job-description-wrapper.error .job-description-input {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.job-description-wrapper.error .job-description-input:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+}
+
+/* 경력 적합도 등급 기준 섹션 */
+.grade-criteria-section {
+  margin-top: 2rem;
+}
+
+.grade-criteria-header {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 0.5rem 0;
+}
+
+.grade-criteria-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.grade-criteria-item {
+  margin-bottom: 0;
+}
+
+.grade-criteria-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease;
+  min-height: 80px;
+}
+
+.grade-criteria-input:focus {
+  border-color: #1383ff;
+  box-shadow: 0 0 0 3px rgba(19, 131, 255, 0.1);
+}
+
+.grade-criteria-item.error .grade-criteria-input {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.grade-criteria-item.error .grade-criteria-input:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+}
+
 /* 직종 검색 */
 .job-search-wrapper {
   position: relative;

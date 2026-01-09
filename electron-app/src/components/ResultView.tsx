@@ -30,7 +30,16 @@ interface ScoringResult {
 
 interface ResultViewProps {
   selectedFiles: DocxFile[];
-  userPrompt: string;
+  userPrompt: {
+    jobDescription: string;
+    gradeCriteria: {
+      최상: string;
+      상: string;
+      중: string;
+      하: string;
+      최하: string;
+    };
+  };
   selectedFolder: string; // 캐시를 위해 폴더 경로 필요
   onBack: () => void;
 }
