@@ -1,7 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
-// career-fit-scoring 모듈 import
-import { searchJobs, getJobDetail, searchCertifications } from 'career-fit-scoring';
-import { parseOfficialCertificates, parseAdditionalNationalCertificates, ADDITIONAL_NATIONAL_CERTIFICATES } from 'career-fit-scoring';
+import { useState, useEffect } from 'react';
 import '../styles/job-config-form.css';
 
 // Electron API 타입
@@ -9,30 +6,19 @@ declare global {
   interface Window {
     electron?: {
       selectFolder: () => Promise<string | null>;
-      qnetSearchCertifications: () => Promise<string[]>;
-      readOfficialCertificates: () => Promise<string | null>;
     };
   }
-}
-
-interface CareerNetJob {
-  job: string;
-  jobdicSeq: string;
-  aptd_type_code?: string;
-  summary?: string;
-  similarJob?: string;
-  displayName?: string;
 }
 
 interface JobConfigFormProps {
   validationErrors?: {
     folder?: boolean;
-    job?: boolean;
+    userPrompt?: boolean;
   };
-  setValidationErrors?: (errors: { folder?: boolean; job?: boolean }) => void;
+  setValidationErrors?: (errors: { folder?: boolean; userPrompt?: boolean }) => void;
   selectedFolder?: string;
   onFolderChange?: (folderPath: string) => void;
-  onJobMetadataChange?: (metadata: any) => void;
+  onUserPromptChange?: (prompt: string) => void;
   onExecute?: () => void;
 }
 
@@ -41,34 +27,11 @@ export default function JobConfigForm({
   setValidationErrors,
   selectedFolder: propSelectedFolder,
   onFolderChange,
-  onJobMetadataChange,
+  onUserPromptChange,
   onExecute 
 }: JobConfigFormProps) {
   const [selectedFolder, setSelectedFolder] = useState<string>(propSelectedFolder || '');
-  const [jobSearchQuery, setJobSearchQuery] = useState('');
-  const [jobSearchResults, setJobSearchResults] = useState<CareerNetJob[]>([]);
-  const [showJobDropdown, setShowJobDropdown] = useState(false);
-  const [selectedJob, setSelectedJob] = useState<CareerNetJob | null>(null);
-  const [loadingJobDetail, setLoadingJobDetail] = useState(false);
-  const [loadingAllJobs, setLoadingAllJobs] = useState(false);
-  
-  const allJobsCacheRef = useRef<CareerNetJob[] | null>(null);
-  
-  const [certSearchQuery, setCertSearchQuery] = useState('');
-  const [certSearchResults, setCertSearchResults] = useState<Array<{ name: string; code?: string }>>([]);
-  const [showCertDropdown, setShowCertDropdown] = useState(false);
-  const [loadingCerts, setLoadingCerts] = useState(false);
-  
-  const allCertsCacheRef = useRef<Array<{ name: string; code?: string }> | null>(null);
-  
-  const [requiredCertifications, setRequiredCertifications] = useState<string[]>([]);
-  const [relatedCertifications, setRelatedCertifications] = useState<string[]>([]);
-  
-  const [scoringWeights, setScoringWeights] = useState({
-    certification: 1,
-    career: 1,
-    education: 1,
-  });
+  const [userPrompt, setUserPrompt] = useState<string>('');
 
   // 전체 job 데이터 로드
   const loadAllJobs = async (): Promise<CareerNetJob[]> => {
@@ -519,7 +482,7 @@ export default function JobConfigForm({
 
   // 필수 입력 검증 및 실행
   const handleExecuteClick = () => {
-    const errors: { folder?: boolean; job?: boolean } = {};
+    const errors: { folder?: boolean; userPrompt?: boolean } = {};
     let hasError = false;
 
     // 이력서 폴더 검증
@@ -528,9 +491,9 @@ export default function JobConfigForm({
       hasError = true;
     }
 
-    // 채용 직종 검증
-    if (!selectedJob) {
-      errors.job = true;
+    // 사용자 프롬프트 검증
+    if (!userPrompt || userPrompt.trim() === '') {
+      errors.userPrompt = true;
       hasError = true;
     }
 
@@ -545,28 +508,18 @@ export default function JobConfigForm({
         if (folderElement) {
           folderElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-      } else if (errors.job) {
-        const jobElement = document.querySelector('.job-search-wrapper, .selected-job-display');
-        if (jobElement) {
-          jobElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else if (errors.userPrompt) {
+        const promptElement = document.querySelector('.user-prompt-wrapper');
+        if (promptElement) {
+          promptElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }
       return;
     }
 
-    // jobMetadata 구성
-    const metadata = {
-      jobdicSeq: selectedJob?.jobdicSeq,
-      jobAptdCode: selectedJob?.aptd_type_code,
-      requiredCertifications: requiredCertifications,
-      relatedCertifications: relatedCertifications,
-      relatedMajors: [], // TODO: 학과 정보 추가 필요
-      scoringWeights: scoringWeights,
-    };
-
-    // jobMetadata 전달
-    if (onJobMetadataChange) {
-      onJobMetadataChange(metadata);
+    // userPrompt 전달
+    if (onUserPromptChange) {
+      onUserPromptChange(userPrompt);
     }
 
     // 모든 검증 통과 시 실행
@@ -585,7 +538,14 @@ export default function JobConfigForm({
       delete (window as any).__handleJobConfigExecute;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFolder, selectedJob, validationErrors, onExecute]);
+  }, [selectedFolder, userPrompt, validationErrors, onExecute]);
+
+  // userPrompt 변경 시 상위 컴포넌트에 전달
+  useEffect(() => {
+    if (onUserPromptChange) {
+      onUserPromptChange(userPrompt);
+    }
+  }, [userPrompt, onUserPromptChange]);
 
   return (
     <div className="job-config-form">
@@ -612,301 +572,22 @@ export default function JobConfigForm({
           </div>
         </div>
 
-        {/* 채용 직종 선택 */}
-        <div className={`form-group ${validationErrors.job ? 'error' : ''}`}>
-          <label className="form-label">채용 직종 *</label>
-          <p className="field-hint">직종을 선택하면 관련 자격증이 자동으로 불러와집니다.</p>
-          
-          {selectedJob && (
-            <>
-              <div className="selected-job-display">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: 1 }}>
-                  <span className="selected-job-name">{selectedJob.displayName || selectedJob.job}</span>
-                  {selectedJob.summary && (
-                    <span className="selected-job-summary">{selectedJob.summary}</span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="selected-job-remove"
-                  onClick={() => {
-                    setSelectedJob(null);
-                    setJobSearchQuery('');
-                    setRelatedCertifications([]);
-                  }}
-                  title="직종 선택 해제"
-                >
-                  ×
-                </button>
-              </div>
-              {relatedCertifications.length > 0 && (
-                <div className="related-certs-under-job">
-                  <label className="form-label">관련 자격증 목록</label>
-                  <div className="certification-list">
-                    {relatedCertifications.map((cert, idx) => (
-                      <div key={idx} className="certification-tag">
-                        {cert}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-          
-          {!selectedJob && (
-            <div className={`job-search-wrapper ${validationErrors.job ? 'error' : ''}`}>
-              <input
-                type="text"
-                className="job-search-input"
-                placeholder="직업명을 입력하세요 (예: 소프트웨어 개발자, 회계사)"
-                value={jobSearchQuery}
-                onChange={(e) => {
-                  setJobSearchQuery(e.target.value);
-                  handleJobSearch(e.target.value);
-                  setShowJobDropdown(true);
-                }}
-                onFocus={() => {
-                  if (jobSearchQuery.length >= 1) {
-                    setShowJobDropdown(true);
-                  }
-                }}
-                onBlur={() => {
-                  setTimeout(() => setShowJobDropdown(false), 200);
-                }}
-              />
-              {showJobDropdown && jobSearchResults.length > 0 && (
-                <div className="job-search-dropdown">
-                  {jobSearchResults.map((job, idx) => {
-                    const similarJobs: string[] = job.similarJob
-                      ? String(job.similarJob)
-                          .split(/,\s*/)
-                          .map(s => s.trim())
-                          .filter(s => s.length > 0)
-                      : [];
-                    
-                    return (
-                      <button
-                        key={`${job.jobdicSeq}-${idx}`}
-                        type="button"
-                        className="job-search-item"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          handleJobSelect(job);
-                        }}
-                      >
-                        <div className="job-search-name">
-                          {highlightText(job.job, jobSearchQuery)}
-                        </div>
-                        {similarJobs.length > 0 && (
-                          <div className="job-search-similar">
-                            {similarJobs.map((simJob, simIdx) => (
-                              <span key={simIdx} className="similar-job-tag">
-                                {highlightText(simJob, jobSearchQuery)}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {loadingAllJobs && (
-                <div className="loading-indicator">전체 직업 데이터를 불러오는 중...</div>
-              )}
-              {loadingJobDetail && (
-                <div className="loading-indicator">관련 자격증 정보를 불러오는 중...</div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* 필수 자격증 추가 */}
-        <div className="form-group">
-          <label className="form-label">필수 자격증 추가</label>
-          <p className="field-hint">
-            자격증을 검색하여 필수 자격증으로 추가할 수 있습니다.
-          </p>
-          <div className="cert-search-wrapper">
-            <input
-              type="text"
-              className="cert-search-input"
-              placeholder="자격증명을 검색하세요"
-              value={certSearchQuery}
-              onChange={(e) => {
-                const newValue = e.target.value;
-                setCertSearchQuery(newValue);
-                handleCertSearch(newValue);
-              }}
-              onFocus={() => {
-                if (certSearchQuery.trim().length > 0) {
-                  handleCertSearch(certSearchQuery);
-                }
-              }}
-              onBlur={() => {
-                setTimeout(() => setShowCertDropdown(false), 200);
-              }}
-            />
-            {showCertDropdown && certSearchQuery.trim().length > 0 && (
-              <div className="cert-search-dropdown">
-                {certSearchResults.map((cert, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    className="cert-search-item"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleAddCertification(cert.name);
-                    }}
-                  >
-                    <div className="cert-search-name">{cert.name}</div>
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className="cert-search-item"
-                  style={{ borderTop: '1px solid #e5e7eb', fontWeight: '500' }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleAddCertification(certSearchQuery.trim());
-                  }}
-                >
-                  <div className="cert-search-name">"{certSearchQuery.trim()}"</div>
-                </button>
-              </div>
-            )}
-            {loadingCerts && (
-              <div className="loading-indicator">자격증 검색 중...</div>
-            )}
-          </div>
-          
-          {requiredCertifications.length > 0 && (
-            <div className="added-required-certs">
-              <label className="form-label">추가된 필수 자격증</label>
-              <div className="certification-list">
-                {requiredCertifications.map((cert, idx) => (
-                  <div key={idx} className="certification-tag required">
-                    {cert}
-                    <button
-                      type="button"
-                      className="cert-remove-btn"
-                      onClick={() => {
-                        setRequiredCertifications(requiredCertifications.filter((_, i) => i !== idx));
-                      }}
-                      title="제거"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 평가 점수 비중 설정 */}
-        <div className="form-group">
-          <label className="form-label">평가 점수 비중 설정</label>
-          <p className="field-hint">
-            각 평가 항목의 비중을 설정하세요. 비중에 따라 최종 점수가 계산됩니다.
-          </p>
-          
-          {/* 비중 시각화 바 */}
-          {totalWeight > 0 ? (
-            <div className="weight-summary-bar">
-              {certPercent > 0 && (
-                <div 
-                  className="weight-bar-segment weight-bar-cert" 
-                  style={{ width: `${certPercent}%` }}
-                >
-                  <span className="weight-bar-label">{certPercent.toFixed(1)}%</span>
-                </div>
-              )}
-              {careerPercent > 0 && (
-                <div 
-                  className="weight-bar-segment weight-bar-career" 
-                  style={{ width: `${careerPercent}%` }}
-                >
-                  <span className="weight-bar-label">{careerPercent.toFixed(1)}%</span>
-                </div>
-              )}
-              {eduPercent > 0 && (
-                <div 
-                  className="weight-bar-segment weight-bar-edu" 
-                  style={{ width: `${eduPercent}%` }}
-                >
-                  <span className="weight-bar-label">{eduPercent.toFixed(1)}%</span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="weight-summary-bar">
-              <div className="weight-bar-empty">비중을 설정해주세요</div>
-            </div>
-          )}
-          
-          <div className="scoring-weights">
-            <div className="weight-item">
-              <label htmlFor="weight-cert">자격증</label>
-              <input
-                id="weight-cert"
-                type="number"
-                min="0"
-                step="0.1"
-                value={scoringWeights.certification}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value) || 0;
-                  setScoringWeights(prev => ({
-                    ...prev,
-                    certification: val,
-                  }));
-                }}
-                className="weight-input"
-              />
-              <span className="weight-desc">자격증 매칭 점수 비중</span>
-            </div>
-            <div className="weight-item">
-              <label htmlFor="weight-career">경력</label>
-              <input
-                id="weight-career"
-                type="number"
-                min="0"
-                step="0.1"
-                value={scoringWeights.career}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value) || 0;
-                  setScoringWeights(prev => ({
-                    ...prev,
-                    career: val,
-                  }));
-                }}
-                className="weight-input"
-              />
-              <span className="weight-desc">경력 점수 비중</span>
-            </div>
-            <div className="weight-item">
-              <label htmlFor="weight-edu">학력</label>
-              <input
-                id="weight-edu"
-                type="number"
-                min="0"
-                step="0.1"
-                value={scoringWeights.education}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value) || 0;
-                  setScoringWeights(prev => ({
-                    ...prev,
-                    education: val,
-                  }));
-                }}
-                className="weight-input"
-              />
-              <span className="weight-desc">학력 점수 비중</span>
-            </div>
-          </div>
+        {/* 사용자 프롬프트 입력 */}
+        <div className={`form-group user-prompt-wrapper ${validationErrors.userPrompt ? 'error' : ''}`}>
+          <label className="form-label">평가 기준 *</label>
+          <p className="field-hint">AI가 이력서를 평가할 기준을 입력하세요.</p>
+          <textarea
+            className="user-prompt-input"
+            value={userPrompt}
+            onChange={(e) => {
+              setUserPrompt(e.target.value);
+              if (setValidationErrors && validationErrors.userPrompt) {
+                setValidationErrors({ ...validationErrors, userPrompt: false });
+              }
+            }}
+            placeholder="예: 5년 이상의 개발 경력, React/TypeScript 경험, 대학 졸업 이상의 학력 등을 우대합니다."
+            rows={6}
+          />
         </div>
       </div>
     </div>

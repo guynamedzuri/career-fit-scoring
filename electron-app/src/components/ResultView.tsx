@@ -30,7 +30,7 @@ interface ScoringResult {
 
 interface ResultViewProps {
   selectedFiles: DocxFile[];
-  jobMetadata: any;
+  userPrompt: string;
   selectedFolder: string; // 캐시를 위해 폴더 경로 필요
   onBack: () => void;
 }
@@ -38,7 +38,7 @@ interface ResultViewProps {
 type SortField = 'name' | 'age' | 'lastCompany' | 'residence' | 'totalScore' | 'aiGrade' | 'status';
 type SortOrder = 'asc' | 'desc';
 
-export default function ResultView({ selectedFiles, jobMetadata, selectedFolder, onBack }: ResultViewProps) {
+export default function ResultView({ selectedFiles, userPrompt, selectedFolder, onBack }: ResultViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('totalScore');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -414,50 +414,57 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
     });
   };
 
-  // AI 검사 실행
-  const handleAiCheck = async () => {
-    if (selectedCandidates.size === 0 || aiProcessing || !window.electron?.aiCheckResume) return;
+  // 초기 로드 시 모든 이력서에 대해 AI 분석 실행
+  useEffect(() => {
+    const runInitialAiAnalysis = async () => {
+      if (!userPrompt || selectedFiles.length === 0 || !window.electron?.aiCheckResume) {
+        return;
+      }
 
-    const selectedResults = results.filter(r => selectedCandidates.has(r.filePath));
-    if (selectedResults.length === 0) return;
+      // 이미 AI 분석이 완료된 파일이 있는지 확인
+      const needsAnalysis = results.filter(r => 
+        r.status === 'completed' && 
+        r.applicationData && 
+        !r.aiChecked
+      );
 
-    setAiProcessing(true);
+      if (needsAnalysis.length === 0) {
+        return;
+      }
 
-    try {
-      // 여러 개를 동시에 처리 (Promise.all 사용)
-      // API 제한이 있으면 순차 처리로 변경 가능
-      const aiPromises = selectedResults.map(async (result) => {
-        try {
-          // 실제 AI API 호출
-          const response = await window.electron!.aiCheckResume({
-            applicationData: result.applicationData || {},
-            jobMetadata: jobMetadata || {},
-            fileName: result.fileName,
-          });
+      setAiProcessing(true);
+      try {
+        const aiPromises = needsAnalysis.map(async (result) => {
+          try {
+            const response = await window.electron!.aiCheckResume({
+              applicationData: result.applicationData || {},
+              userPrompt: userPrompt,
+              fileName: result.fileName,
+            });
 
-          if (response.success && response.grade && response.report) {
+            if (response.success && response.grade && response.report) {
+              return {
+                filePath: result.filePath,
+                aiGrade: response.grade,
+                aiReport: response.report,
+                aiChecked: true,
+              };
+            } else {
+              throw new Error(response.error || 'AI 분석 실패');
+            }
+          } catch (error) {
+            console.error(`[AI Analysis] Error for ${result.filePath}:`, error);
             return {
               filePath: result.filePath,
-              aiGrade: response.grade,
-              aiReport: response.report,
-              aiChecked: true,
+              aiGrade: undefined,
+              aiReport: undefined,
+              aiChecked: false,
+              error: error instanceof Error ? error.message : 'AI 분석 실패',
             };
-          } else {
-            throw new Error(response.error || 'AI 검사 실패');
           }
-        } catch (error) {
-          console.error(`[AI Check] Error for ${result.filePath}:`, error);
-          return {
-            filePath: result.filePath,
-            aiGrade: undefined,
-            aiReport: undefined,
-            aiChecked: false,
-            error: error instanceof Error ? error.message : 'AI 검사 실패',
-          };
-        }
-      });
+        });
 
-      const aiResults = await Promise.all(aiPromises);
+        const aiResults = await Promise.all(aiPromises);
 
       // 결과를 results에 반영
       setResults(prevResults =>
@@ -629,14 +636,6 @@ export default function ResultView({ selectedFiles, jobMetadata, selectedFolder,
           title="선택된 후보자 상태 이동"
         >
           상태 이동
-        </button>
-        <button 
-          className="ai-check-btn"
-          onClick={handleAiCheck}
-          disabled={selectedCandidates.size === 0 || aiProcessing}
-          title="선택된 후보자 AI 검사"
-        >
-          {aiProcessing ? 'AI 검사 중...' : 'AI 검사'}
         </button>
       </div>
 

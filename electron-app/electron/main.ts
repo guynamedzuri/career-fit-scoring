@@ -862,7 +862,7 @@ ipcMain.handle('read-official-certificates', async () => {
 // Azure OpenAI API 호출 IPC 핸들러
 ipcMain.handle('ai-check-resume', async (event, data: {
   applicationData: any;
-  jobMetadata: any;
+  userPrompt: string;
   fileName: string;
 }) => {
   try {
