@@ -266,80 +266,79 @@ export default function SaveLoadModal({ currentData, onClose, onLoad }: SaveLoad
             </div>
           </div>
         </div>
-        
-        {showSaveNameModal && (
-          <div className="save-name-modal-overlay" onClick={() => setShowSaveNameModal(false)}>
-            <div className="save-name-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="save-name-modal-header">
-                <h3>저장할 이름을 입력하세요</h3>
-                <button className="save-name-modal-close" onClick={() => setShowSaveNameModal(false)}>×</button>
-              </div>
-              <div className="save-name-modal-content">
-                <input
-                  type="text"
-                  className="save-name-input"
-                  placeholder="저장할 이름을 입력하세요"
-                  value={newItemName}
-                  onChange={(e) => setNewItemName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleSave();
-                    } else if (e.key === 'Escape') {
-                      setShowSaveNameModal(false);
-                    }
-                  }}
-                  autoFocus
-                />
-              </div>
-              <div className="save-name-modal-footer">
-                <button className="save-name-cancel-btn" onClick={() => setShowSaveNameModal(false)}>
-                  취소
-                </button>
-                <button className="save-name-confirm-btn" onClick={handleSave}>
-                  저장
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {editingItem && (
-          <div className="save-name-modal-overlay" onClick={handleEditCancel}>
-            <div className="save-name-modal" onClick={(e) => e.stopPropagation()}>
-              <div className="save-name-modal-header">
-                <h3>이름 수정</h3>
-                <button className="save-name-modal-close" onClick={handleEditCancel}>×</button>
-              </div>
-              <div className="save-name-modal-content">
-                <input
-                  type="text"
-                  className="save-name-input"
-                  placeholder="이름을 입력하세요"
-                  value={editingName}
-                  onChange={(e) => setEditingName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      handleEditSave();
-                    } else if (e.key === 'Escape') {
-                      handleEditCancel();
-                    }
-                  }}
-                  autoFocus
-                />
-              </div>
-              <div className="save-name-modal-footer">
-                <button className="save-name-cancel-btn" onClick={handleEditCancel}>
-                  취소
-                </button>
-                <button className="save-name-confirm-btn" onClick={handleEditSave}>
-                  저장
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        </div>
       </div>
+      
+      {showSaveNameModal && (
+        <div className="save-name-modal-overlay" onClick={() => setShowSaveNameModal(false)}>
+          <div className="save-name-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="save-name-modal-header">
+              <h3>저장할 이름을 입력하세요</h3>
+              <button className="save-name-modal-close" onClick={() => setShowSaveNameModal(false)}>×</button>
+            </div>
+            <div className="save-name-modal-content">
+              <input
+                type="text"
+                className="save-name-input"
+                placeholder="저장할 이름을 입력하세요"
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSave();
+                  } else if (e.key === 'Escape') {
+                    setShowSaveNameModal(false);
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="save-name-modal-footer">
+              <button className="save-name-cancel-btn" onClick={() => setShowSaveNameModal(false)}>
+                취소
+              </button>
+              <button className="save-name-confirm-btn" onClick={handleSave}>
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingItem && (
+        <div className="save-name-modal-overlay" onClick={handleEditCancel}>
+          <div className="save-name-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="save-name-modal-header">
+              <h3>이름 수정</h3>
+              <button className="save-name-modal-close" onClick={handleEditCancel}>×</button>
+            </div>
+            <div className="save-name-modal-content">
+              <input
+                type="text"
+                className="save-name-input"
+                placeholder="이름을 입력하세요"
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleEditSave();
+                  } else if (e.key === 'Escape') {
+                    handleEditCancel();
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="save-name-modal-footer">
+              <button className="save-name-cancel-btn" onClick={handleEditCancel}>
+                취소
+              </button>
+              <button className="save-name-confirm-btn" onClick={handleEditSave}>
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
