@@ -58,15 +58,17 @@ interface JobConfigFormProps {
     };
   }) => void;
   onExecute?: () => void;
+  loadedData?: any;
 }
 
 export default function JobConfigForm({ 
   validationErrors = {}, 
-  setValidationErrors,
+  setValidationErrors, 
   selectedFolder: propSelectedFolder,
-  onFolderChange,
-  onUserPromptChange,
-  onExecute 
+  onFolderChange, 
+  onUserPromptChange, 
+  onExecute,
+  loadedData
 }: JobConfigFormProps) {
   const [selectedFolder, setSelectedFolder] = useState<string>(propSelectedFolder || '');
   const [jobDescription, setJobDescription] = useState<string>('');

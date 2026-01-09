@@ -18,6 +18,7 @@ function App() {
   const [jobMetadata, setJobMetadata] = useState<any>(null);
   const [showSaveLoadModal, setShowSaveLoadModal] = useState<boolean>(false);
   const [userPrompt, setUserPrompt] = useState<any>(null);
+  const [loadedData, setLoadedData] = useState<any>(null);
 
   const handleExecute = () => {
     // JobConfigForm의 검증 함수 호출
@@ -94,6 +95,7 @@ function App() {
               onJobMetadataChange={setJobMetadata}
               onUserPromptChange={setUserPrompt}
               onExecute={handleConfigExecute}
+              loadedData={loadedData}
             />
           </div>
           <div className="app-right-panel">
@@ -129,6 +131,7 @@ function App() {
           }}
           onClose={() => setShowSaveLoadModal(false)}
           onLoad={(data) => {
+            setLoadedData(data);
             setSelectedFolder(data.selectedFolder || '');
             setUserPrompt(data.userPrompt || null);
             setSelectedFiles(data.selectedFiles || []);
