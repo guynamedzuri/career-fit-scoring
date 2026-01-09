@@ -855,7 +855,7 @@ export default function JobConfigForm({
                         className="weight-bar-segment weight-bar-career" 
                         style={{ width: `${careerPercent}%` }}
                       >
-                        <span className="weight-bar-label">경력 {Math.round(careerPercent)}%</span>
+                        <span className="weight-bar-label">경력 {careerPercent.toFixed(1)}%</span>
                       </div>
                     )}
                     {hasRequirements && requirementsPercent > 0 && (
@@ -863,7 +863,7 @@ export default function JobConfigForm({
                         className="weight-bar-segment weight-bar-requirements" 
                         style={{ width: `${requirementsPercent}%` }}
                       >
-                        <span className="weight-bar-label">요구사항 {Math.round(requirementsPercent)}%</span>
+                        <span className="weight-bar-label">요구사항 {requirementsPercent.toFixed(1)}%</span>
                       </div>
                     )}
                     {hasPreferred && preferredPercent > 0 && (
@@ -871,7 +871,7 @@ export default function JobConfigForm({
                         className="weight-bar-segment weight-bar-preferred" 
                         style={{ width: `${preferredPercent}%` }}
                       >
-                        <span className="weight-bar-label">우대사항 {Math.round(preferredPercent)}%</span>
+                        <span className="weight-bar-label">우대사항 {preferredPercent.toFixed(1)}%</span>
                       </div>
                     )}
                     {hasCerts && certsPercent > 0 && (
@@ -879,205 +879,106 @@ export default function JobConfigForm({
                         className="weight-bar-segment weight-bar-cert" 
                         style={{ width: `${certsPercent}%` }}
                       >
-                        <span className="weight-bar-label">자격증 {Math.round(certsPercent)}%</span>
+                        <span className="weight-bar-label">자격증 {certsPercent.toFixed(1)}%</span>
                       </div>
                     )}
                   </div>
                   
                   {/* 슬라이더들 */}
-                  {sliders.map((slider, idx) => {
-                    // 슬라이더 왼쪽 구간의 총 가중치 계산
-                    let leftSegmentSum = 0;
-                    if (slider.leftSegment === 'career') {
-                      leftSegmentSum = scoringWeights.career;
-                    } else if (slider.leftSegment === 'requirements') {
-                      leftSegmentSum = scoringWeights.career + scoringWeights.requirements;
-                    } else if (slider.leftSegment === 'preferred') {
-                      leftSegmentSum = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred;
-                    }
-                    
-                    // 슬라이더 오른쪽 구간의 총 가중치 계산
-                    let rightSegmentSum = 0;
-                    let rightHasMultiple = false;
-                    if (slider.rightSegment === 'requirements') {
-                      rightSegmentSum = scoringWeights.requirements;
-                    } else if (slider.rightSegment === 'preferred') {
-                      if (hasCerts) {
-                        rightSegmentSum = scoringWeights.preferred + scoringWeights.certifications;
-                        rightHasMultiple = true;
-                      } else {
-                        rightSegmentSum = scoringWeights.preferred;
-                      }
-                    } else if (slider.rightSegment === 'certifications') {
-                      if (hasPreferred) {
-                        rightSegmentSum = scoringWeights.preferred + scoringWeights.certifications;
-                        rightHasMultiple = true;
-                      } else {
-                        rightSegmentSum = scoringWeights.certifications;
-                      }
-                    }
-                    
-                    const adjacentSum = leftSegmentSum + rightSegmentSum;
-                    
-                    return (
-                      <div
-                        key={idx}
-                        className="weight-bar-slider"
-                        style={{ left: `${slider.position}%` }}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          const barContainer = (e.currentTarget.parentElement as HTMLElement)?.querySelector('.weight-summary-bar') as HTMLElement;
-                          if (!barContainer || adjacentSum === 0) return;
+                  {sliders.map((slider, idx) => (
+                    <div
+                      key={idx}
+                      className="weight-bar-slider"
+                      style={{ left: `${slider.position}%` }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        const barContainer = (e.currentTarget.parentElement as HTMLElement)?.querySelector('.weight-summary-bar') as HTMLElement;
+                        if (!barContainer) return;
+                        
+                        const startX = e.clientX;
+                        const startLeft = slider.position;
+                        const barRect = barContainer.getBoundingClientRect();
+                        const barWidth = barRect.width;
+                        
+                        const handleMouseMove = (moveEvent: MouseEvent) => {
+                          const deltaX = moveEvent.clientX - startX;
+                          const deltaPercent = (deltaX / barWidth) * 100;
+                          const newPosition = Math.max(0, Math.min(100, startLeft + deltaPercent));
                           
-                          const startX = e.clientX;
-                          const startLeft = slider.position;
-                          const barRect = barContainer.getBoundingClientRect();
-                          const barWidth = barRect.width;
+                          // 1% 단위로 반올림
+                          const roundedPosition = Math.round(newPosition);
                           
-                          // 드래그 시작 시점의 가중치 저장 (다른 구간의 항목들은 절대값 유지)
-                          const initialWeights = { ...scoringWeights };
-                          const totalWeight = initialWeights.career + initialWeights.requirements + initialWeights.preferred + initialWeights.certifications;
+                          // 양쪽 구간의 비율 조정
+                          const leftPercent = roundedPosition;
+                          const rightPercent = 100 - roundedPosition;
                           
-                          // 왼쪽 구간의 초기 합 계산
-                          let initialLeftSum = 0;
-                          if (slider.leftSegment === 'career') {
-                            initialLeftSum = initialWeights.career;
-                          } else if (slider.leftSegment === 'requirements') {
-                            initialLeftSum = initialWeights.career + initialWeights.requirements;
-                          } else if (slider.leftSegment === 'preferred') {
-                            initialLeftSum = initialWeights.career + initialWeights.requirements + initialWeights.preferred;
+                          // 현재 활성화된 항목들의 총합
+                          const activeItems = [
+                            { key: 'career', value: scoringWeights.career, enabled: true },
+                            { key: 'requirements', value: scoringWeights.requirements, enabled: hasRequirements },
+                            { key: 'preferred', value: scoringWeights.preferred, enabled: hasPreferred },
+                            { key: 'certifications', value: scoringWeights.certifications, enabled: hasCerts },
+                          ].filter(item => item.enabled);
+                          
+                          // 슬라이더 기준으로 왼쪽/오른쪽 항목 분류
+                          const leftItems = activeItems.filter((item, i) => {
+                            if (slider.leftSegment === 'career') return i === 0;
+                            if (slider.leftSegment === 'requirements') return i <= 1;
+                            if (slider.leftSegment === 'preferred') return i <= 2;
+                            return false;
+                          });
+                          
+                          const rightItems = activeItems.filter((item, i) => {
+                            if (slider.rightSegment === 'requirements') return i === 1;
+                            if (slider.rightSegment === 'preferred') return i === 2;
+                            if (slider.rightSegment === 'certifications') return i === 3;
+                            return false;
+                          });
+                          
+                          // 왼쪽 항목들의 현재 합
+                          const leftSum = leftItems.reduce((sum, item) => sum + item.value, 0);
+                          // 오른쪽 항목들의 현재 합
+                          const rightSum = rightItems.reduce((sum, item) => sum + item.value, 0);
+                          const totalSum = leftSum + rightSum;
+                          
+                          if (totalSum === 0) return;
+                          
+                          // 새로운 비율에 맞게 조정
+                          const newLeftSum = (totalSum * leftPercent) / 100;
+                          const newRightSum = (totalSum * rightPercent) / 100;
+                          
+                          // 각 항목의 비율 유지하면서 조정
+                          const newWeights = { ...scoringWeights };
+                          
+                          if (leftSum > 0) {
+                            leftItems.forEach(item => {
+                              const ratio = item.value / leftSum;
+                              (newWeights as any)[item.key] = newLeftSum * ratio;
+                            });
                           }
                           
-                          // 오른쪽 구간의 초기 합 계산
-                          let initialRightSum = 0;
-                          if (slider.rightSegment === 'requirements') {
-                            initialRightSum = initialWeights.requirements;
-                          } else if (slider.rightSegment === 'preferred') {
-                            initialRightSum = hasCerts 
-                              ? initialWeights.preferred + initialWeights.certifications
-                              : initialWeights.preferred;
-                          } else if (slider.rightSegment === 'certifications') {
-                            initialRightSum = hasPreferred
-                              ? initialWeights.preferred + initialWeights.certifications
-                              : initialWeights.certifications;
+                          if (rightSum > 0) {
+                            rightItems.forEach(item => {
+                              const ratio = item.value / rightSum;
+                              (newWeights as any)[item.key] = newRightSum * ratio;
+                            });
                           }
                           
-                          // 인접한 두 구간의 초기 합
-                          const adjacentInitialSum = initialLeftSum + initialRightSum;
-                          
-                          const handleMouseMove = (moveEvent: MouseEvent) => {
-                            const deltaX = moveEvent.clientX - startX;
-                            const deltaPercent = (deltaX / barWidth) * 100;
-                            let newPosition = startLeft + deltaPercent;
-                            
-                            // 1% 단위로 반올림 (1% 단위로만 이동)
-                            newPosition = Math.round(newPosition);
-                            
-                            // 최소 1% 제한 (인접한 두 구간 각각 최소 1%)
-                            const minPercent = 1;
-                            const maxPercent = 100 - minPercent;
-                            newPosition = Math.max(minPercent, Math.min(maxPercent, newPosition));
-                            
-                            // 이전 위치와 같으면 업데이트하지 않음 (1% 단위로만 이동)
-                            if (newPosition === Math.round(startLeft)) {
-                              return;
-                            }
-                            
-                            // 인접한 두 구간의 새로운 비율 계산
-                            const leftPercent = newPosition;
-                            const rightPercent = 100 - newPosition;
-                            
-                            // 인접한 두 구간의 새로운 가중치 합 (인접한 두 구간의 합만 재분배)
-                            const newLeftSum = (adjacentInitialSum * leftPercent) / 100;
-                            const newRightSum = (adjacentInitialSum * rightPercent) / 100;
-                            
-                            // 최소 가중치 보장 (전체 가중치의 1%)
-                            const minWeight = Math.max(1, Math.round(totalWeight * 0.01));
-                            
-                            const newWeights = { ...initialWeights };
-                            
-                            // 왼쪽 구간 항목들 조정 (상대 비율 유지)
-                            if (slider.leftSegment === 'career') {
-                              newWeights.career = Math.max(minWeight, Math.round(newLeftSum));
-                            } else if (slider.leftSegment === 'requirements') {
-                              const prevLeftSum = initialWeights.career + initialWeights.requirements;
-                              if (prevLeftSum > 0 && newLeftSum > 0) {
-                                const careerRatio = initialWeights.career / prevLeftSum;
-                                const reqRatio = initialWeights.requirements / prevLeftSum;
-                                const newCareer = Math.max(minWeight, Math.round(newLeftSum * careerRatio));
-                                const newReq = Math.max(minWeight, Math.round(newLeftSum * reqRatio));
-                                // 합이 맞도록 조정
-                                const total = newCareer + newReq;
-                                if (total > 0) {
-                                  newWeights.career = Math.round((newLeftSum * newCareer) / total);
-                                  newWeights.requirements = Math.round((newLeftSum * newReq) / total);
-                                } else {
-                                  newWeights.career = Math.max(minWeight, Math.round(newLeftSum / 2));
-                                  newWeights.requirements = Math.max(minWeight, Math.round(newLeftSum / 2));
-                                }
-                              }
-                            } else if (slider.leftSegment === 'preferred') {
-                              const prevLeftSum = initialWeights.career + initialWeights.requirements + initialWeights.preferred;
-                              if (prevLeftSum > 0 && newLeftSum > 0) {
-                                const careerRatio = initialWeights.career / prevLeftSum;
-                                const reqRatio = initialWeights.requirements / prevLeftSum;
-                                const prefRatio = initialWeights.preferred / prevLeftSum;
-                                newWeights.career = Math.max(minWeight, Math.round(newLeftSum * careerRatio));
-                                newWeights.requirements = Math.max(minWeight, Math.round(newLeftSum * reqRatio));
-                                newWeights.preferred = Math.max(minWeight, Math.round(newLeftSum * prefRatio));
-                                // 합이 맞도록 조정
-                                const total = newWeights.career + newWeights.requirements + newWeights.preferred;
-                                if (total > 0) {
-                                  newWeights.career = Math.round((newLeftSum * newWeights.career) / total);
-                                  newWeights.requirements = Math.round((newLeftSum * newWeights.requirements) / total);
-                                  newWeights.preferred = Math.round((newLeftSum * newWeights.preferred) / total);
-                                }
-                              }
-                            }
-                            
-                            // 오른쪽 구간 항목들 조정 (상대 비율 유지)
-                            if (!rightHasMultiple) {
-                              // 오른쪽에 단일 항목만 있는 경우
-                              if (slider.rightSegment === 'requirements') {
-                                newWeights.requirements = Math.max(minWeight, Math.round(newRightSum));
-                              } else if (slider.rightSegment === 'preferred') {
-                                newWeights.preferred = Math.max(minWeight, Math.round(newRightSum));
-                              } else if (slider.rightSegment === 'certifications') {
-                                newWeights.certifications = Math.max(minWeight, Math.round(newRightSum));
-                              }
-                            } else {
-                              // 오른쪽에 여러 항목이 있는 경우 (preferred + certifications)
-                              const prevRightSum = initialWeights.preferred + initialWeights.certifications;
-                              if (prevRightSum > 0 && newRightSum > 0) {
-                                const prefRatio = initialWeights.preferred / prevRightSum;
-                                const certRatio = initialWeights.certifications / prevRightSum;
-                                newWeights.preferred = Math.max(minWeight, Math.round(newRightSum * prefRatio));
-                                newWeights.certifications = Math.max(minWeight, Math.round(newRightSum * certRatio));
-                                // 합이 맞도록 조정
-                                const total = newWeights.preferred + newWeights.certifications;
-                                if (total > 0) {
-                                  newWeights.preferred = Math.round((newRightSum * newWeights.preferred) / total);
-                                  newWeights.certifications = Math.round((newRightSum * newWeights.certifications) / total);
-                                }
-                              }
-                            }
-                            
-                            setScoringWeights(newWeights);
-                          };
-                          
-                          const handleMouseUp = () => {
-                            document.removeEventListener('mousemove', handleMouseMove);
-                            document.removeEventListener('mouseup', handleMouseUp);
-                          };
-                          
-                          document.addEventListener('mousemove', handleMouseMove);
-                          document.addEventListener('mouseup', handleMouseUp);
-                        }}
-                      >
-                        <div className="weight-slider-handle"></div>
-                      </div>
-                    );
-                  })}
+                          setScoringWeights(newWeights);
+                        };
+                        
+                        const handleMouseUp = () => {
+                          document.removeEventListener('mousemove', handleMouseMove);
+                          document.removeEventListener('mouseup', handleMouseUp);
+                        };
+                        
+                        document.addEventListener('mousemove', handleMouseMove);
+                        document.addEventListener('mouseup', handleMouseUp);
+                      }}
+                    >
+                      <div className="weight-slider-handle"></div>
+                    </div>
+                  ))}
                 </div>
               );
             })()}
@@ -1089,7 +990,7 @@ export default function JobConfigForm({
               <span className="weight-value-label">경력:</span>
               <span className="weight-value-number">{(() => {
                 const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
-                return total > 0 ? Math.round((scoringWeights.career / total) * 100) : 0;
+                return total > 0 ? ((scoringWeights.career / total) * 100).toFixed(1) : '0.0';
               })()}%</span>
             </div>
             {requiredQualifications.trim() && (
@@ -1097,7 +998,7 @@ export default function JobConfigForm({
                 <span className="weight-value-label">요구사항:</span>
                 <span className="weight-value-number">{(() => {
                   const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
-                  return total > 0 ? Math.round((scoringWeights.requirements / total) * 100) : 0;
+                  return total > 0 ? ((scoringWeights.requirements / total) * 100).toFixed(1) : '0.0';
                 })()}%</span>
               </div>
             )}
@@ -1106,7 +1007,7 @@ export default function JobConfigForm({
                 <span className="weight-value-label">우대사항:</span>
                 <span className="weight-value-number">{(() => {
                   const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
-                  return total > 0 ? Math.round((scoringWeights.preferred / total) * 100) : 0;
+                  return total > 0 ? ((scoringWeights.preferred / total) * 100).toFixed(1) : '0.0';
                 })()}%</span>
               </div>
             )}
@@ -1115,7 +1016,7 @@ export default function JobConfigForm({
                 <span className="weight-value-label">자격증:</span>
                 <span className="weight-value-number">{(() => {
                   const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
-                  return total > 0 ? Math.round((scoringWeights.certifications / total) * 100) : 0;
+                  return total > 0 ? ((scoringWeights.certifications / total) * 100).toFixed(1) : '0.0';
                 })()}%</span>
               </div>
             )}
