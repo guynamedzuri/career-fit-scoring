@@ -86,6 +86,52 @@
   background-color: #05193a;
 }
 
+/* 경력 평가 아코디언 */
+.career-evaluation-accordion {
+  margin-top: 1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #fff;
+}
+
+.career-evaluation-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  background: #f9fafb;
+  border: none;
+  border-bottom: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  text-align: left;
+}
+
+.career-evaluation-header:hover {
+  background: #f3f4f6;
+}
+
+.career-evaluation-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.career-evaluation-toggle {
+  font-size: 0.875rem;
+  color: #6b7280;
+  transition: transform 0.2s ease;
+}
+
+.career-evaluation-content {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
 /* 구분선 */
 .form-divider {
   width: 80%;
@@ -149,6 +195,17 @@
   font-weight: 600;
   color: #111827;
   margin: 0 0 0.5rem 0;
+}
+
+.grade-criteria-tip {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin: 0.5rem 0 1rem 0;
+  padding: 0.75rem;
+  background: #f9fafb;
+  border-left: 3px solid #1383ff;
+  border-radius: 0.25rem;
+  line-height: 1.6;
 }
 
 .grade-criteria-wrapper {
