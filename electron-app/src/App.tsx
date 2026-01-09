@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import JobConfigForm from './components/JobConfigForm';
 import ResumeFileList from './components/ResumeFileList';
 import ResultView from './components/ResultView';
+import SaveLoadModal from './components/SaveLoadModal';
 import './styles/app.css';
 
 type ViewMode = 'config' | 'result';
@@ -15,6 +16,8 @@ function App() {
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [selectedFiles, setSelectedFiles] = useState<Array<{ name: string; path: string }>>([]);
   const [jobMetadata, setJobMetadata] = useState<any>(null);
+  const [showSaveLoadModal, setShowSaveLoadModal] = useState<boolean>(false);
+  const [userPrompt, setUserPrompt] = useState<any>(null);
 
   const handleExecute = () => {
     // JobConfigForm의 검증 함수 호출
@@ -33,6 +36,25 @@ function App() {
     console.log('실행하기 - 모든 필수 입력 완료');
     console.log('Selected files:', selectedFiles);
     console.log('Job metadata:', jobMetadata);
+    
+    // 자동저장: 현재 내용을 자동저장 항목으로 저장
+    if (userPrompt) {
+      const autoSaveData = {
+        name: '자동저장',
+        timestamp: new Date().toISOString(),
+        data: {
+          selectedFolder,
+          userPrompt,
+          selectedFiles,
+        },
+        isAutoSave: true,
+      };
+      const savedItems = JSON.parse(localStorage.getItem('jobConfigSaves') || '[]');
+      // 기존 자동저장 항목 제거
+      const filteredItems = savedItems.filter((item: any) => !item.isAutoSave);
+      // 새로운 자동저장 항목을 맨 위에 추가
+      localStorage.setItem('jobConfigSaves', JSON.stringify([autoSaveData, ...filteredItems]));
+    }
     
     // 결과 화면으로 전환
     setViewMode('result');
@@ -70,6 +92,7 @@ function App() {
               selectedFolder={selectedFolder}
               onFolderChange={setSelectedFolder}
               onJobMetadataChange={setJobMetadata}
+              onUserPromptChange={setUserPrompt}
               onExecute={handleConfigExecute}
             />
           </div>
@@ -82,13 +105,37 @@ function App() {
         </div>
       </div>
       <div className="app-footer">
-        <button 
-          className="execute-btn"
-          onClick={handleExecute}
-        >
-          실행하기
-        </button>
+        <div className="app-footer-content">
+          <button 
+            className="save-load-btn"
+            onClick={() => setShowSaveLoadModal(true)}
+          >
+            내용 저장/불러오기
+          </button>
+          <button 
+            className="execute-btn"
+            onClick={handleExecute}
+          >
+            실행하기
+          </button>
+        </div>
       </div>
+      {showSaveLoadModal && (
+        <SaveLoadModal
+          currentData={{
+            selectedFolder,
+            userPrompt,
+            selectedFiles,
+          }}
+          onClose={() => setShowSaveLoadModal(false)}
+          onLoad={(data) => {
+            setSelectedFolder(data.selectedFolder || '');
+            setUserPrompt(data.userPrompt || null);
+            setSelectedFiles(data.selectedFiles || []);
+            setShowSaveLoadModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }

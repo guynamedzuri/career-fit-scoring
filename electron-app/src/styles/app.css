@@ -42,8 +42,37 @@
   flex-shrink: 0;
 }
 
+.app-footer-content {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.save-load-btn {
+  width: 180px;
+  flex-shrink: 0;
+  padding: 0.875rem 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #111827;
+  background-color: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.save-load-btn:hover {
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.save-load-btn:active {
+  background-color: #f3f4f6;
+}
+
 .execute-btn {
-  width: 100%;
+  flex: 1;
   padding: 0.875rem 1.5rem;
   font-size: 1rem;
   font-weight: 600;
