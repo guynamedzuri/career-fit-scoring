@@ -891,22 +891,14 @@ ipcMain.handle('ai-check-resume', async (event, data: {
     // 이력서 데이터를 텍스트로 변환
     const resumeText = formatResumeDataForAI(data.applicationData);
     
-    // 채용 공고 정보
-    const jobInfo = data.jobMetadata ? `
-채용 직종: ${data.jobMetadata.jobName || 'N/A'}
-관련 전공: ${data.jobMetadata.relatedMajor || 'N/A'}
-필수 자격증: ${data.jobMetadata.requiredCertifications?.join(', ') || '없음'}
-관련 자격증: ${data.jobMetadata.relatedCertifications?.join(', ') || '없음'}
-` : '';
-
     // AI 프롬프트 구성
     const systemPrompt = `당신은 채용 담당자입니다. 이력서를 분석하여 후보자의 적합도를 평가하고 등급을 부여해야 합니다.
 
 평가 기준:
-- A등급: 채용 공고 요구사항을 완벽히 충족하고, 우수한 경력과 자격을 보유한 후보자
-- B등급: 채용 공고 요구사항을 대부분 충족하고, 적절한 경력과 자격을 보유한 후보자
-- C등급: 채용 공고 요구사항을 부분적으로 충족하지만, 일부 부족한 점이 있는 후보자
-- D등급: 채용 공고 요구사항을 충족하지 못하거나, 경력/자격이 부족한 후보자
+- A등급: 평가 기준을 완벽히 충족하고, 우수한 경력과 자격을 보유한 후보자
+- B등급: 평가 기준을 대부분 충족하고, 적절한 경력과 자격을 보유한 후보자
+- C등급: 평가 기준을 부분적으로 충족하지만, 일부 부족한 점이 있는 후보자
+- D등급: 평가 기준을 충족하지 못하거나, 경력/자격이 부족한 후보자
 
 응답 형식:
 1. 등급: [A/B/C/D 중 하나]
@@ -915,9 +907,7 @@ ipcMain.handle('ai-check-resume', async (event, data: {
 4. 주요 약점: [3-5개 항목]
 5. 종합 의견: [2-3문단으로 상세 분석]`;
 
-    const userPrompt = `다음 채용 공고 정보와 이력서 데이터를 분석해주세요.
-
-${jobInfo}
+    const userPromptText = `${data.userPrompt || '이력서를 평가해주세요.'}
 
 이력서 정보:
 ${resumeText}

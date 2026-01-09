@@ -513,14 +513,15 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         }
       }
 
-      // 선택 해제
-      setSelectedCandidates(new Set());
-    } catch (error) {
-      console.error('[AI Check] Overall error:', error);
-    } finally {
-      setAiProcessing(false);
-    }
-  };
+      } catch (error) {
+        console.error('[AI Analysis] Overall error:', error);
+      } finally {
+        setAiProcessing(false);
+      }
+    };
+
+    runInitialAiAnalysis();
+  }, [results, userPrompt, selectedFiles, selectedFolder]);
 
   // AI 보고서 모달 열기
   const handleOpenAiReport = (report: string) => {
@@ -599,15 +600,10 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
 
       {/* 헤더 */}
       <div className="result-view-header">
-        {jobMetadata && (
-          <div className="job-info-summary">
-            <span className="job-info-label">채용 직종:</span>
-            <span className="job-info-value">{jobMetadata.jobName || 'N/A'}</span>
-            <span className="job-info-separator">|</span>
-            <span className="job-info-label">대상:</span>
-            <span className="job-info-value">{selectedFiles.length}명</span>
-          </div>
-        )}
+        <div className="job-info-summary">
+          <span className="job-info-label">대상:</span>
+          <span className="job-info-value">{selectedFiles.length}명</span>
+        </div>
       </div>
 
       {/* 검색 + 필터 + 상태 이동 */}
