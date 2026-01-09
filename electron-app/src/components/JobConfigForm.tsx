@@ -237,38 +237,140 @@ export default function JobConfigForm({
     const trimmedPreferred = preferredQualifications.trim();
     const hasCerts = requiredCertifications.length > 0;
 
-    const currentTotal = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
-    
-    // 비활성화된 항목의 가중치를 0으로 설정하고, 활성화된 항목들의 비율 유지
-    let newWeights = {
-      career: scoringWeights.career,
-      requirements: trimmedRequired ? scoringWeights.requirements : 0,
-      preferred: trimmedPreferred ? scoringWeights.preferred : 0,
-      certifications: hasCerts ? scoringWeights.certifications : 0,
+    // 현재 활성화 상태
+    const currentActive = {
+      requirements: trimmedRequired.length > 0,
+      preferred: trimmedPreferred.length > 0,
+      certifications: hasCerts,
     };
-    
-    // 활성화된 항목들의 합
-    const activeTotal = newWeights.career + newWeights.requirements + newWeights.preferred + newWeights.certifications;
-    
-    // 활성화된 항목이 있고, 비활성화된 항목이 있었던 경우 비율 재조정
-    if (activeTotal > 0 && currentTotal > activeTotal) {
-      const ratio = currentTotal / activeTotal;
-      newWeights = {
-        career: newWeights.career * ratio,
-        requirements: newWeights.requirements * ratio,
-        preferred: newWeights.preferred * ratio,
-        certifications: newWeights.certifications * ratio,
-      };
+
+    // 새로 활성화된 항목 확인
+    const newlyActivated = {
+      requirements: !prevActiveStateRef.current.requirements && currentActive.requirements,
+      preferred: !prevActiveStateRef.current.preferred && currentActive.preferred,
+      certifications: !prevActiveStateRef.current.certifications && currentActive.certifications,
+    };
+
+    // 새로 비활성화된 항목 확인
+    const newlyDeactivated = {
+      requirements: prevActiveStateRef.current.requirements && !currentActive.requirements,
+      preferred: prevActiveStateRef.current.preferred && !currentActive.preferred,
+      certifications: prevActiveStateRef.current.certifications && !currentActive.certifications,
+    };
+
+    // 활성화된 항목 수 계산
+    const activeCount = 1 + // career는 항상 활성화
+      (currentActive.requirements ? 1 : 0) +
+      (currentActive.preferred ? 1 : 0) +
+      (currentActive.certifications ? 1 : 0);
+
+    let newWeights = { ...scoringWeights };
+
+    // 새로 활성화된 항목이 있는 경우
+    if (newlyActivated.requirements || newlyActivated.preferred || newlyActivated.certifications) {
+      // 기존 활성화된 항목들의 합 계산
+      const existingActiveSum = scoringWeights.career +
+        (prevActiveStateRef.current.requirements ? scoringWeights.requirements : 0) +
+        (prevActiveStateRef.current.preferred ? scoringWeights.preferred : 0) +
+        (prevActiveStateRef.current.certifications ? scoringWeights.certifications : 0);
+
+      // 기존 항목들의 비율을 (n-1)/n로 조정
+      const ratio = (activeCount - 1) / activeCount;
+      
+      if (existingActiveSum > 0) {
+        newWeights.career = scoringWeights.career * ratio;
+        if (prevActiveStateRef.current.requirements) {
+          newWeights.requirements = scoringWeights.requirements * ratio;
+        }
+        if (prevActiveStateRef.current.preferred) {
+          newWeights.preferred = scoringWeights.preferred * ratio;
+        }
+        if (prevActiveStateRef.current.certifications) {
+          newWeights.certifications = scoringWeights.certifications * ratio;
+        }
+      } else {
+        // 기존 활성화된 항목이 없었던 경우 (처음 활성화)
+        newWeights.career = 1 / activeCount;
+      }
+
+      // 새로 활성화된 항목에 1/n 할당
+      const newItemWeight = existingActiveSum > 0 
+        ? (existingActiveSum / activeCount) 
+        : (1 / activeCount);
+
+      if (newlyActivated.requirements) {
+        newWeights.requirements = newItemWeight;
+      }
+      if (newlyActivated.preferred) {
+        newWeights.preferred = newItemWeight;
+      }
+      if (newlyActivated.certifications) {
+        newWeights.certifications = newItemWeight;
+      }
     }
-    
-    // 다른 항목들의 가중치가 변경되었을 때만 업데이트
-    if (
-      newWeights.requirements !== scoringWeights.requirements ||
-      newWeights.preferred !== scoringWeights.preferred ||
-      newWeights.certifications !== scoringWeights.certifications
-    ) {
+
+    // 새로 비활성화된 항목이 있는 경우
+    if (newlyDeactivated.requirements || newlyDeactivated.preferred || newlyDeactivated.certifications) {
+      // 비활성화된 항목의 가중치를 0으로 설정
+      if (newlyDeactivated.requirements) {
+        newWeights.requirements = 0;
+      }
+      if (newlyDeactivated.preferred) {
+        newWeights.preferred = 0;
+      }
+      if (newlyDeactivated.certifications) {
+        newWeights.certifications = 0;
+      }
+
+      // 남은 활성화된 항목들의 합 계산
+      const remainingActiveSum = newWeights.career +
+        (currentActive.requirements ? newWeights.requirements : 0) +
+        (currentActive.preferred ? newWeights.preferred : 0) +
+        (currentActive.certifications ? newWeights.certifications : 0);
+
+      // 비활성화된 항목의 가중치를 나머지 항목들에 비례 분배
+      if (remainingActiveSum > 0 && activeCount > 0) {
+        const totalSum = newWeights.career + newWeights.requirements + newWeights.preferred + newWeights.certifications;
+        const ratio = totalSum / remainingActiveSum;
+
+        newWeights.career = newWeights.career * ratio;
+        if (currentActive.requirements) {
+          newWeights.requirements = newWeights.requirements * ratio;
+        }
+        if (currentActive.preferred) {
+          newWeights.preferred = newWeights.preferred * ratio;
+        }
+        if (currentActive.certifications) {
+          newWeights.certifications = newWeights.certifications * ratio;
+        }
+      }
+    }
+
+    // 비활성화된 항목의 가중치를 0으로 설정 (안전장치)
+    if (!currentActive.requirements) {
+      newWeights.requirements = 0;
+    }
+    if (!currentActive.preferred) {
+      newWeights.preferred = 0;
+    }
+    if (!currentActive.certifications) {
+      newWeights.certifications = 0;
+    }
+
+    // 상태 업데이트 (무한 루프 방지를 위해 값이 실제로 변경되었을 때만)
+    const hasChanged = 
+      Math.abs(newWeights.career - scoringWeights.career) > 0.001 ||
+      Math.abs(newWeights.requirements - scoringWeights.requirements) > 0.001 ||
+      Math.abs(newWeights.preferred - scoringWeights.preferred) > 0.001 ||
+      Math.abs(newWeights.certifications - scoringWeights.certifications) > 0.001;
+
+    if (hasChanged) {
       setScoringWeights(newWeights);
     }
+
+    // 현재 활성화 상태를 이전 상태로 저장
+    prevActiveStateRef.current = currentActive;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requiredQualifications, preferredQualifications, requiredCertifications]);
 
   // userPrompt 변경 시 상위 컴포넌트에 전달
