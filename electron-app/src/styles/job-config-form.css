@@ -748,13 +748,14 @@
   padding: 1rem;
   background: #f9fafb;
   border-radius: 0.375rem;
-  flex-wrap: wrap;
+  width: 100%;
 }
 
 .weight-value-item {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex: 1;
 }
 
 .weight-value-label {
@@ -767,6 +768,5 @@
   font-size: 0.875rem;
   color: #111827;
   font-weight: 600;
-  min-width: 50px;
   text-align: right;
 }
