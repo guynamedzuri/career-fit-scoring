@@ -855,7 +855,7 @@ export default function JobConfigForm({
                         className="weight-bar-segment weight-bar-career" 
                         style={{ width: `${careerPercent}%` }}
                       >
-                        <span className="weight-bar-label">경력 {Math.round(careerPercent)}%</span>
+                        <span className="weight-bar-label">{Math.round(careerPercent)}%</span>
                       </div>
                     )}
                     {hasRequirements && requirementsPercent > 0 && (
@@ -863,7 +863,7 @@ export default function JobConfigForm({
                         className="weight-bar-segment weight-bar-requirements" 
                         style={{ width: `${requirementsPercent}%` }}
                       >
-                        <span className="weight-bar-label">요구사항 {Math.round(requirementsPercent)}%</span>
+                        <span className="weight-bar-label">{Math.round(requirementsPercent)}%</span>
                       </div>
                     )}
                     {hasPreferred && preferredPercent > 0 && (
@@ -871,7 +871,7 @@ export default function JobConfigForm({
                         className="weight-bar-segment weight-bar-preferred" 
                         style={{ width: `${preferredPercent}%` }}
                       >
-                        <span className="weight-bar-label">우대사항 {Math.round(preferredPercent)}%</span>
+                        <span className="weight-bar-label">{Math.round(preferredPercent)}%</span>
                       </div>
                     )}
                     {hasCerts && certsPercent > 0 && (
@@ -879,7 +879,7 @@ export default function JobConfigForm({
                         className="weight-bar-segment weight-bar-cert" 
                         style={{ width: `${certsPercent}%` }}
                       >
-                        <span className="weight-bar-label">자격증 {Math.round(certsPercent)}%</span>
+                        <span className="weight-bar-label">{Math.round(certsPercent)}%</span>
                       </div>
                     )}
                   </div>
@@ -1000,6 +1000,7 @@ export default function JobConfigForm({
           {/* 비중 수치 표시 */}
           <div className="weight-values-display">
             <div className="weight-value-item">
+              <div className="weight-value-color-indicator weight-value-color-career"></div>
               <span className="weight-value-label">경력:</span>
               <span className="weight-value-number">{(() => {
                 const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
@@ -1008,6 +1009,7 @@ export default function JobConfigForm({
             </div>
             {requiredQualifications.trim() && (
               <div className="weight-value-item">
+                <div className="weight-value-color-indicator weight-value-color-requirements"></div>
                 <span className="weight-value-label">요구사항:</span>
                 <span className="weight-value-number">{(() => {
                   const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
@@ -1017,6 +1019,7 @@ export default function JobConfigForm({
             )}
             {preferredQualifications.trim() && (
               <div className="weight-value-item">
+                <div className="weight-value-color-indicator weight-value-color-preferred"></div>
                 <span className="weight-value-label">우대사항:</span>
                 <span className="weight-value-number">{(() => {
                   const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
@@ -1026,6 +1029,7 @@ export default function JobConfigForm({
             )}
             {requiredCertifications.length > 0 && (
               <div className="weight-value-item">
+                <div className="weight-value-color-indicator weight-value-color-cert"></div>
                 <span className="weight-value-label">자격증:</span>
                 <span className="weight-value-number">{(() => {
                   const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;

@@ -758,6 +758,29 @@
   flex: 1;
 }
 
+.weight-value-color-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.weight-value-color-career {
+  background: #10b981; /* 초록색 - 경력 */
+}
+
+.weight-value-color-requirements {
+  background: #6366f1; /* 보라색 - 요구사항 */
+}
+
+.weight-value-color-preferred {
+  background: #f59e0b; /* 주황색 - 우대사항 */
+}
+
+.weight-value-color-cert {
+  background: #3b82f6; /* 파란색 - 자격증 */
+}
+
 .weight-value-label {
   font-size: 0.875rem;
   color: #6b7280;
