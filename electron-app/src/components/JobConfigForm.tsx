@@ -237,13 +237,30 @@ export default function JobConfigForm({
     const trimmedPreferred = preferredQualifications.trim();
     const hasCerts = requiredCertifications.length > 0;
 
-    const newWeights = {
+    const currentTotal = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
+    
+    // 비활성화된 항목의 가중치를 0으로 설정하고, 활성화된 항목들의 비율 유지
+    let newWeights = {
       career: scoringWeights.career,
       requirements: trimmedRequired ? scoringWeights.requirements : 0,
       preferred: trimmedPreferred ? scoringWeights.preferred : 0,
       certifications: hasCerts ? scoringWeights.certifications : 0,
     };
-
+    
+    // 활성화된 항목들의 합
+    const activeTotal = newWeights.career + newWeights.requirements + newWeights.preferred + newWeights.certifications;
+    
+    // 활성화된 항목이 있고, 비활성화된 항목이 있었던 경우 비율 재조정
+    if (activeTotal > 0 && currentTotal > activeTotal) {
+      const ratio = currentTotal / activeTotal;
+      newWeights = {
+        career: newWeights.career * ratio,
+        requirements: newWeights.requirements * ratio,
+        preferred: newWeights.preferred * ratio,
+        certifications: newWeights.certifications * ratio,
+      };
+    }
+    
     // 다른 항목들의 가중치가 변경되었을 때만 업데이트
     if (
       newWeights.requirements !== scoringWeights.requirements ||
@@ -669,10 +686,10 @@ export default function JobConfigForm({
         {/* 평가 가중치 설정 */}
         <div className="scoring-weights-section">
           <h3 className="scoring-weights-header">평가 가중치 설정</h3>
-          <p className="field-hint">각 평가 항목의 비중을 설정하세요. 비중에 따라 최종 점수가 계산됩니다.</p>
+          <p className="field-hint">슬라이더를 드래그하여 각 평가 항목의 비중을 조절하세요. (1% 단위)</p>
           
-          {/* 비중 시각화 파이 */}
-          <div className="weight-summary-bar">
+          {/* 비중 시각화 바 with 슬라이더 */}
+          <div className="weight-bar-container">
             {(() => {
               const totalWeight = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
               if (totalWeight === 0) {
@@ -684,125 +701,216 @@ export default function JobConfigForm({
               const preferredPercent = (scoringWeights.preferred / totalWeight) * 100;
               const certsPercent = (scoringWeights.certifications / totalWeight) * 100;
               
+              const hasRequirements = requiredQualifications.trim().length > 0;
+              const hasPreferred = preferredQualifications.trim().length > 0;
+              const hasCerts = requiredCertifications.length > 0;
+              
+              // 각 구간의 시작 위치 계산
+              let careerStart = 0;
+              let requirementsStart = careerPercent;
+              let preferredStart = careerPercent + (hasRequirements ? requirementsPercent : 0);
+              let certsStart = careerPercent + (hasRequirements ? requirementsPercent : 0) + (hasPreferred ? preferredPercent : 0);
+              
+              // 슬라이더 위치 계산
+              const sliders: Array<{ position: number; leftSegment: string; rightSegment: string }> = [];
+              
+              if (hasRequirements && careerPercent > 0 && requirementsPercent > 0) {
+                sliders.push({
+                  position: requirementsStart,
+                  leftSegment: 'career',
+                  rightSegment: 'requirements',
+                });
+              }
+              
+              if (hasPreferred && (careerPercent + (hasRequirements ? requirementsPercent : 0)) > 0 && preferredPercent > 0) {
+                sliders.push({
+                  position: preferredStart,
+                  leftSegment: hasRequirements ? 'requirements' : 'career',
+                  rightSegment: 'preferred',
+                });
+              }
+              
+              if (hasCerts && (careerPercent + (hasRequirements ? requirementsPercent : 0) + (hasPreferred ? preferredPercent : 0)) > 0 && certsPercent > 0) {
+                sliders.push({
+                  position: certsStart,
+                  leftSegment: hasPreferred ? 'preferred' : (hasRequirements ? 'requirements' : 'career'),
+                  rightSegment: 'certifications',
+                });
+              }
+              
               return (
-                <>
-                  {careerPercent > 0 && (
-                    <div 
-                      className="weight-bar-segment weight-bar-career" 
-                      style={{ width: `${careerPercent}%` }}
+                <div className="weight-bar-wrapper">
+                  <div className="weight-summary-bar">
+                    {careerPercent > 0 && (
+                      <div 
+                        className="weight-bar-segment weight-bar-career" 
+                        style={{ width: `${careerPercent}%` }}
+                      >
+                        <span className="weight-bar-label">경력 {careerPercent.toFixed(1)}%</span>
+                      </div>
+                    )}
+                    {hasRequirements && requirementsPercent > 0 && (
+                      <div 
+                        className="weight-bar-segment weight-bar-requirements" 
+                        style={{ width: `${requirementsPercent}%` }}
+                      >
+                        <span className="weight-bar-label">요구사항 {requirementsPercent.toFixed(1)}%</span>
+                      </div>
+                    )}
+                    {hasPreferred && preferredPercent > 0 && (
+                      <div 
+                        className="weight-bar-segment weight-bar-preferred" 
+                        style={{ width: `${preferredPercent}%` }}
+                      >
+                        <span className="weight-bar-label">우대사항 {preferredPercent.toFixed(1)}%</span>
+                      </div>
+                    )}
+                    {hasCerts && certsPercent > 0 && (
+                      <div 
+                        className="weight-bar-segment weight-bar-cert" 
+                        style={{ width: `${certsPercent}%` }}
+                      >
+                        <span className="weight-bar-label">자격증 {certsPercent.toFixed(1)}%</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* 슬라이더들 */}
+                  {sliders.map((slider, idx) => (
+                    <div
+                      key={idx}
+                      className="weight-bar-slider"
+                      style={{ left: `${slider.position}%` }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        const barContainer = (e.currentTarget.parentElement as HTMLElement)?.querySelector('.weight-summary-bar') as HTMLElement;
+                        if (!barContainer) return;
+                        
+                        const startX = e.clientX;
+                        const startLeft = slider.position;
+                        const barRect = barContainer.getBoundingClientRect();
+                        const barWidth = barRect.width;
+                        
+                        const handleMouseMove = (moveEvent: MouseEvent) => {
+                          const deltaX = moveEvent.clientX - startX;
+                          const deltaPercent = (deltaX / barWidth) * 100;
+                          const newPosition = Math.max(0, Math.min(100, startLeft + deltaPercent));
+                          
+                          // 1% 단위로 반올림
+                          const roundedPosition = Math.round(newPosition);
+                          
+                          // 양쪽 구간의 비율 조정
+                          const leftPercent = roundedPosition;
+                          const rightPercent = 100 - roundedPosition;
+                          
+                          // 현재 활성화된 항목들의 총합
+                          const activeItems = [
+                            { key: 'career', value: scoringWeights.career, enabled: true },
+                            { key: 'requirements', value: scoringWeights.requirements, enabled: hasRequirements },
+                            { key: 'preferred', value: scoringWeights.preferred, enabled: hasPreferred },
+                            { key: 'certifications', value: scoringWeights.certifications, enabled: hasCerts },
+                          ].filter(item => item.enabled);
+                          
+                          // 슬라이더 기준으로 왼쪽/오른쪽 항목 분류
+                          const leftItems = activeItems.filter((item, i) => {
+                            if (slider.leftSegment === 'career') return i === 0;
+                            if (slider.leftSegment === 'requirements') return i <= 1;
+                            if (slider.leftSegment === 'preferred') return i <= 2;
+                            return false;
+                          });
+                          
+                          const rightItems = activeItems.filter((item, i) => {
+                            if (slider.rightSegment === 'requirements') return i === 1;
+                            if (slider.rightSegment === 'preferred') return i === 2;
+                            if (slider.rightSegment === 'certifications') return i === 3;
+                            return false;
+                          });
+                          
+                          // 왼쪽 항목들의 현재 합
+                          const leftSum = leftItems.reduce((sum, item) => sum + item.value, 0);
+                          // 오른쪽 항목들의 현재 합
+                          const rightSum = rightItems.reduce((sum, item) => sum + item.value, 0);
+                          const totalSum = leftSum + rightSum;
+                          
+                          if (totalSum === 0) return;
+                          
+                          // 새로운 비율에 맞게 조정
+                          const newLeftSum = (totalSum * leftPercent) / 100;
+                          const newRightSum = (totalSum * rightPercent) / 100;
+                          
+                          // 각 항목의 비율 유지하면서 조정
+                          const newWeights = { ...scoringWeights };
+                          
+                          if (leftSum > 0) {
+                            leftItems.forEach(item => {
+                              const ratio = item.value / leftSum;
+                              (newWeights as any)[item.key] = newLeftSum * ratio;
+                            });
+                          }
+                          
+                          if (rightSum > 0) {
+                            rightItems.forEach(item => {
+                              const ratio = item.value / rightSum;
+                              (newWeights as any)[item.key] = newRightSum * ratio;
+                            });
+                          }
+                          
+                          setScoringWeights(newWeights);
+                        };
+                        
+                        const handleMouseUp = () => {
+                          document.removeEventListener('mousemove', handleMouseMove);
+                          document.removeEventListener('mouseup', handleMouseUp);
+                        };
+                        
+                        document.addEventListener('mousemove', handleMouseMove);
+                        document.addEventListener('mouseup', handleMouseUp);
+                      }}
                     >
-                      <span className="weight-bar-label">{careerPercent.toFixed(1)}%</span>
+                      <div className="weight-slider-handle"></div>
                     </div>
-                  )}
-                  {requirementsPercent > 0 && (
-                    <div 
-                      className="weight-bar-segment weight-bar-requirements" 
-                      style={{ width: `${requirementsPercent}%` }}
-                    >
-                      <span className="weight-bar-label">{requirementsPercent.toFixed(1)}%</span>
-                    </div>
-                  )}
-                  {preferredPercent > 0 && (
-                    <div 
-                      className="weight-bar-segment weight-bar-preferred" 
-                      style={{ width: `${preferredPercent}%` }}
-                    >
-                      <span className="weight-bar-label">{preferredPercent.toFixed(1)}%</span>
-                    </div>
-                  )}
-                  {certsPercent > 0 && (
-                    <div 
-                      className="weight-bar-segment weight-bar-cert" 
-                      style={{ width: `${certsPercent}%` }}
-                    >
-                      <span className="weight-bar-label">{certsPercent.toFixed(1)}%</span>
-                    </div>
-                  )}
-                </>
+                  ))}
+                </div>
               );
             })()}
           </div>
           
-          <div className="scoring-weights">
-            <div className="weight-item">
-              <label htmlFor="weight-career">경력</label>
-              <input
-                id="weight-career"
-                type="number"
-                min="0"
-                step="0.1"
-                value={scoringWeights.career}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value) || 0;
-                  setScoringWeights(prev => ({
-                    ...prev,
-                    career: val,
-                  }));
-                }}
-                className="weight-input"
-              />
-              <span className="weight-desc">경력 적합도 점수 비중</span>
+          {/* 비중 수치 표시 */}
+          <div className="weight-values-display">
+            <div className="weight-value-item">
+              <span className="weight-value-label">경력:</span>
+              <span className="weight-value-number">{(() => {
+                const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
+                return total > 0 ? ((scoringWeights.career / total) * 100).toFixed(1) : '0.0';
+              })()}%</span>
             </div>
-            <div className="weight-item">
-              <label htmlFor="weight-requirements">요구사항</label>
-              <input
-                id="weight-requirements"
-                type="number"
-                min="0"
-                step="0.1"
-                value={scoringWeights.requirements}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value) || 0;
-                  setScoringWeights(prev => ({
-                    ...prev,
-                    requirements: val,
-                  }));
-                }}
-                className="weight-input"
-                disabled={!requiredQualifications.trim()}
-              />
-              <span className="weight-desc">필수 요구사항 매칭 점수 비중</span>
-            </div>
-            <div className="weight-item">
-              <label htmlFor="weight-preferred">우대사항</label>
-              <input
-                id="weight-preferred"
-                type="number"
-                min="0"
-                step="0.1"
-                value={scoringWeights.preferred}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value) || 0;
-                  setScoringWeights(prev => ({
-                    ...prev,
-                    preferred: val,
-                  }));
-                }}
-                className="weight-input"
-                disabled={!preferredQualifications.trim()}
-              />
-              <span className="weight-desc">우대 사항 매칭 점수 비중</span>
-            </div>
-            <div className="weight-item">
-              <label htmlFor="weight-cert">자격증</label>
-              <input
-                id="weight-cert"
-                type="number"
-                min="0"
-                step="0.1"
-                value={scoringWeights.certifications}
-                onChange={(e) => {
-                  const val = parseFloat(e.target.value) || 0;
-                  setScoringWeights(prev => ({
-                    ...prev,
-                    certifications: val,
-                  }));
-                }}
-                className="weight-input"
-                disabled={requiredCertifications.length === 0}
-              />
-              <span className="weight-desc">자격증 매칭 점수 비중</span>
-            </div>
+            {requiredQualifications.trim() && (
+              <div className="weight-value-item">
+                <span className="weight-value-label">요구사항:</span>
+                <span className="weight-value-number">{(() => {
+                  const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
+                  return total > 0 ? ((scoringWeights.requirements / total) * 100).toFixed(1) : '0.0';
+                })()}%</span>
+              </div>
+            )}
+            {preferredQualifications.trim() && (
+              <div className="weight-value-item">
+                <span className="weight-value-label">우대사항:</span>
+                <span className="weight-value-number">{(() => {
+                  const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
+                  return total > 0 ? ((scoringWeights.preferred / total) * 100).toFixed(1) : '0.0';
+                })()}%</span>
+              </div>
+            )}
+            {requiredCertifications.length > 0 && (
+              <div className="weight-value-item">
+                <span className="weight-value-label">자격증:</span>
+                <span className="weight-value-number">{(() => {
+                  const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
+                  return total > 0 ? ((scoringWeights.certifications / total) * 100).toFixed(1) : '0.0';
+                })()}%</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
