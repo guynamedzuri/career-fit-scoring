@@ -855,7 +855,7 @@ export default function JobConfigForm({
                         className="weight-bar-segment weight-bar-career" 
                         style={{ width: `${careerPercent}%` }}
                       >
-                        <span className="weight-bar-label">경력 {careerPercent.toFixed(1)}%</span>
+                        <span className="weight-bar-label">경력 {Math.round(careerPercent)}%</span>
                       </div>
                     )}
                     {hasRequirements && requirementsPercent > 0 && (
@@ -863,7 +863,7 @@ export default function JobConfigForm({
                         className="weight-bar-segment weight-bar-requirements" 
                         style={{ width: `${requirementsPercent}%` }}
                       >
-                        <span className="weight-bar-label">요구사항 {requirementsPercent.toFixed(1)}%</span>
+                        <span className="weight-bar-label">요구사항 {Math.round(requirementsPercent)}%</span>
                       </div>
                     )}
                     {hasPreferred && preferredPercent > 0 && (
@@ -871,7 +871,7 @@ export default function JobConfigForm({
                         className="weight-bar-segment weight-bar-preferred" 
                         style={{ width: `${preferredPercent}%` }}
                       >
-                        <span className="weight-bar-label">우대사항 {preferredPercent.toFixed(1)}%</span>
+                        <span className="weight-bar-label">우대사항 {Math.round(preferredPercent)}%</span>
                       </div>
                     )}
                     {hasCerts && certsPercent > 0 && (
@@ -879,7 +879,7 @@ export default function JobConfigForm({
                         className="weight-bar-segment weight-bar-cert" 
                         style={{ width: `${certsPercent}%` }}
                       >
-                        <span className="weight-bar-label">자격증 {certsPercent.toFixed(1)}%</span>
+                        <span className="weight-bar-label">자격증 {Math.round(certsPercent)}%</span>
                       </div>
                     )}
                   </div>
@@ -903,14 +903,19 @@ export default function JobConfigForm({
                         const handleMouseMove = (moveEvent: MouseEvent) => {
                           const deltaX = moveEvent.clientX - startX;
                           const deltaPercent = (deltaX / barWidth) * 100;
-                          const newPosition = Math.max(0, Math.min(100, startLeft + deltaPercent));
+                          let newPosition = startLeft + deltaPercent;
                           
                           // 1% 단위로 반올림
-                          const roundedPosition = Math.round(newPosition);
+                          newPosition = Math.round(newPosition);
+                          
+                          // 최소 1% 제한 (인접한 두 구간 각각 최소 1%)
+                          const minPercent = 1;
+                          const maxPercent = 100 - minPercent;
+                          newPosition = Math.max(minPercent, Math.min(maxPercent, newPosition));
                           
                           // 양쪽 구간의 비율 조정
-                          const leftPercent = roundedPosition;
-                          const rightPercent = 100 - roundedPosition;
+                          const leftPercent = newPosition;
+                          const rightPercent = 100 - newPosition;
                           
                           // 현재 활성화된 항목들의 총합
                           const activeItems = [
@@ -943,6 +948,10 @@ export default function JobConfigForm({
                           
                           if (totalSum === 0) return;
                           
+                          // 전체 가중치 합 계산 (최소 1% 보장을 위해)
+                          const totalWeight = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
+                          const minWeight = totalWeight * 0.01; // 최소 1%
+                          
                           // 새로운 비율에 맞게 조정
                           const newLeftSum = (totalSum * leftPercent) / 100;
                           const newRightSum = (totalSum * rightPercent) / 100;
@@ -953,14 +962,18 @@ export default function JobConfigForm({
                           if (leftSum > 0) {
                             leftItems.forEach(item => {
                               const ratio = item.value / leftSum;
-                              (newWeights as any)[item.key] = newLeftSum * ratio;
+                              const newValue = newLeftSum * ratio;
+                              // 최소 1% 보장
+                              (newWeights as any)[item.key] = Math.max(minWeight, newValue);
                             });
                           }
                           
                           if (rightSum > 0) {
                             rightItems.forEach(item => {
                               const ratio = item.value / rightSum;
-                              (newWeights as any)[item.key] = newRightSum * ratio;
+                              const newValue = newRightSum * ratio;
+                              // 최소 1% 보장
+                              (newWeights as any)[item.key] = Math.max(minWeight, newValue);
                             });
                           }
                           
@@ -990,7 +1003,7 @@ export default function JobConfigForm({
               <span className="weight-value-label">경력:</span>
               <span className="weight-value-number">{(() => {
                 const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
-                return total > 0 ? ((scoringWeights.career / total) * 100).toFixed(1) : '0.0';
+                return total > 0 ? Math.round((scoringWeights.career / total) * 100) : 0;
               })()}%</span>
             </div>
             {requiredQualifications.trim() && (
@@ -998,7 +1011,7 @@ export default function JobConfigForm({
                 <span className="weight-value-label">요구사항:</span>
                 <span className="weight-value-number">{(() => {
                   const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
-                  return total > 0 ? ((scoringWeights.requirements / total) * 100).toFixed(1) : '0.0';
+                  return total > 0 ? Math.round((scoringWeights.requirements / total) * 100) : 0;
                 })()}%</span>
               </div>
             )}
@@ -1007,7 +1020,7 @@ export default function JobConfigForm({
                 <span className="weight-value-label">우대사항:</span>
                 <span className="weight-value-number">{(() => {
                   const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
-                  return total > 0 ? ((scoringWeights.preferred / total) * 100).toFixed(1) : '0.0';
+                  return total > 0 ? Math.round((scoringWeights.preferred / total) * 100) : 0;
                 })()}%</span>
               </div>
             )}
@@ -1016,7 +1029,7 @@ export default function JobConfigForm({
                 <span className="weight-value-label">자격증:</span>
                 <span className="weight-value-number">{(() => {
                   const total = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
-                  return total > 0 ? ((scoringWeights.certifications / total) * 100).toFixed(1) : '0.0';
+                  return total > 0 ? Math.round((scoringWeights.certifications / total) * 100) : 0;
                 })()}%</span>
               </div>
             )}
