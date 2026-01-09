@@ -94,6 +94,13 @@ export default function JobConfigForm({
   const [showCertDropdown, setShowCertDropdown] = useState(false);
   const [loadingCerts, setLoadingCerts] = useState(false);
   const allCertsCacheRef = useRef<Array<{ name: string; code?: string }> | null>(null);
+  
+  // 활성화 상태 추적용 ref
+  const prevActiveStateRef = useRef({
+    requirements: false,
+    preferred: false,
+    certifications: false,
+  });
 
   // 폴더 선택
   const handleSelectFolder = async () => {
