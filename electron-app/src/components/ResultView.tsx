@@ -32,12 +32,21 @@ interface ResultViewProps {
   selectedFiles: DocxFile[];
   userPrompt: {
     jobDescription: string;
+    requiredQualifications: string;
+    preferredQualifications: string;
+    requiredCertifications: string[];
     gradeCriteria: {
       최상: string;
       상: string;
       중: string;
       하: string;
       최하: string;
+    };
+    scoringWeights: {
+      career: number;
+      requirements: number;
+      preferred: number;
+      certifications: number;
     };
   };
   selectedFolder: string; // 캐시를 위해 폴더 경로 필요

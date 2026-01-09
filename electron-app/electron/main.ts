@@ -864,12 +864,21 @@ ipcMain.handle('ai-check-resume', async (event, data: {
   applicationData: any;
   userPrompt: {
     jobDescription: string;
+    requiredQualifications: string;
+    preferredQualifications: string;
+    requiredCertifications: string[];
     gradeCriteria: {
       최상: string;
       상: string;
       중: string;
       하: string;
       최하: string;
+    };
+    scoringWeights: {
+      career: number;
+      requirements: number;
+      preferred: number;
+      certifications: number;
     };
   };
   fileName: string;
@@ -904,11 +913,11 @@ ipcMain.handle('ai-check-resume', async (event, data: {
     const systemPrompt = `당신은 채용 담당자입니다. 이력서의 경력을 분석하여 업무 내용과의 적합도를 평가하고 등급을 부여해야 합니다.
 
 등급 체계:
-- 최상: ${data.userPrompt.gradeCriteria.최상 || '업무 내용과 완벽히 일치하는 경력'}
-- 상: ${data.userPrompt.gradeCriteria.상 || '업무 내용과 대부분 일치하는 경력'}
-- 중: ${data.userPrompt.gradeCriteria.중 || '업무 내용과 부분적으로 일치하는 경력'}
-- 하: ${data.userPrompt.gradeCriteria.하 || '업무 내용과 거의 일치하지 않는 경력'}
-- 최하: ${data.userPrompt.gradeCriteria.최하 || '업무 내용과 전혀 관련 없는 경력'}
+- 최상: ${data.userPrompt.gradeCriteria.최상 || '하위 등급의 모든 조건을 만족하는 경우'}
+- 상: ${data.userPrompt.gradeCriteria.상 || '중 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
+- 중: ${data.userPrompt.gradeCriteria.중 || '하 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
+- 하: ${data.userPrompt.gradeCriteria.하 || '기본 조건을 만족하는 경우'}
+- 최하: ${data.userPrompt.gradeCriteria.최하 || '기본 조건을 만족하지 못하는 경우'}
 
 응답 형식:
 1. 등급: [최상/상/중/하/최하 중 하나]
@@ -917,10 +926,33 @@ ipcMain.handle('ai-check-resume', async (event, data: {
 4. 주요 약점: [3-5개 항목]
 5. 종합 의견: [2-3문단으로 상세 분석]`;
 
-    const userPromptText = `업무 내용:
+    let userPromptText = `업무 내용:
 ${data.userPrompt.jobDescription || '업무 내용이 없습니다.'}
 
-이력서 경력 정보:
+`;
+
+    if (data.userPrompt.requiredQualifications.trim()) {
+      userPromptText += `필수 요구사항:
+${data.userPrompt.requiredQualifications}
+
+`;
+    }
+
+    if (data.userPrompt.preferredQualifications.trim()) {
+      userPromptText += `우대 사항:
+${data.userPrompt.preferredQualifications}
+
+`;
+    }
+
+    if (data.userPrompt.requiredCertifications.length > 0) {
+      userPromptText += `필수 자격증:
+${data.userPrompt.requiredCertifications.join(', ')}
+
+`;
+    }
+
+    userPromptText += `이력서 경력 정보:
 ${resumeText}
 
 위 업무 내용과 이력서의 경력을 비교하여, 제공된 등급 기준에 따라 적합도를 평가하고 등급을 부여해주세요.`;
