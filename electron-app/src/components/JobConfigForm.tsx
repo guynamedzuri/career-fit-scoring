@@ -956,7 +956,7 @@ export default function JobConfigForm({
                           const barRect = barContainer.getBoundingClientRect();
                           const barWidth = barRect.width;
                           
-                          // 드래그 시작 시점의 가중치 저장
+                          // 드래그 시작 시점의 가중치 저장 (다른 인자들도 함께 저장)
                           const initialWeights = { ...scoringWeights };
                           const initialLeftValue = initialWeights[leftKey];
                           const initialRightValue = initialWeights[rightKey];
@@ -1012,8 +1012,8 @@ export default function JobConfigForm({
                               newRightValue = 0;
                             }
                             
-                            // 다른 인자들은 그대로 유지하고, 인접한 두 인자만 변경
-                            const newWeights = { ...scoringWeights };
+                            // 다른 인자들은 initialWeights에서 그대로 유지하고, 인접한 두 인자만 변경
+                            const newWeights = { ...initialWeights };
                             (newWeights as any)[leftKey] = Math.max(0, Math.min(100, newLeftValue));
                             (newWeights as any)[rightKey] = Math.max(0, Math.min(100, newRightValue));
                             
