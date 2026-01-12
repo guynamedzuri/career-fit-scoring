@@ -13,24 +13,14 @@ ERROR: Cannot create symbolic link : 클라이언트가 필요한 권한을 가�
 
 ### 해결 방법
 
-#### 방법 1: 코드 서명 비활성화 (권장 - 개발/테스트용)
-`electron-builder.yml`에 다음 설정이 이미 추가되어 있습니다:
-```yaml
-win:
-  sign: null
-  signAndEditExecutable: false
-```
-
-이 설정으로 코드 서명을 건너뛰고 빌드할 수 있습니다.
-
-#### 방법 2: 관리자 권한으로 실행
+#### 방법 1: 관리자 권한으로 실행 (권장)
 1. PowerShell 또는 명령 프롬프트를 **관리자 권한으로 실행**
 2. 빌드 명령 실행:
    ```bash
    npm run build:win
    ```
 
-#### 방법 3: 캐시 삭제 후 재시도
+#### 방법 2: 캐시 삭제 후 재시도
 ```bash
 # electron-builder 캐시 삭제
 rmdir /s /q "%LOCALAPPDATA%\electron-builder\Cache\winCodeSign"
@@ -42,13 +32,26 @@ rmdir /s /q "%LOCALAPPDATA%\electron-builder\Cache"
 npm run build:win
 ```
 
-#### 방법 4: 코드 서명 인증서 사용 (프로덕션용)
+#### 방법 3: 코드 서명 인증서 사용 (프로덕션용)
 프로덕션 배포 시에는 코드 서명 인증서가 필요합니다:
 ```yaml
 win:
   certificateFile: path/to/certificate.pfx
   certificatePassword: your-password
 ```
+
+또는 환경 변수로 설정:
+```bash
+# Windows에서
+set CSC_LINK=path/to/certificate.pfx
+set CSC_KEY_PASSWORD=your-password
+
+# 또는 .env 파일에 추가
+CSC_LINK=path/to/certificate.pfx
+CSC_KEY_PASSWORD=your-password
+```
+
+**참고**: 코드 서명 인증서가 없어도 빌드는 가능하지만, Windows Defender에서 "알 수 없는 게시자" 경고가 표시될 수 있습니다.
 
 ## 기타 빌드 문제
 
