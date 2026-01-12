@@ -1,10 +1,83 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as http from 'http';
 import * as https from 'https';
 
 let mainWindow: BrowserWindow | null = null;
+
+/**
+ * 자동 업데이트 설정 및 체크
+ */
+function setupAutoUpdater() {
+  // 개발 환경에서는 자동 업데이트 비활성화
+  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+    console.log('[AutoUpdater] Development mode - auto update disabled');
+    return;
+  }
+
+  // 업데이트 체크 간격 설정 (기본값: 앱 시작 시 + 5분마다)
+  autoUpdater.checkForUpdatesAndNotify();
+
+  // 업데이트 체크 주기 설정 (5분마다)
+  setInterval(() => {
+    autoUpdater.checkForUpdatesAndNotify();
+  }, 5 * 60 * 1000); // 5분
+
+  // 업데이트 이벤트 핸들러
+  autoUpdater.on('checking-for-update', () => {
+    console.log('[AutoUpdater] Checking for update...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('[AutoUpdater] Update available:', info.version);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-available', info);
+    }
+  });
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('[AutoUpdater] Update not available. Current version is latest.');
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('[AutoUpdater] Error:', err);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-error', err.message);
+    }
+  });
+
+  autoUpdater.on('download-progress', (progressObj) => {
+    const message = `다운로드 중: ${Math.round(progressObj.percent)}%`;
+    console.log('[AutoUpdater]', message);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-download-progress', progressObj);
+    }
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('[AutoUpdater] Update downloaded:', info.version);
+    if (mainWindow) {
+      mainWindow.webContents.send('update-downloaded', info);
+    }
+    
+    // 사용자에게 업데이트 알림 및 재시작 옵션 제공
+    dialog.showMessageBox(mainWindow!, {
+      type: 'info',
+      title: '업데이트 준비 완료',
+      message: '새 버전이 다운로드되었습니다.',
+      detail: `버전 ${info.version}이 다운로드되었습니다. 지금 재시작하여 업데이트를 적용하시겠습니까?`,
+      buttons: ['지금 재시작', '나중에'],
+      defaultId: 0,
+      cancelId: 1,
+    }).then((result) => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall(false, true);
+      }
+    });
+  });
+}
 
 /**
  * .env 파일 로드
@@ -235,6 +308,9 @@ function createWindow() {
 app.whenReady().then(() => {
   // 애플리케이션 메뉴 제거 (File, Edit, View, Window 등)
   Menu.setApplicationMenu(null);
+  
+  // 자동 업데이트 설정
+  setupAutoUpdater();
   
   createWindow();
 

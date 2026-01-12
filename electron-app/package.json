@@ -1,6 +1,6 @@
 {
   "name": "career-fit-scoring-app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Electron desktop app for resume scoring using career-fit-scoring algorithm",
   "main": "electron/main.js",
   "author": {
@@ -58,6 +58,7 @@
   },
   "dependencies": {
     "career-fit-scoring": "file:..",
+    "electron-updater": "^6.7.3",
     "lucide-react": "^0.562.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

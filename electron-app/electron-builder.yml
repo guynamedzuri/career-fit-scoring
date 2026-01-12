@@ -2,6 +2,12 @@ appId: com.career-fit-scoring.app
 productName: 이력서 적합도 평가 시스템
 copyright: Copyright © 2025
 
+# 자동 업데이트 설정 (GitHub Releases 사용)
+publish:
+  provider: github
+  owner: guynamedzuri  # GitHub 사용자명 또는 조직명
+  repo: career-fit-scoring  # 저장소 이름
+
 directories:
   output: dist-installer
   buildResources: build
