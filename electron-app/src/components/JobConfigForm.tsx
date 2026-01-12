@@ -938,113 +938,101 @@ export default function JobConfigForm({
                   </div>
                   
                   {/* 슬라이더들 */}
-                  {sliders.map((slider, idx) => (
-                    <div
-                      key={idx}
-                      className="weight-bar-slider"
-                      style={{ left: `${slider.position}%` }}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        const barContainer = (e.currentTarget.parentElement as HTMLElement)?.querySelector('.weight-summary-bar') as HTMLElement;
-                        if (!barContainer) return;
-                        
-                        const startX = e.clientX;
-                        const startLeft = slider.position;
-                        const barRect = barContainer.getBoundingClientRect();
-                        const barWidth = barRect.width;
-                        
-                        const handleMouseMove = (moveEvent: MouseEvent) => {
-                          const deltaX = moveEvent.clientX - startX;
-                          const deltaPercent = (deltaX / barWidth) * 100;
-                          let newPosition = startLeft + deltaPercent;
+                  {sliders.map((slider, idx) => {
+                    const leftKey = slider.leftKey as 'career' | 'requirements' | 'preferred';
+                    const rightKey = slider.rightKey as 'requirements' | 'preferred' | 'certifications';
+                    
+                    return (
+                      <div
+                        key={idx}
+                        className="weight-bar-slider"
+                        style={{ left: `${slider.position}%` }}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          const barContainer = (e.currentTarget.parentElement as HTMLElement)?.querySelector('.weight-summary-bar') as HTMLElement;
+                          if (!barContainer) return;
                           
-                          // 1% 단위로 반올림
-                          newPosition = Math.round(newPosition);
+                          const startX = e.clientX;
+                          const barRect = barContainer.getBoundingClientRect();
+                          const barWidth = barRect.width;
                           
-                          // 최소 1% 제한 (인접한 두 구간 각각 최소 1%)
-                          const minPercent = 1;
-                          const maxPercent = 100 - minPercent;
-                          newPosition = Math.max(minPercent, Math.min(maxPercent, newPosition));
+                          // 드래그 시작 시점의 가중치 저장
+                          const initialWeights = { ...scoringWeights };
+                          const initialLeftValue = initialWeights[leftKey];
+                          const initialRightValue = initialWeights[rightKey];
                           
-                          // 양쪽 구간의 비율 조정
-                          const leftPercent = newPosition;
-                          const rightPercent = 100 - newPosition;
+                          // 픽셀당 1 단위로 조정 (전체 100 기준)
+                          const pixelsPerUnit = barWidth / 100;
                           
-                          // 현재 활성화된 항목들의 총합
-                          const activeItems = [
-                            { key: 'career', value: scoringWeights.career, enabled: true },
-                            { key: 'requirements', value: scoringWeights.requirements, enabled: hasRequirements },
-                            { key: 'preferred', value: scoringWeights.preferred, enabled: hasPreferred },
-                            { key: 'certifications', value: scoringWeights.certifications, enabled: hasCerts },
-                          ].filter(item => item.enabled);
+                          const handleMouseMove = (moveEvent: MouseEvent) => {
+                            const deltaX = moveEvent.clientX - startX;
+                            // 픽셀 변화를 가중치 변화로 변환 (1픽셀 = 1 단위)
+                            const deltaValue = Math.round(deltaX / pixelsPerUnit);
+                            
+                            // 새로운 값 계산 (왼쪽 인자 증가 = 오른쪽 인자 감소, 동일한 값)
+                            let newLeftValue = initialLeftValue + deltaValue;
+                            let newRightValue = initialRightValue - deltaValue;
+                            
+                            // 범위 제한 (0 ~ 100)
+                            if (newLeftValue < 0) {
+                              newRightValue += newLeftValue;
+                              newLeftValue = 0;
+                            }
+                            if (newRightValue < 0) {
+                              newLeftValue += newRightValue;
+                              newRightValue = 0;
+                            }
+                            if (newLeftValue > 100) {
+                              newRightValue -= (newLeftValue - 100);
+                              newLeftValue = 100;
+                            }
+                            if (newRightValue > 100) {
+                              newLeftValue -= (newRightValue - 100);
+                              newRightValue = 100;
+                            }
+                            
+                            // 정수로 반올림
+                            newLeftValue = Math.round(newLeftValue);
+                            newRightValue = Math.round(newRightValue);
+                            
+                            // 합이 100이 되도록 조정 (반올림 오차 보정)
+                            const currentTotal = newLeftValue + newRightValue;
+                            if (currentTotal !== 100) {
+                              const diff = 100 - currentTotal;
+                              newLeftValue += diff;
+                            }
+                            
+                            // 최종 범위 재확인
+                            if (newLeftValue < 0) {
+                              newRightValue += newLeftValue;
+                              newLeftValue = 0;
+                            }
+                            if (newRightValue < 0) {
+                              newLeftValue += newRightValue;
+                              newRightValue = 0;
+                            }
+                            
+                            // 다른 인자들은 그대로 유지하고, 인접한 두 인자만 변경
+                            const newWeights = { ...scoringWeights };
+                            (newWeights as any)[leftKey] = Math.max(0, Math.min(100, newLeftValue));
+                            (newWeights as any)[rightKey] = Math.max(0, Math.min(100, newRightValue));
+                            
+                            setScoringWeights(newWeights);
+                          };
                           
-                          // 슬라이더 기준으로 왼쪽/오른쪽 항목 분류
-                          const leftItems = activeItems.filter((item, i) => {
-                            if (slider.leftSegment === 'career') return i === 0;
-                            if (slider.leftSegment === 'requirements') return i <= 1;
-                            if (slider.leftSegment === 'preferred') return i <= 2;
-                            return false;
-                          });
+                          const handleMouseUp = () => {
+                            document.removeEventListener('mousemove', handleMouseMove);
+                            document.removeEventListener('mouseup', handleMouseUp);
+                          };
                           
-                          const rightItems = activeItems.filter((item, i) => {
-                            if (slider.rightSegment === 'requirements') return i === 1;
-                            if (slider.rightSegment === 'preferred') return i === 2;
-                            if (slider.rightSegment === 'certifications') return i === 3;
-                            return false;
-                          });
-                          
-                          // 왼쪽 항목들의 현재 합
-                          const leftSum = leftItems.reduce((sum, item) => sum + item.value, 0);
-                          // 오른쪽 항목들의 현재 합
-                          const rightSum = rightItems.reduce((sum, item) => sum + item.value, 0);
-                          const totalSum = leftSum + rightSum;
-                          
-                          if (totalSum === 0) return;
-                          
-                          // 전체 가중치 합 계산 (최소 1% 보장을 위해)
-                          const totalWeight = scoringWeights.career + scoringWeights.requirements + scoringWeights.preferred + scoringWeights.certifications;
-                          const minWeight = totalWeight * 0.01; // 최소 1%
-                          
-                          // 새로운 비율에 맞게 조정
-                          const newLeftSum = (totalSum * leftPercent) / 100;
-                          const newRightSum = (totalSum * rightPercent) / 100;
-                          
-                          // 각 항목의 비율 유지하면서 조정
-                          const newWeights = { ...scoringWeights };
-                          
-                          if (leftSum > 0) {
-                            leftItems.forEach(item => {
-                              const ratio = item.value / leftSum;
-                              const newValue = newLeftSum * ratio;
-                              // 최소 1% 보장
-                              (newWeights as any)[item.key] = Math.max(minWeight, newValue);
-                            });
-                          }
-                          
-                          if (rightSum > 0) {
-                            rightItems.forEach(item => {
-                              const ratio = item.value / rightSum;
-                              const newValue = newRightSum * ratio;
-                              // 최소 1% 보장
-                              (newWeights as any)[item.key] = Math.max(minWeight, newValue);
-                            });
-                          }
-                          
-                          setScoringWeights(newWeights);
-                        };
-                        
-                        const handleMouseUp = () => {
-                          document.removeEventListener('mousemove', handleMouseMove);
-                          document.removeEventListener('mouseup', handleMouseUp);
-                        };
-                        
-                        document.addEventListener('mousemove', handleMouseMove);
-                        document.addEventListener('mouseup', handleMouseUp);
-                      }}
-                    >
-                      <div className="weight-slider-handle"></div>
-                    </div>
-                  ))}
+                          document.addEventListener('mousemove', handleMouseMove);
+                          document.addEventListener('mouseup', handleMouseUp);
+                        }}
+                      >
+                        <div className="weight-slider-handle"></div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })()}
