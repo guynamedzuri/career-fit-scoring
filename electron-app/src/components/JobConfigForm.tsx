@@ -83,10 +83,10 @@ export default function JobConfigForm({
     최하: '',
   });
   const [scoringWeights, setScoringWeights] = useState({
-    career: 1,
-    requirements: 1,
-    preferred: 1,
-    certifications: 1,
+    career: 100,
+    requirements: 0,
+    preferred: 0,
+    certifications: 0,
   });
   const [isCareerEvaluationExpanded, setIsCareerEvaluationExpanded] = useState<boolean>(true);
   
@@ -259,7 +259,7 @@ export default function JobConfigForm({
     }
   }, [loadedData, onFolderChange]);
 
-  // 가중치 계산 및 자동 조정
+  // 가중치 계산 및 자동 조정 (합은 항상 100)
   useEffect(() => {
     const trimmedRequired = requiredQualifications.trim();
     const trimmedPreferred = preferredQualifications.trim();
@@ -296,35 +296,22 @@ export default function JobConfigForm({
 
     // 새로 활성화된 항목이 있는 경우
     if (newlyActivated.requirements || newlyActivated.preferred || newlyActivated.certifications) {
-      // 기존 활성화된 항목들의 합 계산
-      const existingActiveSum = scoringWeights.career +
-        (prevActiveStateRef.current.requirements ? scoringWeights.requirements : 0) +
-        (prevActiveStateRef.current.preferred ? scoringWeights.preferred : 0) +
-        (prevActiveStateRef.current.certifications ? scoringWeights.certifications : 0);
-
-      // 기존 항목들의 비율을 (n-1)/n로 조정
+      // 기존 활성화된 항목들에 (n-1)/n 곱하기
       const ratio = (activeCount - 1) / activeCount;
       
-      if (existingActiveSum > 0) {
-        newWeights.career = scoringWeights.career * ratio;
-        if (prevActiveStateRef.current.requirements) {
-          newWeights.requirements = scoringWeights.requirements * ratio;
-        }
-        if (prevActiveStateRef.current.preferred) {
-          newWeights.preferred = scoringWeights.preferred * ratio;
-        }
-        if (prevActiveStateRef.current.certifications) {
-          newWeights.certifications = scoringWeights.certifications * ratio;
-        }
-      } else {
-        // 기존 활성화된 항목이 없었던 경우 (처음 활성화)
-        newWeights.career = 1 / activeCount;
+      newWeights.career = scoringWeights.career * ratio;
+      if (prevActiveStateRef.current.requirements) {
+        newWeights.requirements = scoringWeights.requirements * ratio;
+      }
+      if (prevActiveStateRef.current.preferred) {
+        newWeights.preferred = scoringWeights.preferred * ratio;
+      }
+      if (prevActiveStateRef.current.certifications) {
+        newWeights.certifications = scoringWeights.certifications * ratio;
       }
 
-      // 새로 활성화된 항목에 1/n 할당
-      const newItemWeight = existingActiveSum > 0 
-        ? (existingActiveSum / activeCount) 
-        : (1 / activeCount);
+      // 새로 활성화된 항목에 1/n * 100 부여
+      const newItemWeight = (1 / activeCount) * 100;
 
       if (newlyActivated.requirements) {
         newWeights.requirements = newItemWeight;
@@ -339,28 +326,30 @@ export default function JobConfigForm({
 
     // 새로 비활성화된 항목이 있는 경우
     if (newlyDeactivated.requirements || newlyDeactivated.preferred || newlyDeactivated.certifications) {
-      // 비활성화된 항목의 가중치를 0으로 설정
+      // 비활성화된 항목의 가중치 계산
+      let deactivatedValue = 0;
       if (newlyDeactivated.requirements) {
+        deactivatedValue = scoringWeights.requirements;
         newWeights.requirements = 0;
       }
       if (newlyDeactivated.preferred) {
+        deactivatedValue = scoringWeights.preferred;
         newWeights.preferred = 0;
       }
       if (newlyDeactivated.certifications) {
+        deactivatedValue = scoringWeights.certifications;
         newWeights.certifications = 0;
       }
 
       // 남은 활성화된 항목들의 합 계산
-      const remainingActiveSum = newWeights.career +
+      const remainingSum = newWeights.career +
         (currentActive.requirements ? newWeights.requirements : 0) +
         (currentActive.preferred ? newWeights.preferred : 0) +
         (currentActive.certifications ? newWeights.certifications : 0);
 
-      // 비활성화된 항목의 가중치를 나머지 항목들에 비례 분배
-      if (remainingActiveSum > 0 && activeCount > 0) {
-        const totalSum = newWeights.career + newWeights.requirements + newWeights.preferred + newWeights.certifications;
-        const ratio = totalSum / remainingActiveSum;
-
+      // 100/(100-제거된인자값) 곱하기
+      if (remainingSum > 0 && deactivatedValue < 100) {
+        const ratio = 100 / (100 - deactivatedValue);
         newWeights.career = newWeights.career * ratio;
         if (currentActive.requirements) {
           newWeights.requirements = newWeights.requirements * ratio;
@@ -385,12 +374,28 @@ export default function JobConfigForm({
       newWeights.certifications = 0;
     }
 
+    // 합이 100이 되도록 정규화 (반올림 오차 보정)
+    const total = newWeights.career + newWeights.requirements + newWeights.preferred + newWeights.certifications;
+    if (Math.abs(total - 100) > 0.01) {
+      const ratio = 100 / total;
+      newWeights.career = newWeights.career * ratio;
+      if (currentActive.requirements) {
+        newWeights.requirements = newWeights.requirements * ratio;
+      }
+      if (currentActive.preferred) {
+        newWeights.preferred = newWeights.preferred * ratio;
+      }
+      if (currentActive.certifications) {
+        newWeights.certifications = newWeights.certifications * ratio;
+      }
+    }
+
     // 상태 업데이트 (무한 루프 방지를 위해 값이 실제로 변경되었을 때만)
     const hasChanged = 
-      Math.abs(newWeights.career - scoringWeights.career) > 0.001 ||
-      Math.abs(newWeights.requirements - scoringWeights.requirements) > 0.001 ||
-      Math.abs(newWeights.preferred - scoringWeights.preferred) > 0.001 ||
-      Math.abs(newWeights.certifications - scoringWeights.certifications) > 0.001;
+      Math.abs(newWeights.career - scoringWeights.career) > 0.01 ||
+      Math.abs(newWeights.requirements - scoringWeights.requirements) > 0.01 ||
+      Math.abs(newWeights.preferred - scoringWeights.preferred) > 0.01 ||
+      Math.abs(newWeights.certifications - scoringWeights.certifications) > 0.01;
 
     if (hasChanged) {
       setScoringWeights(newWeights);
@@ -841,9 +846,10 @@ export default function JobConfigForm({
               let preferredStart = careerPercent + (hasRequirements ? requirementsPercent : 0);
               let certsStart = careerPercent + (hasRequirements ? requirementsPercent : 0) + (hasPreferred ? preferredPercent : 0);
               
-              // 슬라이더 위치 계산
+              // 슬라이더 위치 계산 (인접한 두 인자 사이에만 슬라이더 배치)
               const sliders: Array<{ position: number; leftSegment: string; rightSegment: string }> = [];
               
+              // 경력과 요구사항 사이
               if (hasRequirements && careerPercent > 0 && requirementsPercent > 0) {
                 sliders.push({
                   position: requirementsStart,
@@ -852,18 +858,44 @@ export default function JobConfigForm({
                 });
               }
               
-              if (hasPreferred && (careerPercent + (hasRequirements ? requirementsPercent : 0)) > 0 && preferredPercent > 0) {
+              // 요구사항과 우대사항 사이 (요구사항이 있을 때만)
+              if (hasRequirements && hasPreferred && requirementsPercent > 0 && preferredPercent > 0) {
                 sliders.push({
                   position: preferredStart,
-                  leftSegment: hasRequirements ? 'requirements' : 'career',
+                  leftSegment: 'requirements',
+                  rightSegment: 'preferred',
+                });
+              }
+              // 경력과 우대사항 사이 (요구사항이 없고 우대사항이 있을 때)
+              else if (!hasRequirements && hasPreferred && careerPercent > 0 && preferredPercent > 0) {
+                sliders.push({
+                  position: preferredStart,
+                  leftSegment: 'career',
                   rightSegment: 'preferred',
                 });
               }
               
-              if (hasCerts && (careerPercent + (hasRequirements ? requirementsPercent : 0) + (hasPreferred ? preferredPercent : 0)) > 0 && certsPercent > 0) {
+              // 우대사항과 자격증 사이 (우대사항이 있을 때만)
+              if (hasPreferred && hasCerts && preferredPercent > 0 && certsPercent > 0) {
                 sliders.push({
                   position: certsStart,
-                  leftSegment: hasPreferred ? 'preferred' : (hasRequirements ? 'requirements' : 'career'),
+                  leftSegment: 'preferred',
+                  rightSegment: 'certifications',
+                });
+              }
+              // 요구사항과 자격증 사이 (우대사항이 없고 자격증이 있을 때)
+              else if (!hasPreferred && hasCerts && hasRequirements && requirementsPercent > 0 && certsPercent > 0) {
+                sliders.push({
+                  position: certsStart,
+                  leftSegment: 'requirements',
+                  rightSegment: 'certifications',
+                });
+              }
+              // 경력과 자격증 사이 (요구사항과 우대사항이 모두 없고 자격증이 있을 때)
+              else if (!hasPreferred && !hasRequirements && hasCerts && careerPercent > 0 && certsPercent > 0) {
+                sliders.push({
+                  position: certsStart,
+                  leftSegment: 'career',
                   rightSegment: 'certifications',
                 });
               }
