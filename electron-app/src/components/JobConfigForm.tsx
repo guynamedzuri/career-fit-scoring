@@ -103,6 +103,9 @@ export default function JobConfigForm({
     preferred: false,
     certifications: false,
   });
+  
+  // 슬라이더 드래그 중인지 추적하는 ref
+  const isDraggingRef = useRef(false);
 
   // 폴더 선택
   const handleSelectFolder = async () => {
@@ -261,6 +264,11 @@ export default function JobConfigForm({
 
   // 가중치 계산 및 자동 조정 (합은 항상 100)
   useEffect(() => {
+    // 슬라이더 드래그 중에는 자동 조정하지 않음
+    if (isDraggingRef.current) {
+      return;
+    }
+    
     const trimmedRequired = requiredQualifications.trim();
     const trimmedPreferred = preferredQualifications.trim();
     const hasCerts = requiredCertifications.length > 0;
@@ -375,8 +383,9 @@ export default function JobConfigForm({
     }
 
     // 합이 100이 되도록 정규화 (반올림 오차 보정)
+    // 단, 슬라이더 드래그 중에는 이 로직이 실행되지 않도록 주의
     const total = newWeights.career + newWeights.requirements + newWeights.preferred + newWeights.certifications;
-    if (Math.abs(total - 100) > 0.01) {
+    if (Math.abs(total - 100) > 0.01 && total > 0) {
       const ratio = 100 / total;
       newWeights.career = newWeights.career * ratio;
       if (currentActive.requirements) {
@@ -387,6 +396,21 @@ export default function JobConfigForm({
       }
       if (currentActive.certifications) {
         newWeights.certifications = newWeights.certifications * ratio;
+      }
+      
+      // 최소값 보장 (활성화된 인자는 최소 1 이상)
+      const minValue = 1;
+      if (currentActive.requirements && newWeights.requirements < minValue) {
+        newWeights.requirements = minValue;
+      }
+      if (currentActive.preferred && newWeights.preferred < minValue) {
+        newWeights.preferred = minValue;
+      }
+      if (currentActive.certifications && newWeights.certifications < minValue) {
+        newWeights.certifications = minValue;
+      }
+      if (newWeights.career < minValue) {
+        newWeights.career = minValue;
       }
     }
 
@@ -952,6 +976,9 @@ export default function JobConfigForm({
                           const barContainer = (e.currentTarget.parentElement as HTMLElement)?.querySelector('.weight-summary-bar') as HTMLElement;
                           if (!barContainer) return;
                           
+                          // 드래그 시작
+                          isDraggingRef.current = true;
+                          
                           const startX = e.clientX;
                           const barRect = barContainer.getBoundingClientRect();
                           const barWidth = barRect.width;
@@ -973,21 +1000,28 @@ export default function JobConfigForm({
                             let newLeftValue = initialLeftValue + deltaValue;
                             let newRightValue = initialRightValue - deltaValue;
                             
-                            // 범위 제한 (0 ~ 100)
-                            if (newLeftValue < 0) {
-                              newRightValue += newLeftValue;
-                              newLeftValue = 0;
+                            // 최소값 제한 (활성화된 인자는 최소 1 이상)
+                            const minValue = 1;
+                            
+                            // 범위 제한 (최소 1 ~ 최대 100)
+                            if (newLeftValue < minValue) {
+                              const diff = minValue - newLeftValue;
+                              newRightValue -= diff;
+                              newLeftValue = minValue;
                             }
-                            if (newRightValue < 0) {
-                              newLeftValue += newRightValue;
-                              newRightValue = 0;
+                            if (newRightValue < minValue) {
+                              const diff = minValue - newRightValue;
+                              newLeftValue -= diff;
+                              newRightValue = minValue;
                             }
                             if (newLeftValue > 100) {
-                              newRightValue -= (newLeftValue - 100);
+                              const diff = newLeftValue - 100;
+                              newRightValue += diff;
                               newLeftValue = 100;
                             }
                             if (newRightValue > 100) {
-                              newLeftValue -= (newRightValue - 100);
+                              const diff = newRightValue - 100;
+                              newLeftValue += diff;
                               newRightValue = 100;
                             }
                             
@@ -995,32 +1029,27 @@ export default function JobConfigForm({
                             newLeftValue = Math.round(newLeftValue);
                             newRightValue = Math.round(newRightValue);
                             
-                            // 합이 100이 되도록 조정 (반올림 오차 보정)
-                            const currentTotal = newLeftValue + newRightValue;
-                            if (currentTotal !== 100) {
-                              const diff = 100 - currentTotal;
-                              newLeftValue += diff;
+                            // 최소값 재확인
+                            if (newLeftValue < minValue) {
+                              newRightValue -= (minValue - newLeftValue);
+                              newLeftValue = minValue;
                             }
-                            
-                            // 최종 범위 재확인
-                            if (newLeftValue < 0) {
-                              newRightValue += newLeftValue;
-                              newLeftValue = 0;
-                            }
-                            if (newRightValue < 0) {
-                              newLeftValue += newRightValue;
-                              newRightValue = 0;
+                            if (newRightValue < minValue) {
+                              newLeftValue -= (minValue - newRightValue);
+                              newRightValue = minValue;
                             }
                             
                             // 다른 인자들은 initialWeights에서 그대로 유지하고, 인접한 두 인자만 변경
                             const newWeights = { ...initialWeights };
-                            (newWeights as any)[leftKey] = Math.max(0, Math.min(100, newLeftValue));
-                            (newWeights as any)[rightKey] = Math.max(0, Math.min(100, newRightValue));
+                            (newWeights as any)[leftKey] = Math.max(minValue, Math.min(100, newLeftValue));
+                            (newWeights as any)[rightKey] = Math.max(minValue, Math.min(100, newRightValue));
                             
                             setScoringWeights(newWeights);
                           };
                           
                           const handleMouseUp = () => {
+                            // 드래그 종료
+                            isDraggingRef.current = false;
                             document.removeEventListener('mousemove', handleMouseMove);
                             document.removeEventListener('mouseup', handleMouseUp);
                           };
