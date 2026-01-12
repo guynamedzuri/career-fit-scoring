@@ -36,9 +36,9 @@ win:
         - x64
   icon: build/icon.ico
   requestedExecutionLevel: asInvoker
-  # 코드 서명 활성화
-  # 코드 서명 인증서가 있으면 자동으로 사용됩니다
-  # 인증서가 없으면 서명 없이 빌드됩니다
+  # 코드 서명 비활성화 (인증서 비용 절감)
+  sign: null
+  signAndEditExecutable: false
 
 nsis:
   oneClick: false
