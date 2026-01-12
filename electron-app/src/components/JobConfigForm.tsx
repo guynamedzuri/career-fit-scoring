@@ -1039,6 +1039,40 @@ export default function JobConfigForm({
                               newRightValue = minValue;
                             }
                             
+                            // 합이 100이 되도록 보정 (반올림 오차 보정)
+                            // initialLeftValue + initialRightValue의 합을 유지
+                            const initialSum = initialLeftValue + initialRightValue;
+                            const currentSum = newLeftValue + newRightValue;
+                            if (currentSum !== initialSum) {
+                              const diff = initialSum - currentSum;
+                              // 차이를 더 큰 값에 더하거나 작은 값에서 빼서 합을 맞춤
+                              if (Math.abs(diff) > 0) {
+                                if (newLeftValue >= newRightValue) {
+                                  newLeftValue += diff;
+                                } else {
+                                  newRightValue += diff;
+                                }
+                              }
+                            }
+                            
+                            // 최종 범위 재확인 (합 보정 후)
+                            if (newLeftValue < minValue) {
+                              newRightValue -= (minValue - newLeftValue);
+                              newLeftValue = minValue;
+                            }
+                            if (newRightValue < minValue) {
+                              newLeftValue -= (minValue - newRightValue);
+                              newRightValue = minValue;
+                            }
+                            if (newLeftValue > 100) {
+                              newRightValue += (newLeftValue - 100);
+                              newLeftValue = 100;
+                            }
+                            if (newRightValue > 100) {
+                              newLeftValue += (newRightValue - 100);
+                              newRightValue = 100;
+                            }
+                            
                             // 다른 인자들은 initialWeights에서 그대로 유지하고, 인접한 두 인자만 변경
                             const newWeights = { ...initialWeights };
                             (newWeights as any)[leftKey] = Math.max(minValue, Math.min(100, newLeftValue));
