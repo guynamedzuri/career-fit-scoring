@@ -39,6 +39,8 @@ win:
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
   signAndEditExecutable: false
+  # winCodeSign 다운로드 비활성화
+  signingHashAlgorithms: []
 
 nsis:
   oneClick: false

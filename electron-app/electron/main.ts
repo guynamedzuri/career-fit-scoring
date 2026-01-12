@@ -1,9 +1,16 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
-import { autoUpdater } from 'electron-updater';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as http from 'http';
 import * as https from 'https';
+
+// electron-updater는 동적 import로 처리 (타입 에러 방지)
+let autoUpdater: any = null;
+try {
+  autoUpdater = require('electron-updater').autoUpdater;
+} catch (e) {
+  console.warn('[AutoUpdater] electron-updater not available:', e);
+}
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -11,6 +18,12 @@ let mainWindow: BrowserWindow | null = null;
  * 자동 업데이트 설정 및 체크
  */
 function setupAutoUpdater() {
+  // electron-updater가 없으면 건너뛰기
+  if (!autoUpdater) {
+    console.log('[AutoUpdater] electron-updater not available');
+    return;
+  }
+
   // 개발 환경에서는 자동 업데이트 비활성화
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
     console.log('[AutoUpdater] Development mode - auto update disabled');
@@ -30,25 +43,25 @@ function setupAutoUpdater() {
     console.log('[AutoUpdater] Checking for update...');
   });
 
-  autoUpdater.on('update-available', (info) => {
+  autoUpdater.on('update-available', (info: any) => {
     console.log('[AutoUpdater] Update available:', info.version);
     if (mainWindow) {
       mainWindow.webContents.send('update-available', info);
     }
   });
 
-  autoUpdater.on('update-not-available', (info) => {
+  autoUpdater.on('update-not-available', (info: any) => {
     console.log('[AutoUpdater] Update not available. Current version is latest.');
   });
 
-  autoUpdater.on('error', (err) => {
+  autoUpdater.on('error', (err: any) => {
     console.error('[AutoUpdater] Error:', err);
     if (mainWindow) {
       mainWindow.webContents.send('update-error', err.message);
     }
   });
 
-  autoUpdater.on('download-progress', (progressObj) => {
+  autoUpdater.on('download-progress', (progressObj: any) => {
     const message = `다운로드 중: ${Math.round(progressObj.percent)}%`;
     console.log('[AutoUpdater]', message);
     if (mainWindow) {
@@ -56,7 +69,7 @@ function setupAutoUpdater() {
     }
   });
 
-  autoUpdater.on('update-downloaded', (info) => {
+  autoUpdater.on('update-downloaded', (info: any) => {
     console.log('[AutoUpdater] Update downloaded:', info.version);
     if (mainWindow) {
       mainWindow.webContents.send('update-downloaded', info);
