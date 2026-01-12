@@ -847,14 +847,14 @@ export default function JobConfigForm({
               let certsStart = careerPercent + (hasRequirements ? requirementsPercent : 0) + (hasPreferred ? preferredPercent : 0);
               
               // 슬라이더 위치 계산 (인접한 두 인자 사이에만 슬라이더 배치)
-              const sliders: Array<{ position: number; leftSegment: string; rightSegment: string }> = [];
+              const sliders: Array<{ position: number; leftKey: string; rightKey: string }> = [];
               
               // 경력과 요구사항 사이
               if (hasRequirements && careerPercent > 0 && requirementsPercent > 0) {
                 sliders.push({
                   position: requirementsStart,
-                  leftSegment: 'career',
-                  rightSegment: 'requirements',
+                  leftKey: 'career',
+                  rightKey: 'requirements',
                 });
               }
               
@@ -862,16 +862,16 @@ export default function JobConfigForm({
               if (hasRequirements && hasPreferred && requirementsPercent > 0 && preferredPercent > 0) {
                 sliders.push({
                   position: preferredStart,
-                  leftSegment: 'requirements',
-                  rightSegment: 'preferred',
+                  leftKey: 'requirements',
+                  rightKey: 'preferred',
                 });
               }
               // 경력과 우대사항 사이 (요구사항이 없고 우대사항이 있을 때)
               else if (!hasRequirements && hasPreferred && careerPercent > 0 && preferredPercent > 0) {
                 sliders.push({
                   position: preferredStart,
-                  leftSegment: 'career',
-                  rightSegment: 'preferred',
+                  leftKey: 'career',
+                  rightKey: 'preferred',
                 });
               }
               
@@ -879,24 +879,24 @@ export default function JobConfigForm({
               if (hasPreferred && hasCerts && preferredPercent > 0 && certsPercent > 0) {
                 sliders.push({
                   position: certsStart,
-                  leftSegment: 'preferred',
-                  rightSegment: 'certifications',
+                  leftKey: 'preferred',
+                  rightKey: 'certifications',
                 });
               }
               // 요구사항과 자격증 사이 (우대사항이 없고 자격증이 있을 때)
               else if (!hasPreferred && hasCerts && hasRequirements && requirementsPercent > 0 && certsPercent > 0) {
                 sliders.push({
                   position: certsStart,
-                  leftSegment: 'requirements',
-                  rightSegment: 'certifications',
+                  leftKey: 'requirements',
+                  rightKey: 'certifications',
                 });
               }
               // 경력과 자격증 사이 (요구사항과 우대사항이 모두 없고 자격증이 있을 때)
               else if (!hasPreferred && !hasRequirements && hasCerts && careerPercent > 0 && certsPercent > 0) {
                 sliders.push({
                   position: certsStart,
-                  leftSegment: 'career',
-                  rightSegment: 'certifications',
+                  leftKey: 'career',
+                  rightKey: 'certifications',
                 });
               }
               
