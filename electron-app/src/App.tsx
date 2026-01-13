@@ -1,3 +1,4 @@
+// Version 1.0.2 - 자동 업데이트 테스트
 import { useState, useEffect } from 'react';
 import JobConfigForm from './components/JobConfigForm';
 import ResumeFileList from './components/ResumeFileList';
