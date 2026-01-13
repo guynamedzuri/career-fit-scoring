@@ -6,8 +6,9 @@ copyright: Copyright © 2025
 asar: true  # asar 아카이브 사용 (기본값이지만 명시)
 compression: maximum  # 최대 압축
 # electron-updater는 asar 외부에 있어야 함 (네이티브 모듈 의존성)
+# asarUnpack은 상대 경로로 지정해야 함
 asarUnpack:
-  - "node_modules/electron-updater/**/*"
+  - "**/node_modules/electron-updater/**/*"
 
 # 자동 업데이트 설정 (GitHub Releases 사용)
 publish:
@@ -48,12 +49,16 @@ files:
   - "!**/node_modules/career-fit-scoring/.git/**/*"
   - "!**/node_modules/career-fit-scoring/node_modules/**/*"
   # node_modules 최적화 - 불필요한 파일 제외
+  # electron-updater는 제외하지 않음 (자동 업데이트에 필수)
   - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme,LICENSE,LICENSE.txt,license.txt}"
   - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples,docs,documentation}"
   - "!**/node_modules/*.d.ts"
   - "!**/node_modules/.bin"
   - "!**/node_modules/*/{.github,.nyc_output,coverage}"
   - "!**/node_modules/*/{*.map,*.md,*.txt,*.log}"
+  # electron-updater는 제외 규칙에서 예외 처리
+  - "!**/node_modules/electron-updater/**/*.md"
+  - "!**/node_modules/electron-updater/**/*.txt"
   # 소스맵 제외
   - "!**/*.map"
   # TypeScript 소스 파일 제외 (이미 컴파일됨)
