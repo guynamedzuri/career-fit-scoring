@@ -1,4 +1,4 @@
-// Version 1.0.5 - 로그 파일 저장 및 electron-updater 수정
+// Version 1.0.6 - 자동 업데이트 테스트
 import { useState, useEffect } from 'react';
 import JobConfigForm from './components/JobConfigForm';
 import ResumeFileList from './components/ResumeFileList';
