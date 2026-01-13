@@ -6,9 +6,9 @@ copyright: Copyright © 2025
 asar: true  # asar 아카이브 사용 (기본값이지만 명시)
 compression: maximum  # 최대 압축
 # electron-updater는 asar 외부에 있어야 함 (네이티브 모듈 의존성)
-# asarUnpack은 상대 경로로 지정해야 함
+# asarUnpack은 프로젝트 루트 기준 상대 경로 (electron-app 폴더 기준)
 asarUnpack:
-  - "**/node_modules/electron-updater/**/*"
+  - "node_modules/electron-updater/**/*"
 
 # 자동 업데이트 설정 (GitHub Releases 사용)
 publish:

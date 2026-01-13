@@ -10,6 +10,10 @@
   "build": {
     "appId": "com.career-fit-scoring.app",
     "productName": "이력서 적합도 평가 시스템",
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/electron-updater/**/*"
+    ],
     "directories": {
       "output": "dist-installer",
       "buildResources": "build"
