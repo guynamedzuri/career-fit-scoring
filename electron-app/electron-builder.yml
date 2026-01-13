@@ -7,6 +7,8 @@ publish:
   provider: github
   owner: guynamedzuri  # GitHub 사용자명 또는 조직명
   repo: career-fit-scoring  # 저장소 이름
+  # latest.yml 파일 생성을 위해 publish 설정 필요
+  # 실제로 publish하지 않아도 latest.yml은 생성됨
 
 directories:
   output: dist-installer
