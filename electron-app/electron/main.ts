@@ -76,7 +76,8 @@ function setupAutoUpdater() {
           
           // 추가 시도: resources 폴더에서 직접 찾기
           try {
-            const resourcesPath = path.join(path.dirname(appPath), '..', 'resources', 'app.asar.unpacked', 'node_modules', 'electron-updater');
+            const currentAppPath = app.getAppPath();
+            const resourcesPath = path.join(path.dirname(currentAppPath), '..', 'resources', 'app.asar.unpacked', 'node_modules', 'electron-updater');
             writeLog(`[AutoUpdater] Trying resources path: ${resourcesPath}`, 'info');
             const updaterModule = require(resourcesPath);
             autoUpdater = updaterModule.autoUpdater;
