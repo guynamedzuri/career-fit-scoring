@@ -8,19 +8,38 @@
 
 ## 해결 방법
 
-### 방법 1: publish 시뮬레이션으로 빌드 (권장)
+### 방법 1: 수동 생성 스크립트 사용 (가장 확실)
+
+빌드 후 자동으로 `latest.yml`을 생성하는 스크립트를 실행:
 
 ```bash
-npm run build:all && electron-builder --win --publish never
+npm run build:win:publish
+npm run generate-latest
 ```
 
-또는 새로운 스크립트 사용:
+또는 한 번에:
+
+```bash
+npm run build:win:complete
+```
+
+이 방법이 가장 확실하게 `latest.yml` 파일을 생성합니다.
+
+### 방법 2: publish onTag로 빌드
 
 ```bash
 npm run build:win:publish
 ```
 
-이 명령은 실제로 GitHub에 publish하지 않지만 `latest.yml` 파일을 생성합니다.
+또는 직접 실행:
+
+```bash
+npm run build:all && electron-builder --win --publish onTag
+```
+
+**중요**: `--publish onTag`는 Git 태그가 있을 때만 실제로 publish합니다. 태그가 없으면 `latest.yml`만 생성하고 실제로는 publish하지 않습니다.
+
+이 방법이 `latest.yml` 파일을 생성하면서도 실제로 GitHub에 publish하지 않습니다.
 
 ### 방법 2: 수동으로 latest.yml 생성
 
