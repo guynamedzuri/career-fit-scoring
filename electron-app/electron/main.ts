@@ -27,8 +27,14 @@ function setupAutoUpdater() {
   // 개발 환경에서는 자동 업데이트 비활성화
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
     console.log('[AutoUpdater] Development mode - auto update disabled');
+    console.log('[AutoUpdater] NODE_ENV:', process.env.NODE_ENV);
+    console.log('[AutoUpdater] isPackaged:', app.isPackaged);
     return;
   }
+
+  // 현재 버전 로그
+  console.log('[AutoUpdater] Current app version:', app.getVersion());
+  console.log('[AutoUpdater] Checking for updates from GitHub...');
 
   // 업데이트 체크 간격 설정 (기본값: 앱 시작 시 + 5분마다)
   autoUpdater.checkForUpdatesAndNotify();
