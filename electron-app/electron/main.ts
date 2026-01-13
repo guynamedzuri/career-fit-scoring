@@ -238,6 +238,54 @@ function loadElectronUpdater(): any {
             writeLog(`[AutoUpdater] Failed to load from asar (absolute): ${e2.message || e2}`, 'error');
           }
         }
+        
+        // app.asar 내부 구조 확인 및 require.resolve 시도
+        try {
+          writeLog(`[AutoUpdater] Checking app.asar internal structure...`, 'info');
+          const asarPath = path.join(process.resourcesPath, 'app.asar');
+          if (fs.existsSync(asarPath)) {
+            const asarStats = fs.statSync(asarPath);
+            writeLog(`[AutoUpdater] app.asar size: ${asarStats.size} bytes`, 'info');
+            
+            // require.resolve로 electron-updater 경로 확인
+            try {
+              const resolvedPath = require.resolve('electron-updater');
+              writeLog(`[AutoUpdater] require.resolve('electron-updater') found: ${resolvedPath}`, 'info');
+              
+              // 경로가 app.asar 내부인지 확인
+              if (resolvedPath.includes('.asar')) {
+                writeLog(`[AutoUpdater] electron-updater is in app.asar!`, 'info');
+                // 직접 require 시도
+                const updaterModule = require('electron-updater');
+                if (updaterModule && updaterModule.autoUpdater) {
+                  writeLog(`[AutoUpdater] Successfully loaded via require.resolve!`, 'info');
+                  return updaterModule;
+                }
+              } else if (resolvedPath.includes('.asar.unpacked')) {
+                writeLog(`[AutoUpdater] electron-updater is in app.asar.unpacked!`, 'info');
+                const updaterModule = require('electron-updater');
+                if (updaterModule && updaterModule.autoUpdater) {
+                  writeLog(`[AutoUpdater] Successfully loaded from unpacked!`, 'info');
+                  return updaterModule;
+                }
+              } else {
+                writeLog(`[AutoUpdater] electron-updater path is unexpected: ${resolvedPath}`, 'info');
+                // 그래도 시도
+                const updaterModule = require('electron-updater');
+                if (updaterModule && updaterModule.autoUpdater) {
+                  writeLog(`[AutoUpdater] Successfully loaded anyway!`, 'info');
+                  return updaterModule;
+                }
+              }
+            } catch (resolveError: any) {
+              writeLog(`[AutoUpdater] require.resolve failed: ${resolveError.message || resolveError}`, 'error');
+              writeLog(`[AutoUpdater] This means electron-updater is NOT in the build!`, 'error');
+              writeLog(`[AutoUpdater] Check electron-builder.yml files configuration`, 'error');
+            }
+          }
+        } catch (e: any) {
+          writeLog(`[AutoUpdater] Error checking asar structure: ${e.message || e}`, 'error');
+        }
       }
       
       // 추가 디버깅: 전체 앱 구조 확인
