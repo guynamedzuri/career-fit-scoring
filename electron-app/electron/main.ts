@@ -36,7 +36,16 @@ function setupAutoUpdater() {
   console.log('[AutoUpdater] Current app version:', app.getVersion());
   console.log('[AutoUpdater] Checking for updates from GitHub...');
 
+  // GitHub Releases URL 명시적으로 설정
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'guynamedzuri',
+    repo: 'career-fit-scoring'
+  });
+  console.log('[AutoUpdater] Feed URL set to: guynamedzuri/career-fit-scoring');
+
   // 업데이트 체크 간격 설정 (기본값: 앱 시작 시 + 5분마다)
+  console.log('[AutoUpdater] Starting update check...');
   autoUpdater.checkForUpdatesAndNotify();
 
   // 업데이트 체크 주기 설정 (5분마다)
@@ -58,13 +67,17 @@ function setupAutoUpdater() {
 
   autoUpdater.on('update-not-available', (info: any) => {
     console.log('[AutoUpdater] Update not available. Current version is latest.');
+    console.log('[AutoUpdater] Info:', JSON.stringify(info, null, 2));
   });
 
   autoUpdater.on('error', (err: any) => {
     console.error('[AutoUpdater] Error:', err);
+    console.error('[AutoUpdater] Error details:', JSON.stringify(err, null, 2));
     if (mainWindow) {
       mainWindow.webContents.send('update-error', err.message);
     }
+    // 에러를 사용자에게도 표시
+    dialog.showErrorBox('업데이트 확인 오류', `업데이트를 확인하는 중 오류가 발생했습니다:\n\n${err.message || err}`);
   });
 
   autoUpdater.on('download-progress', (progressObj: any) => {
