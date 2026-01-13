@@ -24,6 +24,8 @@ files:
   - dist/**/*
   - package.json
   - "../.env"
+  # electron-updater 포함 (자동 업데이트에 필요)
+  - "node_modules/electron-updater/**/*"
   # 개발 도구 설정 파일 제외 (중요!)
   - "!**/.vscode/**/*"
   - "!**/.idea/**/*"

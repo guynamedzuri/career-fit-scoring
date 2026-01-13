@@ -6,15 +6,6 @@ import * as https from 'https';
 
 // electron-updater는 동적 import로 처리 (타입 에러 방지)
 let autoUpdater: any = null;
-try {
-  const updaterModule = require('electron-updater');
-  autoUpdater = updaterModule.autoUpdater;
-  console.log('[AutoUpdater] electron-updater loaded successfully');
-  console.log('[AutoUpdater] autoUpdater type:', typeof autoUpdater);
-} catch (e) {
-  console.error('[AutoUpdater] electron-updater not available:', e);
-  console.error('[AutoUpdater] Error details:', JSON.stringify(e, null, 2));
-}
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -22,6 +13,11 @@ let mainWindow: BrowserWindow | null = null;
  * 로그 파일에 기록 (프로덕션 빌드에서 디버깅용)
  */
 function writeLog(message: string, level: 'info' | 'error' | 'warn' = 'info') {
+  // writeLog가 호출되기 전에 app이 준비되지 않았을 수 있으므로 안전하게 처리
+  if (!app || !app.isReady()) {
+    console.log(message);
+    return;
+  }
   try {
     const logDir = path.join(app.getPath('userData'), 'logs');
     if (!fs.existsSync(logDir)) {
@@ -41,15 +37,48 @@ function writeLog(message: string, level: 'info' | 'error' | 'warn' = 'info') {
  * 자동 업데이트 설정 및 체크
  */
 function setupAutoUpdater() {
-  // electron-updater가 없으면 건너뛰기
+  // electron-updater 로드 시도
   if (!autoUpdater) {
-    const msg = '[AutoUpdater] electron-updater not available';
-    console.log(msg);
-    writeLog(msg, 'error');
-    if (mainWindow) {
-      dialog.showErrorBox('자동 업데이트 오류', 'electron-updater를 로드할 수 없습니다.\n자동 업데이트가 비활성화됩니다.');
+    try {
+      const updaterModule = require('electron-updater');
+      autoUpdater = updaterModule.autoUpdater;
+      const msg = '[AutoUpdater] electron-updater loaded successfully';
+      console.log(msg);
+      writeLog(msg, 'info');
+    } catch (e: any) {
+      const errorMsg = `[AutoUpdater] electron-updater not available: ${e.message || e}`;
+      console.error(errorMsg);
+      writeLog(errorMsg, 'error');
+      writeLog(`[AutoUpdater] Error stack: ${e.stack || 'No stack trace'}`, 'error');
+      writeLog(`[AutoUpdater] __dirname: ${__dirname}`, 'error');
+      writeLog(`[AutoUpdater] process.cwd(): ${process.cwd()}`, 'error');
+      if (app.isReady()) {
+        writeLog(`[AutoUpdater] app.getAppPath(): ${app.getAppPath()}`, 'error');
+      }
+      
+      // 프로덕션 빌드에서 모듈을 찾지 못하는 경우 대체 경로 시도
+      if (app.isPackaged && app.isReady()) {
+        try {
+          const appPath = app.getAppPath();
+          const updaterPath = path.join(appPath, 'node_modules', 'electron-updater');
+          writeLog(`[AutoUpdater] Trying alternative path: ${updaterPath}`, 'info');
+          const updaterModule = require(updaterPath);
+          autoUpdater = updaterModule.autoUpdater;
+          writeLog('[AutoUpdater] electron-updater loaded from alternative path', 'info');
+        } catch (e2: any) {
+          writeLog(`[AutoUpdater] Alternative path also failed: ${e2.message || e2}`, 'error');
+        }
+      }
+      
+      if (!autoUpdater) {
+        const msg = '[AutoUpdater] electron-updater could not be loaded';
+        writeLog(msg, 'error');
+        if (mainWindow) {
+          dialog.showErrorBox('자동 업데이트 오류', 'electron-updater를 로드할 수 없습니다.\n자동 업데이트가 비활성화됩니다.');
+        }
+        return;
+      }
     }
-    return;
   }
 
   // 개발 환경에서는 자동 업데이트 비활성화
