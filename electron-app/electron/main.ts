@@ -37,12 +37,16 @@ function setupAutoUpdater() {
   console.log('[AutoUpdater] Checking for updates from GitHub...');
 
   // GitHub Releases URL 명시적으로 설정
-  autoUpdater.setFeedURL({
-    provider: 'github',
-    owner: 'guynamedzuri',
-    repo: 'career-fit-scoring'
-  });
-  console.log('[AutoUpdater] Feed URL set to: guynamedzuri/career-fit-scoring');
+  try {
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'guynamedzuri',
+      repo: 'career-fit-scoring'
+    });
+    console.log('[AutoUpdater] Feed URL set to: guynamedzuri/career-fit-scoring');
+  } catch (error) {
+    console.error('[AutoUpdater] Failed to set feed URL:', error);
+  }
 
   // 업데이트 체크 간격 설정 (기본값: 앱 시작 시 + 5분마다)
   console.log('[AutoUpdater] Starting update check...');
@@ -50,12 +54,16 @@ function setupAutoUpdater() {
 
   // 업데이트 체크 주기 설정 (5분마다)
   setInterval(() => {
+    console.log('[AutoUpdater] Periodic update check...');
     autoUpdater.checkForUpdatesAndNotify();
   }, 5 * 60 * 1000); // 5분
 
   // 업데이트 이벤트 핸들러
   autoUpdater.on('checking-for-update', () => {
     console.log('[AutoUpdater] Checking for update...');
+    if (mainWindow) {
+      mainWindow.webContents.send('update-checking');
+    }
   });
 
   autoUpdater.on('update-available', (info: any) => {
@@ -73,11 +81,14 @@ function setupAutoUpdater() {
   autoUpdater.on('error', (err: any) => {
     console.error('[AutoUpdater] Error:', err);
     console.error('[AutoUpdater] Error details:', JSON.stringify(err, null, 2));
+    const errorMessage = err.message || err.toString() || '알 수 없는 오류';
     if (mainWindow) {
-      mainWindow.webContents.send('update-error', err.message);
+      mainWindow.webContents.send('update-error', errorMessage);
     }
-    // 에러를 사용자에게도 표시
-    dialog.showErrorBox('업데이트 확인 오류', `업데이트를 확인하는 중 오류가 발생했습니다:\n\n${err.message || err}`);
+    // 에러를 사용자에게도 표시 (비동기로 표시하여 앱 시작을 막지 않음)
+    setTimeout(() => {
+      dialog.showErrorBox('업데이트 확인 오류', `업데이트를 확인하는 중 오류가 발생했습니다:\n\n${errorMessage}\n\n자세한 내용은 콘솔을 확인하세요.`);
+    }, 2000); // 2초 후 표시하여 앱 시작을 방해하지 않음
   });
 
   autoUpdater.on('download-progress', (progressObj: any) => {
@@ -360,6 +371,22 @@ app.on('window-all-closed', () => {
 });
 
 // 폴더 선택 IPC 핸들러
+// 수동 업데이트 체크 IPC 핸들러
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    console.log('[AutoUpdater] Manual update check requested');
+    if (!autoUpdater) {
+      return { success: false, error: 'AutoUpdater not available' };
+    }
+    const result = await autoUpdater.checkForUpdates();
+    console.log('[AutoUpdater] Manual check result:', result);
+    return { success: true, updateInfo: result?.updateInfo };
+  } catch (error: any) {
+    console.error('[AutoUpdater] Manual check error:', error);
+    return { success: false, error: error.message || error.toString() };
+  }
+});
+
 ipcMain.handle('select-folder', async () => {
   if (!mainWindow) return null;
   
