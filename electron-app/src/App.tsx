@@ -1,4 +1,4 @@
-// Version 1.0.61
+// Version 1.0.62
 import { useState, useEffect } from 'react';
 import JobConfigForm from './components/JobConfigForm';
 import ResumeFileList from './components/ResumeFileList';
