@@ -36,16 +36,9 @@ files:
   - dist/**/*
   - package.json
   - "../.env"
-  # electron-updater와 의존성을 명시적으로 먼저 포함 (우선순위)
-  - "node_modules/electron-updater/**/*"
-  - "node_modules/builder-util-runtime/**/*"
-  - "node_modules/fs-extra/**/*"
-  - "node_modules/jsonfile/**/*"
-  - "node_modules/semver/**/*"
-  - "node_modules/universalify/**/*"
-  # 나머지 node_modules 포함
+  # 모든 node_modules 포함 (간단하고 확실함)
   - "node_modules/**/*"
-  # 개발 도구 설정 파일 제외 (중요!)
+  # 개발 도구 설정 파일만 제외
   - "!**/.vscode/**/*"
   - "!**/.idea/**/*"
   - "!**/.vs/**/*"
@@ -54,29 +47,14 @@ files:
   - "!**/.prettierrc*"
   - "!**/.gitignore"
   - "!**/.gitattributes"
-  # TypeScript 설정 파일 제외
+  # TypeScript 설정 파일 제외 (이미 컴파일됨)
   - "!**/tsconfig*.json"
   - "!**/tsconfig*.ts"
-  # career-fit-scoring 패키지의 빌드 결과물 제외 (중요!)
-  - "!**/node_modules/career-fit-scoring/dist/**/*"
-  - "!**/node_modules/career-fit-scoring/dist-installer/**/*"
-  - "!**/node_modules/career-fit-scoring/electron-app/**/*"
-  - "!**/node_modules/career-fit-scoring/.git/**/*"
-  - "!**/node_modules/career-fit-scoring/node_modules/**/*"
-  # node_modules 최적화 - 불필요한 파일 제외
-  # electron-updater와 그 의존성은 제외하지 않음 (자동 업데이트에 필수)
-  # electron-updater 관련 패키지 목록
-  - "!**/node_modules/!(electron-updater|builder-util-runtime|fs-extra|jsonfile|semver|universalify)/*/{CHANGELOG.md,README.md,README,readme.md,readme,LICENSE,LICENSE.txt,license.txt}"
-  - "!**/node_modules/!(electron-updater|builder-util-runtime|fs-extra|jsonfile|semver|universalify)/*/{test,__tests__,tests,powered-test,example,examples,docs,documentation}"
-  - "!**/node_modules/!(electron-updater|builder-util-runtime|fs-extra|jsonfile|semver|universalify)/*.d.ts"
-  - "!**/node_modules/.bin"
-  - "!**/node_modules/!(electron-updater|builder-util-runtime|fs-extra|jsonfile|semver|universalify)/*/{.github,.nyc_output,coverage}"
-  - "!**/node_modules/!(electron-updater|builder-util-runtime|fs-extra|jsonfile|semver|universalify)/*/{*.map,*.md,*.txt,*.log}"
-  # 소스맵 제외
-  - "!**/*.map"
   # TypeScript 소스 파일 제외 (이미 컴파일됨)
   - "!**/*.ts"
   - "!**/*.tsx"
+  # 소스맵 제외
+  - "!**/*.map"
   # 기타 불필요한 파일
   - "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}"
   - "!**/._*"
