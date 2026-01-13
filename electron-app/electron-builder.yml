@@ -35,6 +35,12 @@ files:
   # TypeScript 설정 파일 제외
   - "!**/tsconfig*.json"
   - "!**/tsconfig*.ts"
+  # career-fit-scoring 패키지의 빌드 결과물 제외 (중요!)
+  - "!**/node_modules/career-fit-scoring/dist/**/*"
+  - "!**/node_modules/career-fit-scoring/dist-installer/**/*"
+  - "!**/node_modules/career-fit-scoring/electron-app/**/*"
+  - "!**/node_modules/career-fit-scoring/.git/**/*"
+  - "!**/node_modules/career-fit-scoring/node_modules/**/*"
   # node_modules 최적화 - 불필요한 파일 제외
   - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme,LICENSE,LICENSE.txt,license.txt}"
   - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples,docs,documentation}"
