@@ -8,13 +8,14 @@ compression: maximum  # 최대 압축
 # electron-updater는 asar 외부에 있어야 함 (네이티브 모듈 의존성)
 # asarUnpack은 프로젝트 루트 기준 상대 경로 (electron-app 폴더 기준)
 # 중요: asarUnpack이 작동하려면 해당 파일이 files에 먼저 포함되어야 함
+# 패턴은 프로젝트 루트 기준이므로 **/ 없이 직접 경로 지정
 asarUnpack:
-  - "**/node_modules/electron-updater/**/*"
-  - "**/node_modules/builder-util-runtime/**/*"
-  - "**/node_modules/fs-extra/**/*"
-  - "**/node_modules/jsonfile/**/*"
-  - "**/node_modules/semver/**/*"
-  - "**/node_modules/universalify/**/*"
+  - "node_modules/electron-updater/**/*"
+  - "node_modules/builder-util-runtime/**/*"
+  - "node_modules/fs-extra/**/*"
+  - "node_modules/jsonfile/**/*"
+  - "node_modules/semver/**/*"
+  - "node_modules/universalify/**/*"
 
 # 자동 업데이트 설정 (GitHub Releases 사용)
 publish:

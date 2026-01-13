@@ -122,19 +122,36 @@ function loadElectronUpdater(): any {
   // 각 경로 시도
   for (const updaterPath of pathsToTry) {
     try {
-      if (fs.existsSync(updaterPath)) {
-        writeLog(`[AutoUpdater] Trying path: ${updaterPath}`, 'info');
-        // package.json이 있는지 확인 (올바른 모듈인지)
-        const packageJsonPath = path.join(updaterPath, 'package.json');
-        if (fs.existsSync(packageJsonPath)) {
+      // asar 내부 경로는 fs.existsSync가 false를 반환할 수 있으므로
+      // 직접 require를 시도해봐야 함
+      if (updaterPath.includes('.asar') && !updaterPath.includes('.unpacked')) {
+        // asar 내부 경로는 직접 require 시도
+        try {
+          writeLog(`[AutoUpdater] Trying asar path (direct require): ${updaterPath}`, 'info');
           const updaterModule = require(updaterPath);
-          writeLog(`[AutoUpdater] Successfully loaded from: ${updaterPath}`, 'info');
-          return updaterModule;
-        } else {
-          writeLog(`[AutoUpdater] Path exists but no package.json: ${updaterPath}`, 'info');
+          if (updaterModule && updaterModule.autoUpdater) {
+            writeLog(`[AutoUpdater] Successfully loaded from asar: ${updaterPath}`, 'info');
+            return updaterModule;
+          }
+        } catch (e: any) {
+          writeLog(`[AutoUpdater] Failed to require from asar path: ${e.message || e}`, 'info');
         }
       } else {
-        writeLog(`[AutoUpdater] Path does not exist: ${updaterPath}`, 'info');
+        // 일반 파일 시스템 경로는 존재 여부 확인 후 require
+        if (fs.existsSync(updaterPath)) {
+          writeLog(`[AutoUpdater] Trying path: ${updaterPath}`, 'info');
+          // package.json이 있는지 확인 (올바른 모듈인지)
+          const packageJsonPath = path.join(updaterPath, 'package.json');
+          if (fs.existsSync(packageJsonPath)) {
+            const updaterModule = require(updaterPath);
+            writeLog(`[AutoUpdater] Successfully loaded from: ${updaterPath}`, 'info');
+            return updaterModule;
+          } else {
+            writeLog(`[AutoUpdater] Path exists but no package.json: ${updaterPath}`, 'info');
+          }
+        } else {
+          writeLog(`[AutoUpdater] Path does not exist: ${updaterPath}`, 'info');
+        }
       }
     } catch (e: any) {
       writeLog(`[AutoUpdater] Failed to load from ${updaterPath}: ${e.message || e}`, 'info');
@@ -178,15 +195,20 @@ function loadElectronUpdater(): any {
         writeLog(`[AutoUpdater] This means electron-updater was not unpacked from asar archive`, 'error');
         writeLog(`[AutoUpdater] Check electron-builder.yml asarUnpack configuration`, 'error');
         
-        // app.asar 내부에 있는지 확인 (대체 방법)
+        // 대체 방법: app.asar 내부에서 직접 require 시도
+        // asar 아카이브 내부의 파일도 require할 수 있음
         try {
-          const asarPath = path.join(process.resourcesPath, 'app.asar');
-          if (fs.existsSync(asarPath)) {
-            writeLog(`[AutoUpdater] app.asar exists, checking if electron-updater is inside`, 'info');
-            // asar는 파일이므로 직접 읽을 수 없지만, require를 시도해볼 수 있음
+          writeLog(`[AutoUpdater] Trying to require electron-updater from asar archive...`, 'info');
+          // asar 내부 경로로 직접 require 시도
+          const asarUpdaterPath = path.join(app.getAppPath(), 'node_modules', 'electron-updater');
+          writeLog(`[AutoUpdater] Attempting to require: ${asarUpdaterPath}`, 'info');
+          const updaterModule = require(asarUpdaterPath);
+          if (updaterModule && updaterModule.autoUpdater) {
+            writeLog(`[AutoUpdater] Successfully loaded electron-updater from asar archive!`, 'info');
+            return updaterModule;
           }
-        } catch (e) {
-          // 무시
+        } catch (e: any) {
+          writeLog(`[AutoUpdater] Failed to load from asar: ${e.message || e}`, 'error');
         }
       }
       
