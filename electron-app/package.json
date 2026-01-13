@@ -68,7 +68,7 @@
     "build:win": "npm run build:all && electron-builder --win",
     "build:win:publish": "npm run build:all && electron-builder --win --publish onTag",
     "clean": "npx rimraf dist dist-installer",
-    "clean:build": "npm run clean && npm run build:win:publish",
+    "clean:build": "npm run clean && npm run build:win:publish && npm run generate-latest",
     "generate-latest": "node generate-latest-yml.js",
     "build:win:complete": "npm run build:win:publish && npm run generate-latest",
     "build:mac": "npm run build:all && electron-builder --mac",
