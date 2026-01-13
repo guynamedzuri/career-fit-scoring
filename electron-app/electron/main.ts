@@ -7,9 +7,13 @@ import * as https from 'https';
 // electron-updater는 동적 import로 처리 (타입 에러 방지)
 let autoUpdater: any = null;
 try {
-  autoUpdater = require('electron-updater').autoUpdater;
+  const updaterModule = require('electron-updater');
+  autoUpdater = updaterModule.autoUpdater;
+  console.log('[AutoUpdater] electron-updater loaded successfully');
+  console.log('[AutoUpdater] autoUpdater type:', typeof autoUpdater);
 } catch (e) {
-  console.warn('[AutoUpdater] electron-updater not available:', e);
+  console.error('[AutoUpdater] electron-updater not available:', e);
+  console.error('[AutoUpdater] Error details:', JSON.stringify(e, null, 2));
 }
 
 let mainWindow: BrowserWindow | null = null;
@@ -37,15 +41,34 @@ function setupAutoUpdater() {
   console.log('[AutoUpdater] Checking for updates from GitHub...');
 
   // GitHub Releases URL 명시적으로 설정
+  // electron-updater 6.x에서는 setFeedURL 대신 업데이트 서버 URL을 직접 설정
   try {
-    autoUpdater.setFeedURL({
-      provider: 'github',
-      owner: 'guynamedzuri',
-      repo: 'career-fit-scoring'
-    });
-    console.log('[AutoUpdater] Feed URL set to: guynamedzuri/career-fit-scoring');
+    console.log('[AutoUpdater] Configuring update server...');
+    console.log('[AutoUpdater] autoUpdater type:', typeof autoUpdater);
+    console.log('[AutoUpdater] autoUpdater methods:', Object.keys(autoUpdater || {}));
+    
+    // electron-updater 6.x 방식: 업데이트 서버 URL 직접 설정
+    // GitHub Releases의 latest.yml을 직접 가리키도록 설정
+    const updateServerUrl = 'https://github.com/guynamedzuri/career-fit-scoring/releases/latest';
+    
+    // autoUpdater의 업데이트 서버 설정
+    if (autoUpdater && typeof autoUpdater.setFeedURL === 'function') {
+      // electron-updater 4.x 방식
+      autoUpdater.setFeedURL({
+        provider: 'github',
+        owner: 'guynamedzuri',
+        repo: 'career-fit-scoring'
+      });
+      console.log('[AutoUpdater] Feed URL set via setFeedURL (4.x style)');
+    } else if (autoUpdater) {
+      // electron-updater 6.x에서는 electron-builder.yml의 publish 설정을 자동으로 읽음
+      // 하지만 런타임에는 명시적으로 설정해야 할 수 있음
+      console.log('[AutoUpdater] Using electron-builder.yml publish configuration');
+      console.log('[AutoUpdater] Expected GitHub repo: guynamedzuri/career-fit-scoring');
+    }
   } catch (error) {
-    console.error('[AutoUpdater] Failed to set feed URL:', error);
+    console.error('[AutoUpdater] Failed to configure update server:', error);
+    console.error('[AutoUpdater] Error details:', JSON.stringify(error, null, 2));
   }
 
   // 업데이트 체크 간격 설정 (기본값: 앱 시작 시 + 5분마다)
