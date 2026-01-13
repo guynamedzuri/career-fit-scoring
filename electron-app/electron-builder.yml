@@ -53,16 +53,13 @@ files:
   - "!**/node_modules/career-fit-scoring/node_modules/**/*"
   # node_modules 최적화 - 불필요한 파일 제외
   # electron-updater는 제외하지 않음 (자동 업데이트에 필수)
-  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme,LICENSE,LICENSE.txt,license.txt}"
-  - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples,docs,documentation}"
-  - "!**/node_modules/*.d.ts"
+  # electron-updater를 제외하는 규칙들 (다른 패키지에만 적용)
+  - "!**/node_modules/!(electron-updater)/*/{CHANGELOG.md,README.md,README,readme.md,readme,LICENSE,LICENSE.txt,license.txt}"
+  - "!**/node_modules/!(electron-updater)/*/{test,__tests__,tests,powered-test,example,examples,docs,documentation}"
+  - "!**/node_modules/!(electron-updater)/*.d.ts"
   - "!**/node_modules/.bin"
-  - "!**/node_modules/*/{.github,.nyc_output,coverage}"
-  - "!**/node_modules/*/{*.map,*.md,*.txt,*.log}"
-  # electron-updater는 제외 규칙에서 예외 처리 (명시적 포함 후 제외 규칙 적용)
-  - "!**/node_modules/electron-updater/**/*.md"
-  - "!**/node_modules/electron-updater/**/*.txt"
-  - "!**/node_modules/electron-updater/**/*.map"
+  - "!**/node_modules/!(electron-updater)/*/{.github,.nyc_output,coverage}"
+  - "!**/node_modules/!(electron-updater)/*/{*.map,*.md,*.txt,*.log}"
   # 소스맵 제외
   - "!**/*.map"
   # TypeScript 소스 파일 제외 (이미 컴파일됨)
