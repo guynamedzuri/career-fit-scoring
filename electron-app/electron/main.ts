@@ -101,14 +101,38 @@ function loadElectronUpdater(): any {
     // 무시
   }
 
+  // 6. 실제 설치된 앱의 루트에서 찾기 (win-unpacked 구조)
+  try {
+    if (process.resourcesPath) {
+      // win-unpacked 구조: resources 폴더의 상위 디렉토리
+      const appRoot = path.dirname(process.resourcesPath);
+      pathsToTry.push(path.join(appRoot, 'node_modules', 'electron-updater'));
+      pathsToTry.push(path.join(appRoot, 'resources', 'app.asar.unpacked', 'node_modules', 'electron-updater'));
+    }
+  } catch (e) {
+    // 무시
+  }
+
+  // 디버깅: 모든 시도할 경로 로그
+  writeLog(`[AutoUpdater] Will try ${pathsToTry.length} paths`, 'info');
+  for (let i = 0; i < pathsToTry.length; i++) {
+    writeLog(`[AutoUpdater] Path ${i + 1}: ${pathsToTry[i]}`, 'info');
+  }
+
   // 각 경로 시도
   for (const updaterPath of pathsToTry) {
     try {
       if (fs.existsSync(updaterPath)) {
         writeLog(`[AutoUpdater] Trying path: ${updaterPath}`, 'info');
-        const updaterModule = require(updaterPath);
-        writeLog(`[AutoUpdater] Successfully loaded from: ${updaterPath}`, 'info');
-        return updaterModule;
+        // package.json이 있는지 확인 (올바른 모듈인지)
+        const packageJsonPath = path.join(updaterPath, 'package.json');
+        if (fs.existsSync(packageJsonPath)) {
+          const updaterModule = require(updaterPath);
+          writeLog(`[AutoUpdater] Successfully loaded from: ${updaterPath}`, 'info');
+          return updaterModule;
+        } else {
+          writeLog(`[AutoUpdater] Path exists but no package.json: ${updaterPath}`, 'info');
+        }
       } else {
         writeLog(`[AutoUpdater] Path does not exist: ${updaterPath}`, 'info');
       }
@@ -116,6 +140,37 @@ function loadElectronUpdater(): any {
       writeLog(`[AutoUpdater] Failed to load from ${updaterPath}: ${e.message || e}`, 'info');
       // 다음 경로 시도
     }
+  }
+
+  // 추가 디버깅: resources 폴더 구조 확인
+  try {
+    if (process.resourcesPath) {
+      writeLog(`[AutoUpdater] Checking resources directory structure...`, 'info');
+      const resourcesContents = fs.readdirSync(process.resourcesPath);
+      writeLog(`[AutoUpdater] Resources directory contents: ${resourcesContents.join(', ')}`, 'info');
+      
+      // app.asar.unpacked가 있는지 확인
+      const unpackedPath = path.join(process.resourcesPath, 'app.asar.unpacked');
+      if (fs.existsSync(unpackedPath)) {
+        writeLog(`[AutoUpdater] app.asar.unpacked exists`, 'info');
+        const unpackedContents = fs.readdirSync(unpackedPath);
+        writeLog(`[AutoUpdater] app.asar.unpacked contents: ${unpackedContents.join(', ')}`, 'info');
+        
+        // node_modules가 있는지 확인
+        const nodeModulesPath = path.join(unpackedPath, 'node_modules');
+        if (fs.existsSync(nodeModulesPath)) {
+          writeLog(`[AutoUpdater] node_modules exists in unpacked`, 'info');
+          const nodeModulesContents = fs.readdirSync(nodeModulesPath);
+          writeLog(`[AutoUpdater] node_modules contents: ${nodeModulesContents.join(', ')}`, 'info');
+        } else {
+          writeLog(`[AutoUpdater] node_modules does NOT exist in unpacked`, 'error');
+        }
+      } else {
+        writeLog(`[AutoUpdater] app.asar.unpacked does NOT exist`, 'error');
+      }
+    }
+  } catch (e: any) {
+    writeLog(`[AutoUpdater] Error checking resources structure: ${e.message || e}`, 'error');
   }
 
   return null;
