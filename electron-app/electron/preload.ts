@@ -35,4 +35,15 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.invoke('save-cache', folderPath, results),
   careernetSearchJobs: () => ipcRenderer.invoke('careernet-search-jobs'),
   careernetGetJobDetail: (jobdicSeq: string) => ipcRenderer.invoke('careernet-get-job-detail', jobdicSeq),
+  // 자동 업데이트 관련
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  onUpdateChecking: (callback: () => void) => {
+    ipcRenderer.on('update-checking', callback);
+  },
+  onUpdateAvailable: (callback: (info: any) => void) => {
+    ipcRenderer.on('update-available', (_, info) => callback(info));
+  },
+  onUpdateError: (callback: (error: string) => void) => {
+    ipcRenderer.on('update-error', (_, error) => callback(error));
+  },
 });
