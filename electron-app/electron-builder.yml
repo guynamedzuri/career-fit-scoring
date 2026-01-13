@@ -36,20 +36,8 @@ files:
   - dist/**/*
   - package.json
   - "../.env"
-  # electron-updater와 의존성은 반드시 포함되어야 하며, asarUnpack으로 unpack됨
-  # 중요: files에 포함되어야 asarUnpack이 작동함
-  - "node_modules/electron-updater/**/*"
-  - "node_modules/builder-util-runtime/**/*"
-  - "node_modules/fs-extra/**/*"
-  - "node_modules/jsonfile/**/*"
-  - "node_modules/semver/**/*"
-  - "node_modules/universalify/**/*"
-  # 다른 필요한 node_modules (career-fit-scoring 등)
-  - "node_modules/career-fit-scoring/**/*"
-  - "node_modules/lucide-react/**/*"
-  - "node_modules/react/**/*"
-  - "node_modules/react-dom/**/*"
-  # 나머지 필요한 node_modules도 포함 (빌드 실패 방지)
+  # 모든 node_modules 포함 (나중에 불필요한 것만 제외)
+  # 중요: electron-updater가 포함되어야 asarUnpack이 작동함
   - "node_modules/**/*"
   # 개발 도구 설정 파일 제외 (중요!)
   - "!**/.vscode/**/*"
@@ -70,14 +58,14 @@ files:
   - "!**/node_modules/career-fit-scoring/.git/**/*"
   - "!**/node_modules/career-fit-scoring/node_modules/**/*"
   # node_modules 최적화 - 불필요한 파일 제외
-  # electron-updater는 제외하지 않음 (자동 업데이트에 필수)
-  # electron-updater를 제외하는 규칙들 (다른 패키지에만 적용)
-  - "!**/node_modules/!(electron-updater)/*/{CHANGELOG.md,README.md,README,readme.md,readme,LICENSE,LICENSE.txt,license.txt}"
-  - "!**/node_modules/!(electron-updater)/*/{test,__tests__,tests,powered-test,example,examples,docs,documentation}"
-  - "!**/node_modules/!(electron-updater)/*.d.ts"
+  # electron-updater와 그 의존성은 제외하지 않음 (자동 업데이트에 필수)
+  # electron-updater 관련 패키지 목록
+  - "!**/node_modules/!(electron-updater|builder-util-runtime|fs-extra|jsonfile|semver|universalify)/*/{CHANGELOG.md,README.md,README,readme.md,readme,LICENSE,LICENSE.txt,license.txt}"
+  - "!**/node_modules/!(electron-updater|builder-util-runtime|fs-extra|jsonfile|semver|universalify)/*/{test,__tests__,tests,powered-test,example,examples,docs,documentation}"
+  - "!**/node_modules/!(electron-updater|builder-util-runtime|fs-extra|jsonfile|semver|universalify)/*.d.ts"
   - "!**/node_modules/.bin"
-  - "!**/node_modules/!(electron-updater)/*/{.github,.nyc_output,coverage}"
-  - "!**/node_modules/!(electron-updater)/*/{*.map,*.md,*.txt,*.log}"
+  - "!**/node_modules/!(electron-updater|builder-util-runtime|fs-extra|jsonfile|semver|universalify)/*/{.github,.nyc_output,coverage}"
+  - "!**/node_modules/!(electron-updater|builder-util-runtime|fs-extra|jsonfile|semver|universalify)/*/{*.map,*.md,*.txt,*.log}"
   # 소스맵 제외
   - "!**/*.map"
   # TypeScript 소스 파일 제외 (이미 컴파일됨)
