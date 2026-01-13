@@ -1,4 +1,4 @@
-// Version 1.0.3 - 자동 업데이트 디버깅 및 수정
+// Version 1.0.4
 import { useState, useEffect } from 'react';
 import JobConfigForm from './components/JobConfigForm';
 import ResumeFileList from './components/ResumeFileList';
