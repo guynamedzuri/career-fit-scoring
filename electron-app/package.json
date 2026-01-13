@@ -54,6 +54,8 @@
     "build:all": "npm run build:electron:dev && vite build",
     "build:win": "npm run build:all && electron-builder --win",
     "build:win:publish": "npm run build:all && electron-builder --win --publish never",
+    "clean": "rimraf dist dist-installer",
+    "clean:build": "npm run clean && npm run build:win:publish",
     "build:mac": "npm run build:all && electron-builder --mac",
     "build:linux": "npm run build:all && electron-builder --linux",
     "build:electron": "tsc -p tsconfig.electron.json && electron-builder",
@@ -74,6 +76,7 @@
     "cross-env": "^7.0.3",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
+    "rimraf": "^6.1.2",
     "typescript": "^5.0.0",
     "vite": "^5.0.0",
     "wait-on": "^7.2.0"
