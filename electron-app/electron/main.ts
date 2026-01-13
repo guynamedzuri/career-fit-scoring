@@ -47,6 +47,20 @@ function loadElectronUpdater(): any {
     }
   }
 
+  // 프로덕션 환경: 먼저 상대 경로로 시도 (가장 간단하고 확실함)
+  // app.getAppPath()는 app.asar를 반환하므로, 그 안의 node_modules를 참조
+  try {
+    writeLog(`[AutoUpdater] Trying relative path require from asar...`, 'info');
+    const updaterModule = require('electron-updater');
+    if (updaterModule && updaterModule.autoUpdater) {
+      writeLog(`[AutoUpdater] Successfully loaded electron-updater using relative require!`, 'info');
+      return updaterModule;
+    }
+  } catch (e: any) {
+    writeLog(`[AutoUpdater] Relative require failed: ${e.message || e}`, 'info');
+    // 계속 다른 방법 시도
+  }
+
   // 프로덕션 환경: 여러 경로 시도
   const pathsToTry: string[] = [];
   
