@@ -36,8 +36,14 @@ files:
   - dist/**/*
   - package.json
   - "../.env"
-  # 모든 node_modules 포함 (나중에 불필요한 것만 제외)
-  # 중요: electron-updater가 포함되어야 asarUnpack이 작동함
+  # electron-updater와 의존성을 명시적으로 먼저 포함 (우선순위)
+  - "node_modules/electron-updater/**/*"
+  - "node_modules/builder-util-runtime/**/*"
+  - "node_modules/fs-extra/**/*"
+  - "node_modules/jsonfile/**/*"
+  - "node_modules/semver/**/*"
+  - "node_modules/universalify/**/*"
+  # 나머지 node_modules 포함
   - "node_modules/**/*"
   # 개발 도구 설정 파일 제외 (중요!)
   - "!**/.vscode/**/*"

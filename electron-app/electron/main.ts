@@ -199,16 +199,30 @@ function loadElectronUpdater(): any {
         // asar 아카이브 내부의 파일도 require할 수 있음
         try {
           writeLog(`[AutoUpdater] Trying to require electron-updater from asar archive...`, 'info');
-          // asar 내부 경로로 직접 require 시도
-          const asarUpdaterPath = path.join(app.getAppPath(), 'node_modules', 'electron-updater');
-          writeLog(`[AutoUpdater] Attempting to require: ${asarUpdaterPath}`, 'info');
+          // asar 내부 경로로 직접 require 시도 (상대 경로 사용)
+          // app.getAppPath()는 app.asar를 반환하므로, 그 안의 node_modules를 참조
+          const asarUpdaterPath = 'node_modules/electron-updater';
+          writeLog(`[AutoUpdater] Attempting to require (relative): ${asarUpdaterPath}`, 'info');
           const updaterModule = require(asarUpdaterPath);
           if (updaterModule && updaterModule.autoUpdater) {
             writeLog(`[AutoUpdater] Successfully loaded electron-updater from asar archive!`, 'info');
             return updaterModule;
           }
         } catch (e: any) {
-          writeLog(`[AutoUpdater] Failed to load from asar: ${e.message || e}`, 'error');
+          writeLog(`[AutoUpdater] Failed to load from asar (relative): ${e.message || e}`, 'error');
+          
+          // 절대 경로로도 시도
+          try {
+            const asarUpdaterPath = path.join(app.getAppPath(), 'node_modules', 'electron-updater');
+            writeLog(`[AutoUpdater] Attempting to require (absolute): ${asarUpdaterPath}`, 'info');
+            const updaterModule = require(asarUpdaterPath);
+            if (updaterModule && updaterModule.autoUpdater) {
+              writeLog(`[AutoUpdater] Successfully loaded electron-updater from asar archive (absolute)!`, 'info');
+              return updaterModule;
+            }
+          } catch (e2: any) {
+            writeLog(`[AutoUpdater] Failed to load from asar (absolute): ${e2.message || e2}`, 'error');
+          }
         }
       }
       
