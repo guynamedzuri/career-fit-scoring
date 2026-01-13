@@ -162,11 +162,44 @@ function loadElectronUpdater(): any {
           writeLog(`[AutoUpdater] node_modules exists in unpacked`, 'info');
           const nodeModulesContents = fs.readdirSync(nodeModulesPath);
           writeLog(`[AutoUpdater] node_modules contents: ${nodeModulesContents.join(', ')}`, 'info');
+          
+          // electron-updater가 있는지 확인
+          const updaterPath = path.join(nodeModulesPath, 'electron-updater');
+          if (fs.existsSync(updaterPath)) {
+            writeLog(`[AutoUpdater] electron-updater found in unpacked/node_modules`, 'info');
+          } else {
+            writeLog(`[AutoUpdater] electron-updater NOT found in unpacked/node_modules`, 'error');
+          }
         } else {
           writeLog(`[AutoUpdater] node_modules does NOT exist in unpacked`, 'error');
         }
       } else {
-        writeLog(`[AutoUpdater] app.asar.unpacked does NOT exist`, 'error');
+        writeLog(`[AutoUpdater] app.asar.unpacked does NOT exist - asarUnpack may not be working`, 'error');
+        writeLog(`[AutoUpdater] This means electron-updater was not unpacked from asar archive`, 'error');
+        writeLog(`[AutoUpdater] Check electron-builder.yml asarUnpack configuration`, 'error');
+        
+        // app.asar 내부에 있는지 확인 (대체 방법)
+        try {
+          const asarPath = path.join(process.resourcesPath, 'app.asar');
+          if (fs.existsSync(asarPath)) {
+            writeLog(`[AutoUpdater] app.asar exists, checking if electron-updater is inside`, 'info');
+            // asar는 파일이므로 직접 읽을 수 없지만, require를 시도해볼 수 있음
+          }
+        } catch (e) {
+          // 무시
+        }
+      }
+      
+      // 추가 디버깅: 전체 앱 구조 확인
+      try {
+        const appRoot = path.dirname(process.resourcesPath);
+        writeLog(`[AutoUpdater] App root directory: ${appRoot}`, 'info');
+        if (fs.existsSync(appRoot)) {
+          const appRootContents = fs.readdirSync(appRoot);
+          writeLog(`[AutoUpdater] App root contents: ${appRootContents.join(', ')}`, 'info');
+        }
+      } catch (e: any) {
+        writeLog(`[AutoUpdater] Error checking app root: ${e.message || e}`, 'error');
       }
     }
   } catch (e: any) {

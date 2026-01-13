@@ -7,8 +7,14 @@ asar: true  # asar 아카이브 사용 (기본값이지만 명시)
 compression: maximum  # 최대 압축
 # electron-updater는 asar 외부에 있어야 함 (네이티브 모듈 의존성)
 # asarUnpack은 프로젝트 루트 기준 상대 경로 (electron-app 폴더 기준)
+# 중요: asarUnpack이 작동하려면 해당 파일이 files에 먼저 포함되어야 함
 asarUnpack:
-  - "node_modules/electron-updater/**/*"
+  - "**/node_modules/electron-updater/**/*"
+  - "**/node_modules/builder-util-runtime/**/*"
+  - "**/node_modules/fs-extra/**/*"
+  - "**/node_modules/jsonfile/**/*"
+  - "**/node_modules/semver/**/*"
+  - "**/node_modules/universalify/**/*"
 
 # 자동 업데이트 설정 (GitHub Releases 사용)
 publish:
@@ -29,10 +35,9 @@ files:
   - dist/**/*
   - package.json
   - "../.env"
-  # electron-updater는 asarUnpack으로 unpack되므로 반드시 포함되어야 함
-  # 명시적으로 포함하여 빌드에 확실히 포함되도록 함
+  # electron-updater와 의존성은 반드시 포함되어야 하며, asarUnpack으로 unpack됨
+  # 중요: files에 포함되어야 asarUnpack이 작동함
   - "node_modules/electron-updater/**/*"
-  # electron-updater의 의존성도 포함 필요
   - "node_modules/builder-util-runtime/**/*"
   - "node_modules/fs-extra/**/*"
   - "node_modules/jsonfile/**/*"
@@ -43,6 +48,8 @@ files:
   - "node_modules/lucide-react/**/*"
   - "node_modules/react/**/*"
   - "node_modules/react-dom/**/*"
+  # 나머지 필요한 node_modules도 포함 (빌드 실패 방지)
+  - "node_modules/**/*"
   # 개발 도구 설정 파일 제외 (중요!)
   - "!**/.vscode/**/*"
   - "!**/.idea/**/*"
