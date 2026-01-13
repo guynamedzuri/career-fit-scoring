@@ -59,14 +59,31 @@ function setupAutoUpdater() {
       // 프로덕션 빌드에서 모듈을 찾지 못하는 경우 대체 경로 시도
       if (app.isPackaged && app.isReady()) {
         try {
+          // asar.unpacked 경로 시도
           const appPath = app.getAppPath();
-          const updaterPath = path.join(appPath, 'node_modules', 'electron-updater');
+          // asar 내부인 경우 asar.unpacked 경로로 변경
+          let unpackedPath = appPath;
+          if (appPath.includes('.asar')) {
+            unpackedPath = appPath.replace('.asar', '.asar.unpacked');
+          }
+          const updaterPath = path.join(unpackedPath, 'node_modules', 'electron-updater');
           writeLog(`[AutoUpdater] Trying alternative path: ${updaterPath}`, 'info');
           const updaterModule = require(updaterPath);
           autoUpdater = updaterModule.autoUpdater;
           writeLog('[AutoUpdater] electron-updater loaded from alternative path', 'info');
         } catch (e2: any) {
           writeLog(`[AutoUpdater] Alternative path also failed: ${e2.message || e2}`, 'error');
+          
+          // 추가 시도: resources 폴더에서 직접 찾기
+          try {
+            const resourcesPath = path.join(path.dirname(appPath), '..', 'resources', 'app.asar.unpacked', 'node_modules', 'electron-updater');
+            writeLog(`[AutoUpdater] Trying resources path: ${resourcesPath}`, 'info');
+            const updaterModule = require(resourcesPath);
+            autoUpdater = updaterModule.autoUpdater;
+            writeLog('[AutoUpdater] electron-updater loaded from resources path', 'info');
+          } catch (e3: any) {
+            writeLog(`[AutoUpdater] Resources path also failed: ${e3.message || e3}`, 'error');
+          }
         }
       }
       
