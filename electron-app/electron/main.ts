@@ -19,111 +19,181 @@ try {
 let mainWindow: BrowserWindow | null = null;
 
 /**
+ * 로그 파일에 기록 (프로덕션 빌드에서 디버깅용)
+ */
+function writeLog(message: string, level: 'info' | 'error' | 'warn' = 'info') {
+  try {
+    const logDir = path.join(app.getPath('userData'), 'logs');
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+    const logFile = path.join(logDir, 'app.log');
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}\n`;
+    fs.appendFileSync(logFile, logMessage, 'utf-8');
+  } catch (error) {
+    // 로그 파일 쓰기 실패해도 앱은 계속 실행
+    console.error('[Log] Failed to write log:', error);
+  }
+}
+
+/**
  * 자동 업데이트 설정 및 체크
  */
 function setupAutoUpdater() {
   // electron-updater가 없으면 건너뛰기
   if (!autoUpdater) {
-    console.log('[AutoUpdater] electron-updater not available');
+    const msg = '[AutoUpdater] electron-updater not available';
+    console.log(msg);
+    writeLog(msg, 'error');
+    if (mainWindow) {
+      dialog.showErrorBox('자동 업데이트 오류', 'electron-updater를 로드할 수 없습니다.\n자동 업데이트가 비활성화됩니다.');
+    }
     return;
   }
 
   // 개발 환경에서는 자동 업데이트 비활성화
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
-    console.log('[AutoUpdater] Development mode - auto update disabled');
-    console.log('[AutoUpdater] NODE_ENV:', process.env.NODE_ENV);
-    console.log('[AutoUpdater] isPackaged:', app.isPackaged);
+    const msg = '[AutoUpdater] Development mode - auto update disabled';
+    console.log(msg);
+    writeLog(msg, 'info');
     return;
   }
 
   // 현재 버전 로그
-  console.log('[AutoUpdater] Current app version:', app.getVersion());
-  console.log('[AutoUpdater] Checking for updates from GitHub...');
+  const currentVersion = app.getVersion();
+  const msg1 = `[AutoUpdater] Current app version: ${currentVersion}`;
+  const msg2 = '[AutoUpdater] Checking for updates from GitHub...';
+  console.log(msg1);
+  console.log(msg2);
+  writeLog(msg1, 'info');
+  writeLog(msg2, 'info');
 
   // GitHub Releases URL 명시적으로 설정
-  // electron-updater 6.x에서는 setFeedURL 대신 업데이트 서버 URL을 직접 설정
   try {
-    console.log('[AutoUpdater] Configuring update server...');
-    console.log('[AutoUpdater] autoUpdater type:', typeof autoUpdater);
-    console.log('[AutoUpdater] autoUpdater methods:', Object.keys(autoUpdater || {}));
+    const msg1 = '[AutoUpdater] Configuring update server...';
+    console.log(msg1);
+    writeLog(msg1, 'info');
     
-    // electron-updater 6.x 방식: 업데이트 서버 URL 직접 설정
-    // GitHub Releases의 latest.yml을 직접 가리키도록 설정
-    const updateServerUrl = 'https://github.com/guynamedzuri/career-fit-scoring/releases/latest';
-    
-    // autoUpdater의 업데이트 서버 설정
+    // electron-updater 6.x에서는 electron-builder.yml의 publish 설정을 자동으로 읽음
+    // 하지만 명시적으로 설정하는 것이 더 안전함
     if (autoUpdater && typeof autoUpdater.setFeedURL === 'function') {
-      // electron-updater 4.x 방식
       autoUpdater.setFeedURL({
         provider: 'github',
         owner: 'guynamedzuri',
         repo: 'career-fit-scoring'
       });
-      console.log('[AutoUpdater] Feed URL set via setFeedURL (4.x style)');
-    } else if (autoUpdater) {
-      // electron-updater 6.x에서는 electron-builder.yml의 publish 설정을 자동으로 읽음
-      // 하지만 런타임에는 명시적으로 설정해야 할 수 있음
-      console.log('[AutoUpdater] Using electron-builder.yml publish configuration');
-      console.log('[AutoUpdater] Expected GitHub repo: guynamedzuri/career-fit-scoring');
+      const msg2 = '[AutoUpdater] Feed URL set: guynamedzuri/career-fit-scoring';
+      console.log(msg2);
+      writeLog(msg2, 'info');
+    } else {
+      const msg2 = '[AutoUpdater] Using electron-builder.yml publish configuration';
+      console.log(msg2);
+      writeLog(msg2, 'info');
     }
-  } catch (error) {
-    console.error('[AutoUpdater] Failed to configure update server:', error);
-    console.error('[AutoUpdater] Error details:', JSON.stringify(error, null, 2));
+  } catch (error: any) {
+    const errorMsg = `[AutoUpdater] Failed to configure update server: ${error.message || error}`;
+    console.error(errorMsg);
+    writeLog(errorMsg, 'error');
+    if (mainWindow) {
+      dialog.showErrorBox('업데이트 설정 오류', `업데이트 서버를 설정하는 중 오류가 발생했습니다:\n\n${error.message || error}`);
+    }
   }
 
   // 업데이트 체크 간격 설정 (기본값: 앱 시작 시 + 5분마다)
-  console.log('[AutoUpdater] Starting update check...');
-  autoUpdater.checkForUpdatesAndNotify();
+  const msg = '[AutoUpdater] Starting update check...';
+  console.log(msg);
+  writeLog(msg, 'info');
+  
+  // 즉시 업데이트 체크
+  autoUpdater.checkForUpdatesAndNotify().catch((error: any) => {
+    const errorMsg = `[AutoUpdater] Initial check failed: ${error.message || error}`;
+    console.error(errorMsg);
+    writeLog(errorMsg, 'error');
+    if (mainWindow) {
+      dialog.showErrorBox('업데이트 확인 실패', `업데이트를 확인하는 중 오류가 발생했습니다:\n\n${error.message || error}\n\n로그 파일: ${path.join(app.getPath('userData'), 'logs', 'app.log')}`);
+    }
+  });
 
   // 업데이트 체크 주기 설정 (5분마다)
   setInterval(() => {
-    console.log('[AutoUpdater] Periodic update check...');
-    autoUpdater.checkForUpdatesAndNotify();
+    const msg = '[AutoUpdater] Periodic update check...';
+    console.log(msg);
+    writeLog(msg, 'info');
+    autoUpdater.checkForUpdatesAndNotify().catch((error: any) => {
+      const errorMsg = `[AutoUpdater] Periodic check failed: ${error.message || error}`;
+      console.error(errorMsg);
+      writeLog(errorMsg, 'error');
+    });
   }, 5 * 60 * 1000); // 5분
 
   // 업데이트 이벤트 핸들러
   autoUpdater.on('checking-for-update', () => {
-    console.log('[AutoUpdater] Checking for update...');
+    const msg = '[AutoUpdater] Checking for update...';
+    console.log(msg);
+    writeLog(msg, 'info');
     if (mainWindow) {
       mainWindow.webContents.send('update-checking');
     }
   });
 
   autoUpdater.on('update-available', (info: any) => {
-    console.log('[AutoUpdater] Update available:', info.version);
+    const msg = `[AutoUpdater] Update available: ${info.version}`;
+    console.log(msg);
+    writeLog(msg, 'info');
     if (mainWindow) {
       mainWindow.webContents.send('update-available', info);
+      // 사용자에게 알림
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: '업데이트 발견',
+        message: `새 버전 ${info.version}이 사용 가능합니다.`,
+        detail: '업데이트를 다운로드하는 중입니다...',
+        buttons: ['확인']
+      });
     }
   });
 
   autoUpdater.on('update-not-available', (info: any) => {
-    console.log('[AutoUpdater] Update not available. Current version is latest.');
-    console.log('[AutoUpdater] Info:', JSON.stringify(info, null, 2));
+    const msg = `[AutoUpdater] Update not available. Current version is latest. Info: ${JSON.stringify(info)}`;
+    console.log(msg);
+    writeLog(msg, 'info');
   });
 
   autoUpdater.on('error', (err: any) => {
-    console.error('[AutoUpdater] Error:', err);
-    console.error('[AutoUpdater] Error details:', JSON.stringify(err, null, 2));
     const errorMessage = err.message || err.toString() || '알 수 없는 오류';
+    const errorDetails = JSON.stringify(err, null, 2);
+    const errorMsg = `[AutoUpdater] Error: ${errorMessage}\nDetails: ${errorDetails}`;
+    console.error(errorMsg);
+    writeLog(errorMsg, 'error');
+    
     if (mainWindow) {
       mainWindow.webContents.send('update-error', errorMessage);
     }
+    
     // 에러를 사용자에게도 표시 (비동기로 표시하여 앱 시작을 막지 않음)
     setTimeout(() => {
-      dialog.showErrorBox('업데이트 확인 오류', `업데이트를 확인하는 중 오류가 발생했습니다:\n\n${errorMessage}\n\n자세한 내용은 콘솔을 확인하세요.`);
+      const logPath = path.join(app.getPath('userData'), 'logs', 'app.log');
+      dialog.showErrorBox(
+        '업데이트 확인 오류', 
+        `업데이트를 확인하는 중 오류가 발생했습니다:\n\n${errorMessage}\n\n자세한 내용은 로그 파일을 확인하세요:\n${logPath}`
+      );
     }, 2000); // 2초 후 표시하여 앱 시작을 방해하지 않음
   });
 
   autoUpdater.on('download-progress', (progressObj: any) => {
-    const message = `다운로드 중: ${Math.round(progressObj.percent)}%`;
-    console.log('[AutoUpdater]', message);
+    const message = `[AutoUpdater] 다운로드 중: ${Math.round(progressObj.percent)}%`;
+    console.log(message);
+    writeLog(message, 'info');
     if (mainWindow) {
       mainWindow.webContents.send('update-download-progress', progressObj);
     }
   });
 
   autoUpdater.on('update-downloaded', (info: any) => {
-    console.log('[AutoUpdater] Update downloaded:', info.version);
+    const msg = `[AutoUpdater] Update downloaded: ${info.version}`;
+    console.log(msg);
+    writeLog(msg, 'info');
     if (mainWindow) {
       mainWindow.webContents.send('update-downloaded', info);
     }
@@ -139,7 +209,10 @@ function setupAutoUpdater() {
       cancelId: 1,
     }).then((result) => {
       if (result.response === 0) {
+        writeLog('[AutoUpdater] User chose to restart now', 'info');
         autoUpdater.quitAndInstall(false, true);
+      } else {
+        writeLog('[AutoUpdater] User chose to restart later', 'info');
       }
     });
   });
@@ -397,15 +470,25 @@ app.on('window-all-closed', () => {
 // 수동 업데이트 체크 IPC 핸들러
 ipcMain.handle('check-for-updates', async () => {
   try {
-    console.log('[AutoUpdater] Manual update check requested');
+    const msg = '[AutoUpdater] Manual update check requested';
+    console.log(msg);
+    writeLog(msg, 'info');
+    
     if (!autoUpdater) {
-      return { success: false, error: 'AutoUpdater not available' };
+      const error = 'AutoUpdater not available';
+      writeLog(`[AutoUpdater] ${error}`, 'error');
+      return { success: false, error };
     }
+    
     const result = await autoUpdater.checkForUpdates();
-    console.log('[AutoUpdater] Manual check result:', result);
+    const resultMsg = `[AutoUpdater] Manual check result: ${JSON.stringify(result)}`;
+    console.log(resultMsg);
+    writeLog(resultMsg, 'info');
     return { success: true, updateInfo: result?.updateInfo };
   } catch (error: any) {
-    console.error('[AutoUpdater] Manual check error:', error);
+    const errorMsg = `[AutoUpdater] Manual check error: ${error.message || error}`;
+    console.error(errorMsg);
+    writeLog(errorMsg, 'error');
     return { success: false, error: error.message || error.toString() };
   }
 });
