@@ -7,62 +7,6 @@
     "name": "Career Fit Scoring",
     "email": ""
   },
-  "build": {
-    "appId": "com.career-fit-scoring.app",
-    "productName": "이력서 적합도 평가 시스템",
-    "asar": true,
-    "asarUnpack": [
-      "node_modules/electron-updater/**/*"
-    ],
-    "directories": {
-      "output": "dist-installer",
-      "buildResources": "build"
-    },
-    "files": [
-      "electron/**/*",
-      "dist/**/*",
-      "package.json",
-      "node_modules/electron-updater/**/*",
-      "!**/.vscode/**/*",
-      "!**/.idea/**/*",
-      "!**/.vs/**/*",
-      "!**/.editorconfig",
-      "!**/tsconfig*.json",
-      "!**/*.ts",
-      "!**/*.tsx",
-      "!**/*.map",
-      "!**/node_modules/career-fit-scoring/dist/**/*",
-      "!**/node_modules/career-fit-scoring/dist-installer/**/*",
-      "!**/node_modules/career-fit-scoring/electron-app/**/*",
-      "!**/node_modules/career-fit-scoring/.git/**/*",
-      "!**/node_modules/career-fit-scoring/node_modules/**/*",
-      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
-      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
-      "!**/node_modules/*.d.ts",
-      "!**/node_modules/.bin",
-      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}"
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "requestedExecutionLevel": "asInvoker",
-      "sign": null,
-      "signAndEditExecutable": false
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "이력서 적합도 평가 시스템"
-    }
-  },
   "scripts": {
     "dev": "npm run build:electron:dev && concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",

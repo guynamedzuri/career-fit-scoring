@@ -34,68 +34,121 @@ function writeLog(message: string, level: 'info' | 'error' | 'warn' = 'info') {
 }
 
 /**
+ * electron-updater 모듈 로드 (프로덕션 빌드에서 올바른 경로 찾기)
+ */
+function loadElectronUpdater(): any {
+  // 개발 환경에서는 일반 require 사용
+  if (!app.isPackaged) {
+    try {
+      return require('electron-updater');
+    } catch (e) {
+      console.error('[AutoUpdater] Failed to load electron-updater in dev mode:', e);
+      return null;
+    }
+  }
+
+  // 프로덕션 환경: 여러 경로 시도
+  const pathsToTry: string[] = [];
+  
+  // 1. 기본 경로 (app.asar 내부)
+  try {
+    const appPath = app.getAppPath();
+    pathsToTry.push(path.join(appPath, 'node_modules', 'electron-updater'));
+  } catch (e) {
+    // app.getAppPath() 실패 시 무시
+  }
+
+  // 2. app.asar.unpacked 경로 (가장 가능성 높음)
+  try {
+    const appPath = app.getAppPath();
+    if (appPath.includes('.asar')) {
+      const unpackedPath = appPath.replace('.asar', '.asar.unpacked');
+      pathsToTry.push(path.join(unpackedPath, 'node_modules', 'electron-updater'));
+    }
+  } catch (e) {
+    // 무시
+  }
+
+  // 3. resources/app.asar.unpacked 경로
+  try {
+    const appPath = app.getAppPath();
+    const resourcesDir = path.dirname(appPath);
+    pathsToTry.push(path.join(resourcesDir, 'app.asar.unpacked', 'node_modules', 'electron-updater'));
+  } catch (e) {
+    // 무시
+  }
+
+  // 4. __dirname 기준 경로
+  try {
+    const electronDir = __dirname;
+    const appDir = path.dirname(electronDir);
+    pathsToTry.push(path.join(appDir, 'node_modules', 'electron-updater'));
+    // app.asar.unpacked 버전
+    if (appDir.includes('.asar')) {
+      const unpackedDir = appDir.replace('.asar', '.asar.unpacked');
+      pathsToTry.push(path.join(unpackedDir, 'node_modules', 'electron-updater'));
+    }
+  } catch (e) {
+    // 무시
+  }
+
+  // 5. process.resourcesPath 사용 (Electron 내장)
+  try {
+    if (process.resourcesPath) {
+      pathsToTry.push(path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'electron-updater'));
+    }
+  } catch (e) {
+    // 무시
+  }
+
+  // 각 경로 시도
+  for (const updaterPath of pathsToTry) {
+    try {
+      if (fs.existsSync(updaterPath)) {
+        writeLog(`[AutoUpdater] Trying path: ${updaterPath}`, 'info');
+        const updaterModule = require(updaterPath);
+        writeLog(`[AutoUpdater] Successfully loaded from: ${updaterPath}`, 'info');
+        return updaterModule;
+      } else {
+        writeLog(`[AutoUpdater] Path does not exist: ${updaterPath}`, 'info');
+      }
+    } catch (e: any) {
+      writeLog(`[AutoUpdater] Failed to load from ${updaterPath}: ${e.message || e}`, 'info');
+      // 다음 경로 시도
+    }
+  }
+
+  return null;
+}
+
+/**
  * 자동 업데이트 설정 및 체크
  */
 function setupAutoUpdater() {
   // electron-updater 로드 시도
   if (!autoUpdater) {
-    try {
-      const updaterModule = require('electron-updater');
+    const updaterModule = loadElectronUpdater();
+    
+    if (updaterModule && updaterModule.autoUpdater) {
       autoUpdater = updaterModule.autoUpdater;
       const msg = '[AutoUpdater] electron-updater loaded successfully';
       console.log(msg);
       writeLog(msg, 'info');
-    } catch (e: any) {
-      const errorMsg = `[AutoUpdater] electron-updater not available: ${e.message || e}`;
+    } else {
+      const errorMsg = '[AutoUpdater] electron-updater could not be loaded';
       console.error(errorMsg);
       writeLog(errorMsg, 'error');
-      writeLog(`[AutoUpdater] Error stack: ${e.stack || 'No stack trace'}`, 'error');
       writeLog(`[AutoUpdater] __dirname: ${__dirname}`, 'error');
       writeLog(`[AutoUpdater] process.cwd(): ${process.cwd()}`, 'error');
       if (app.isReady()) {
         writeLog(`[AutoUpdater] app.getAppPath(): ${app.getAppPath()}`, 'error');
+        writeLog(`[AutoUpdater] process.resourcesPath: ${process.resourcesPath || 'undefined'}`, 'error');
       }
       
-      // 프로덕션 빌드에서 모듈을 찾지 못하는 경우 대체 경로 시도
-      if (app.isPackaged && app.isReady()) {
-        try {
-          // asar.unpacked 경로 시도
-          const appPath = app.getAppPath();
-          // asar 내부인 경우 asar.unpacked 경로로 변경
-          let unpackedPath = appPath;
-          if (appPath.includes('.asar')) {
-            unpackedPath = appPath.replace('.asar', '.asar.unpacked');
-          }
-          const updaterPath = path.join(unpackedPath, 'node_modules', 'electron-updater');
-          writeLog(`[AutoUpdater] Trying alternative path: ${updaterPath}`, 'info');
-          const updaterModule = require(updaterPath);
-          autoUpdater = updaterModule.autoUpdater;
-          writeLog('[AutoUpdater] electron-updater loaded from alternative path', 'info');
-        } catch (e2: any) {
-          writeLog(`[AutoUpdater] Alternative path also failed: ${e2.message || e2}`, 'error');
-          
-          // 추가 시도: resources 폴더에서 직접 찾기
-          try {
-            const currentAppPath = app.getAppPath();
-            const resourcesPath = path.join(path.dirname(currentAppPath), '..', 'resources', 'app.asar.unpacked', 'node_modules', 'electron-updater');
-            writeLog(`[AutoUpdater] Trying resources path: ${resourcesPath}`, 'info');
-            const updaterModule = require(resourcesPath);
-            autoUpdater = updaterModule.autoUpdater;
-            writeLog('[AutoUpdater] electron-updater loaded from resources path', 'info');
-          } catch (e3: any) {
-            writeLog(`[AutoUpdater] Resources path also failed: ${e3.message || e3}`, 'error');
-          }
-        }
+      if (mainWindow) {
+        dialog.showErrorBox('자동 업데이트 오류', 'electron-updater를 로드할 수 없습니다.\n자동 업데이트가 비활성화됩니다.');
       }
-      
-      if (!autoUpdater) {
-        const msg = '[AutoUpdater] electron-updater could not be loaded';
-        writeLog(msg, 'error');
-        if (mainWindow) {
-          dialog.showErrorBox('자동 업데이트 오류', 'electron-updater를 로드할 수 없습니다.\n자동 업데이트가 비활성화됩니다.');
-        }
-        return;
-      }
+      return;
     }
   }
 
