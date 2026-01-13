@@ -2,6 +2,10 @@ appId: com.career-fit-scoring.app
 productName: 이력서 적합도 평가 시스템
 copyright: Copyright © 2025
 
+# 파일 크기 최적화
+asar: true  # asar 아카이브 사용 (기본값이지만 명시)
+compression: maximum  # 최대 압축
+
 # 자동 업데이트 설정 (GitHub Releases 사용)
 publish:
   provider: github
@@ -19,10 +23,16 @@ files:
   - dist/**/*
   - package.json
   - "../.env"
-  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
-  - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+  # node_modules 최적화 - 불필요한 파일 제외
+  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme,LICENSE,LICENSE.txt,license.txt}"
+  - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples,docs,documentation}"
   - "!**/node_modules/*.d.ts"
   - "!**/node_modules/.bin"
+  - "!**/node_modules/*/{.github,.nyc_output,coverage}"
+  - "!**/node_modules/*/{*.map,*.md,*.txt,*.log}"
+  # 소스맵 제외
+  - "!**/*.map"
+  # 기타 불필요한 파일
   - "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}"
   - "!.editorconfig"
   - "!**/._*"
@@ -30,6 +40,10 @@ files:
   - "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}"
   - "!**/{appveyor.yml,.travis.yml,circle.yml}"
   - "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
+  # TypeScript 소스 파일 제외 (이미 컴파일됨)
+  - "!**/*.ts"
+  - "!**/*.tsx"
+  - "!tsconfig*.json"
 
 win:
   target:
