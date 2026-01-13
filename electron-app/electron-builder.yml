@@ -84,7 +84,8 @@ win:
     - target: nsis
       arch:
         - x64
-  icon: build/icon.ico
+  # icon 설정 제거 (기본 아이콘 사용)
+  # icon: build/icon.ico
   requestedExecutionLevel: asInvoker
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
@@ -98,9 +99,10 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: 이력서 적합도 평가 시스템
-  installerIcon: build/icon.ico
-  uninstallerIcon: build/icon.ico
-  installerHeaderIcon: build/icon.ico
+  # icon 설정 제거 (기본 아이콘 사용)
+  # installerIcon: build/icon.ico
+  # uninstallerIcon: build/icon.ico
+  # installerHeaderIcon: build/icon.ico
   deleteAppDataOnUninstall: false
 
 mac:
@@ -110,7 +112,8 @@ mac:
         - x64
         - arm64
   category: public.app-category.business
-  icon: build/icon.icns
+  # icon 설정 제거 (기본 아이콘 사용)
+  # icon: build/icon.icns
 
 linux:
   target:
