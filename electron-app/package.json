@@ -26,7 +26,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "career-fit-scoring": "file:..",
+    "career-fit-scoring": "file:../dist",
     "electron-updater": "^6.7.3",
     "lucide-react": "^0.562.0",
     "react": "^18.2.0",

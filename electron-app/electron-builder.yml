@@ -36,8 +36,11 @@ files:
   - dist/**/*
   - package.json
   - "../.env"
-  # 모든 node_modules 포함 (간단하고 확실함)
-  - "node_modules/**/*"
+  # career-fit-scoring은 file: 의존성이므로 제외 (빌드된 dist만 사용)
+  # React 관련 모듈만 포함
+  - "node_modules/react/**/*"
+  - "node_modules/react-dom/**/*"
+  - "node_modules/lucide-react/**/*"
   # 개발 도구 설정 파일만 제외
   - "!**/.vscode/**/*"
   - "!**/.idea/**/*"
