@@ -16,6 +16,8 @@ asarUnpack:
   - "node_modules/jsonfile/**/*"
   - "node_modules/semver/**/*"
   - "node_modules/universalify/**/*"
+  # career-fit-scoring은 asar 내부에서 동작하므로 언팩 제외
+  - "!node_modules/career-fit-scoring/**/*"
 
 # 자동 업데이트 설정 (GitHub Releases 사용)
 publish:
@@ -36,7 +38,8 @@ files:
   - dist/**/*
   - package.json
   - "../.env"
-  # career-fit-scoring은 file: 의존성이므로 제외 (빌드된 dist만 사용)
+  # node_modules에서 career-fit-scoring은 명시적으로 제외
+  - "!node_modules/career-fit-scoring/**/*"
   # React 관련 모듈만 포함
   - "node_modules/react/**/*"
   - "node_modules/react-dom/**/*"
