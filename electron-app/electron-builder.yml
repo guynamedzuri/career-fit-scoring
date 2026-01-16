@@ -64,8 +64,8 @@ win:
       arch:
         - x64
   requestedExecutionLevel: asInvoker
-  # 아이콘 설정: 유효한 ICO 파일로 활성화 (build 폴더 사용)
-  icon: build/icon.ico
+  # 아이콘 설정: 루트의 icon.ico로 시도
+  icon: icon.ico
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
   signAndEditExecutable: false
