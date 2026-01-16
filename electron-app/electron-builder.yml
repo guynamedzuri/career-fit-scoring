@@ -65,9 +65,12 @@ win:
       arch:
         - x64
   requestedExecutionLevel: asInvoker
-  # 아이콘 설정: buildResources 기준 상대 경로 (또는 절대 경로)
+  # 아이콘 설정: buildResources 기준 상대 경로
   # electron-app 디렉토리의 icon.ico 파일 사용
+  # Windows에서는 여러 크기의 아이콘이 포함된 .ico 파일이 필요함
   icon: icon.ico
+  # 아이콘 파일이 제대로 인식되도록 명시적으로 설정
+  # electron-builder는 buildResources 디렉토리에서 아이콘을 찾음
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
   signAndEditExecutable: false
