@@ -246,9 +246,26 @@ function loadElectronUpdater(): any {
           if (fs.existsSync(asarPath)) {
             const asarStats = fs.statSync(asarPath);
             writeLog(`[AutoUpdater] app.asar size: ${asarStats.size} bytes`, 'info');
+            writeLog(`[AutoUpdater] app.asar path exists: ${asarPath}`, 'info');
+            try {
+              fs.accessSync(asarPath, fs.constants.R_OK);
+              writeLog(`[AutoUpdater] app.asar readable: YES`, 'info');
+            } catch (accessError: any) {
+              writeLog(`[AutoUpdater] app.asar readable: NO - ${accessError.message || accessError}`, 'info');
+            }
+            
+            // asar 내용물 직접 확인 (리스트 없이 크기만)
+            try {
+              const appPath = app.getAppPath();
+              writeLog(`[AutoUpdater] app.getAppPath(): ${appPath}`, 'info');
+              writeLog(`[AutoUpdater] appPath exists: ${fs.existsSync(appPath) ? 'YES' : 'NO'}`, 'info');
+            } catch (pathError: any) {
+              writeLog(`[AutoUpdater] Error checking app path: ${pathError.message || pathError}`, 'error');
+            }
             
             // require.resolve로 electron-updater 경로 확인
             try {
+              writeLog(`[AutoUpdater] Trying require.resolve('electron-updater')...`, 'info');
               const resolvedPath = require.resolve('electron-updater');
               writeLog(`[AutoUpdater] require.resolve('electron-updater') found: ${resolvedPath}`, 'info');
               
