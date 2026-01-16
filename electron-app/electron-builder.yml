@@ -27,6 +27,8 @@ files:
   - "../.env"
   # icon.ico를 설치 디렉토리에 포함 (바로가기 아이콘용)
   - icon.ico
+  # favicon.ico를 루트에 포함
+  - favicon.ico
   # 모든 node_modules 포함 후 career-fit-scoring만 제외
   - "node_modules/**/*"
   # career-fit-scoring만 명시적으로 제외 (용량 문제 해결)
@@ -69,11 +71,14 @@ win:
   # 실행 파일(.exe) 아이콘 설정
   # 이 설정이 실제 앱 실행 파일의 아이콘을 결정함
   # buildResources 디렉토리(현재 .) 기준 상대 경로
-  icon: icon.ico
+  # favicon.ico를 사용 (사용자가 추가함)
+  icon: favicon.ico
   # 실행 파일에 아이콘 리소스 포함 확인
   extraResources:
     - from: icon.ico
       to: icon.ico
+    - from: favicon.ico
+      to: favicon.ico
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
   signAndEditExecutable: false
