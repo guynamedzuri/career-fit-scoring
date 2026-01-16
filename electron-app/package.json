@@ -23,7 +23,7 @@
     "build:mac": "npm run build:all && electron-builder --mac",
     "build:linux": "npm run build:all && electron-builder --linux",
     "build:electron": "tsc -p tsconfig.electron.json && electron-builder",
-    "preview": "vite preview",
+    "preview": "vite preview"
   },
   "keywords": [
     "career",
