@@ -25,6 +25,7 @@ files:
   - dist/**/*
   - package.json
   - "../.env"
+  # icon.ico를 설치 디렉토리에 포함 (바로가기 아이콘용)
   - icon.ico
   # 모든 node_modules 포함 후 career-fit-scoring만 제외
   - "node_modules/**/*"
