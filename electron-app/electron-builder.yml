@@ -73,8 +73,9 @@ win:
   signingHashAlgorithms: []
 
 nsis:
-  oneClick: false
-  allowToChangeInstallationDirectory: true
+  oneClick: true  # One-click 설치로 조용한 업데이트 지원
+  perMachine: false  # 사용자별 설치
+  allowToChangeInstallationDirectory: false  # One-click일 때는 변경 불가
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: 이력서 적합도 평가 시스템
@@ -83,6 +84,8 @@ nsis:
   # uninstallerIcon: build/icon.ico
   # installerHeaderIcon: build/icon.ico
   deleteAppDataOnUninstall: false
+  # 조용한 업데이트를 위한 설정
+  runAfterFinish: false  # 설치 후 자동 실행 방지 (electron-updater가 처리)
 
 mac:
   target:

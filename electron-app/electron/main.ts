@@ -501,23 +501,14 @@ function setupAutoUpdater() {
       mainWindow.webContents.send('update-downloaded', info);
     }
     
-    // 사용자에게 업데이트 알림 및 재시작 옵션 제공
-    dialog.showMessageBox(mainWindow!, {
-      type: 'info',
-      title: '업데이트 준비 완료',
-      message: '새 버전이 다운로드되었습니다.',
-      detail: `버전 ${info.version}이 다운로드되었습니다. 지금 재시작하여 업데이트를 적용하시겠습니까?`,
-      buttons: ['지금 재시작', '나중에'],
-      defaultId: 0,
-      cancelId: 1,
-    }).then((result) => {
-      if (result.response === 0) {
-        writeLog('[AutoUpdater] User chose to restart now', 'info');
-        autoUpdater.quitAndInstall(false, true);
-      } else {
-        writeLog('[AutoUpdater] User chose to restart later', 'info');
-      }
-    });
+    // 조용한 자동 업데이트: 사용자에게 알림 없이 즉시 재시작
+    writeLog(`[AutoUpdater] Update downloaded: ${info.version}, restarting silently...`, 'info');
+    
+    // 2초 후 조용히 재시작 (사용자가 작업 중일 가능성 대비)
+    setTimeout(() => {
+      writeLog('[AutoUpdater] Performing silent restart with update', 'info');
+      autoUpdater.quitAndInstall(true, false); // silent mode
+    }, 2000);
   });
 }
 
