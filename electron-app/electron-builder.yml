@@ -25,9 +25,10 @@ files:
   - dist/**/*
   - package.json
   - "../.env"
-  # icon.ico를 설치 디렉토리에 포함 (바로가기 아이콘용)
+  # icon.ico를 설치 디렉토리 루트에 포함 (바로가기 아이콘용)
   - icon.ico
-  # favicon.ico를 루트에 포함
+  # favicon.ico를 설치 디렉토리 루트에 포함 (실행 파일 아이콘용)
+  # files에 포함하면 앱 루트에 복사됨 (uninstallerIcon처럼)
   - favicon.ico
   # 모든 node_modules 포함 후 career-fit-scoring만 제외
   - "node_modules/**/*"
@@ -70,15 +71,11 @@ win:
   requestedExecutionLevel: asInvoker
   # 실행 파일(.exe) 아이콘 설정
   # 이 설정이 실제 앱 실행 파일의 아이콘을 결정함
+  # uninstallerIcon처럼 루트에 두려면 절대 경로나 명시적 경로 필요
   # buildResources 디렉토리(현재 .) 기준 상대 경로
-  # favicon.ico를 사용 (사용자가 추가함)
   icon: favicon.ico
-  # 실행 파일에 아이콘 리소스 포함 확인
-  extraResources:
-    - from: icon.ico
-      to: icon.ico
-    - from: favicon.ico
-      to: favicon.ico
+  # 실행 파일 아이콘을 위한 추가 설정
+  # extraResources는 resources 폴더에 복사되므로, files에 포함해야 루트에 복사됨
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
   signAndEditExecutable: false
