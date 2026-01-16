@@ -17,7 +17,7 @@ publish:
 
 directories:
   output: dist-installer
-  buildResources: .  # electron-app 디렉토리 기준 (favicon.ico, icon.ico가 여기에 있어야 함)
+  buildResources: .  # electron-app 디렉토리 (favicon.ico가 여기에 있어야 win.icon이 작동함)
 
 files:
   # 필수 파일들
@@ -68,6 +68,9 @@ win:
   # 실행 파일(.exe) 아이콘 설정
   # 이 설정이 실제 앱 실행 파일의 아이콘을 결정함
   # buildResources 디렉토리(현재 .) 기준 상대 경로
+  # 문서: https://www.electron.build/configuration/win
+  # "needs to be placed in the buildResources directory (defaults to build)"
+  # 현재 buildResources: . 이므로 electron-app/favicon.ico가 올바른 위치
   icon: favicon.ico
   # 아이콘 파일을 앱 루트에 복사하기 위한 설정
   # asar: false일 때 files에 포함된 파일은 resources/app에 가므로
