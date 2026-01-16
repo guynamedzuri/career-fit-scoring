@@ -1,4 +1,3 @@
-// Version 1.0.66
 import { useState, useEffect } from 'react';
 import JobConfigForm from './components/JobConfigForm';
 import ResumeFileList from './components/ResumeFileList';
@@ -123,7 +122,7 @@ function App() {
           </button>
         </div>
         <div className="app-version-info">
-          Copyright Ⓒ 2016 LS Automotive Technologies. All rights reserved. | Version 1.0.70
+          Copyright Ⓒ 2016 LS Automotive Technologies. All rights reserved. | Version {import.meta.env.VITE_APP_VERSION || '1.0.78'}
         </div>
       </div>
       {showSaveLoadModal && (
