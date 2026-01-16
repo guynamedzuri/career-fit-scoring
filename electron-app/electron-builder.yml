@@ -71,9 +71,7 @@ win:
   # 문서: https://www.electron.build/configuration/win
   # "needs to be placed in the buildResources directory (defaults to build)"
   # 현재 buildResources: . 이므로 electron-app/icon.ico가 올바른 위치
-  # favicon.ico는 256x256이 없어서 icon.ico 사용 (256x256 포함)
-  # 절대 경로로 시도 (문제 해결을 위해)
-  icon: ${process.cwd()}/electron-app/icon.ico
+  icon: icon.ico
   # 아이콘 파일을 앱 루트에 복사하기 위한 설정
   # asar: false일 때 files에 포함된 파일은 resources/app에 가므로
   # extraResources를 사용하여 루트에 복사
