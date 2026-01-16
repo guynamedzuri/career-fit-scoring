@@ -18,10 +18,16 @@ Stop-Process -Name explorer -Force
 
 # 아이콘 캐시 삭제
 Remove-Item "$env:LOCALAPPDATA\IconCache.db" -ErrorAction SilentlyContinue
-Remove-Item "$env:LOCALAPPDATA\Microsoft\Windows\Explorer\iconcache*" -Recurse -Force -ErrorAction SilentlyContinue
+Get-ChildItem -Path "$env:LOCALAPPDATA\Microsoft\Windows\Explorer" -Filter "iconcache*" -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 
 # 탐색기 재시작
 Start-Process explorer
+```
+
+또는 스크립트 사용:
+```powershell
+# 관리자 권한으로 실행
+.\CLEAR_ICON_CACHE.ps1
 ```
 
 또는 간단하게:
