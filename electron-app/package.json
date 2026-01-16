@@ -13,7 +13,7 @@
     "dev:electron": "wait-on http://localhost:5173 -t 30000 && electron .",
     "build:electron:dev": "tsc -p tsconfig.electron.json",
     "build": "npm install && npm run build:all && electron-builder",
-    "build:all": "npm run build:electron:dev && vite build",
+    "build:all": "npm run build:electron:dev && npm run inject-version && vite build",
     "build:win": "npm run build:all && electron-builder --win",
     "build:win:publish": "npm run build:all && electron-builder --win --publish onTag",
     "clean": "npx rimraf dist dist-installer",
@@ -23,6 +23,7 @@
     "build:mac": "npm run build:all && electron-builder --mac",
     "build:linux": "npm run build:all && electron-builder --linux",
     "build:electron": "tsc -p tsconfig.electron.json && electron-builder",
+    "inject-version": "node -e \"const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8')); const appTsx = fs.readFileSync('src/App.tsx', 'utf-8'); const updated = appTsx.replace(/Version \\d+\\.\\d+\\.\\d+/, `Version ${pkg.version}`); fs.writeFileSync('src/App.tsx', updated); console.log('Version injected:', pkg.version);\"",
     "preview": "vite preview"
   },
   "dependencies": {
