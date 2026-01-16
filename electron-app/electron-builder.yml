@@ -17,7 +17,7 @@ publish:
 
 directories:
   output: dist-installer
-  buildResources: .
+  buildResources: .  # electron-app 디렉토리 기준
 
 files:
   # 필수 파일들 - 아이콘을 명시적으로 포함
@@ -65,12 +65,9 @@ win:
       arch:
         - x64
   requestedExecutionLevel: asInvoker
-  # 아이콘 설정: 간단한 문자열 경로
+  # 아이콘 설정: buildResources 기준 상대 경로 (또는 절대 경로)
+  # electron-app 디렉토리의 icon.ico 파일 사용
   icon: icon.ico
-  # 실행 파일 리소스 강제 설정
-  extraResources:
-    - from: icon.ico
-      to: icon.ico
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
   signAndEditExecutable: false
