@@ -95,9 +95,7 @@ nsis:
   installerIcon: icon.ico
   uninstallerIcon: icon.ico
   installerHeaderIcon: icon.ico
-  # 바로가기 아이콘 명시적 설정 (바탕화면 바로가기용)
-  # 바로가기 아이콘은 실행 파일의 아이콘을 사용하지만, 별도로 지정 가능
-  shortcutIcon: icon.ico
+  # shortcutIcon은 NSIS에서 지원되지 않음 - installer.nsh 스크립트로 처리
   deleteAppDataOnUninstall: false
   # 조용한 업데이트를 위한 설정
   runAfterFinish: false  # 설치 후 자동 실행 방지 (electron-updater가 처리)
