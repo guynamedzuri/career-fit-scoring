@@ -1,6 +1,6 @@
 appId: com.career-fit-scoring.app
 productName: 이력서 적합도 평가 시스템
-copyright: Copyright © 2025
+copyright: Copyright Ⓒ 2016 LS Automotive Technologies. All rights reserved.
 
 # 파일 크기 최적화 - asar 비활성화로 단순화
 asar: false  # asar 사용 안함 - electron-updater 문제 해결을 위함
