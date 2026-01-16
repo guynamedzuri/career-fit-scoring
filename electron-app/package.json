@@ -1,6 +1,6 @@
 {
   "name": "career-fit-scoring-app",
-  "version": "1.0.75",
+  "version": "1.0.76",
   "description": "Electron desktop app for resume scoring using career-fit-scoring algorithm",
   "main": "electron/main.js",
   "author": {
@@ -23,10 +23,22 @@
     "build:mac": "npm run build:all && electron-builder --mac",
     "build:linux": "npm run build:all && electron-builder --linux",
     "build:electron": "tsc -p tsconfig.electron.json && electron-builder",
-    "inject-version": "node -e \"const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8')); const appTsx = fs.readFileSync('src/App.tsx', 'utf-8'); const updated = appTsx.replace(/Version \\d+\\.\\d+\\.\\d+/, 'Version ' + pkg.version); fs.writeFileSync('src/App.tsx', updated); console.log('Version injected:', pkg.version);\"",
-    "fix-icon": "node -e \"const fs = require('fs'); const path = require('path'); const execSync = require('child_process').execSync; const iconPath = path.join(__dirname, 'icon.ico'); const unpackedPath = path.join(__dirname, 'dist-installer/win-unpacked/이력서 적합도 평가 시스템.exe'); if (fs.existsSync(unpackedPath)) { console.log('Fixing icon for executable...'); execSync('rcedit \\\"' + unpackedPath + '\\\" --set-icon \\\"' + iconPath + '\\\"', { stdio: 'inherit' }); console.log('Icon fixed successfully'); } else { console.log('Unpacked executable not found, skipping icon fix'); }\""
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "inject-version": "node -e \"const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8')); const appTsx = fs.readFileSync('src/App.tsx', 'utf-8'); const updated = appTsx.replace(/Version \\d+\\.\\d+\\.\\d+/, 'Version ' + pkg.version); fs.writeFileSync('src/App.tsx', updated); console.log('Version injected:', pkg.version);\""
   },
+  "keywords": [
+    "career",
+    "scoring",
+    "algorithm",
+    "recruitment",
+    "matching",
+    "electron",
+    "resume",
+    "docx",
+    "careernet"
+  ],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
     "career-fit-scoring": "file:../dist",
     "electron-updater": "^6.7.3",
@@ -46,5 +58,9 @@
     "typescript": "^5.0.0",
     "vite": "^5.0.0",
     "wait-on": "^7.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/guynamedzuri/career-fit-scoring.git"
   }
 }
