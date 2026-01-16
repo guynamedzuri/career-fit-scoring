@@ -71,6 +71,12 @@ win:
   icon: icon.ico
   # 아이콘 파일이 제대로 인식되도록 명시적으로 설정
   # electron-builder는 buildResources 디렉토리에서 아이콘을 찾음
+  # 실행 파일에 아이콘 리소스 강제 포함
+  extraResources:
+    - from: icon.ico
+      to: icon.ico
+      filter:
+        - "**/*"
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
   signAndEditExecutable: false
@@ -88,9 +94,14 @@ nsis:
   installerIcon: icon.ico
   uninstallerIcon: icon.ico
   installerHeaderIcon: icon.ico
+  # 바로가기 아이콘 명시적 설정 (바탕화면 바로가기용)
+  # 바로가기 아이콘은 실행 파일의 아이콘을 사용하지만, 별도로 지정 가능
+  shortcutIcon: icon.ico
   deleteAppDataOnUninstall: false
   # 조용한 업데이트를 위한 설정
   runAfterFinish: false  # 설치 후 자동 실행 방지 (electron-updater가 처리)
+  # NSIS 스크립트 커스터마이징으로 바로가기 아이콘 강제 설정
+  include: build/installer.nsh
 
 mac:
   target:
