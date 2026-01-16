@@ -619,12 +619,35 @@ function createWindow() {
   
   console.log('isDev:', isDev, 'isPackaged:', app.isPackaged);
   
+  // 아이콘 경로 설정 (프로덕션과 개발 환경 모두 처리)
+  let iconPath: string | undefined;
+  if (app.isPackaged) {
+    // 프로덕션: 앱 루트 디렉토리의 favicon.ico 사용
+    // extraResources로 루트에 복사된 favicon.ico 사용
+    const appPath = app.getAppPath();
+    // asar: false일 때 appPath는 resources/app이므로, 상위로 올라가서 루트 찾기
+    if (appPath.includes('resources/app')) {
+      iconPath = path.join(path.dirname(path.dirname(appPath)), 'favicon.ico');
+    } else {
+      iconPath = path.join(path.dirname(appPath), 'favicon.ico');
+    }
+    // 루트에 없으면 resources에서 찾기
+    if (!fs.existsSync(iconPath)) {
+      iconPath = path.join(process.resourcesPath || path.dirname(appPath), 'favicon.ico');
+    }
+  } else {
+    // 개발 환경: electron-app 디렉토리의 favicon.ico 사용
+    iconPath = path.join(__dirname, '..', 'favicon.ico');
+  }
+  
   // 개발 환경과 프로덕션 환경에 따라 다른 창 설정
   const windowOptions: Electron.BrowserWindowConstructorOptions = {
     width: 1000,
     height: 700,
     show: false, // 준비될 때까지 숨김
     autoHideMenuBar: true, // 메뉴바 자동 숨김
+    // 창 아이콘 설정 (창 타이틀바 아이콘)
+    icon: iconPath,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
