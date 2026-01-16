@@ -79,10 +79,11 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: 이력서 적합도 평가 시스템
-  # icon 설정 제거 (기본 아이콘 사용)
-  # installerIcon: build/icon.ico
-  # uninstallerIcon: build/icon.ico
-  # installerHeaderIcon: build/icon.ico
+  # 아이콘 설정 활성화
+  icon: icon.ico
+  installerIcon: icon.ico
+  uninstallerIcon: icon.ico
+  installerHeaderIcon: icon.ico
   deleteAppDataOnUninstall: false
   # 조용한 업데이트를 위한 설정
   runAfterFinish: false  # 설치 후 자동 실행 방지 (electron-updater가 처리)
@@ -93,9 +94,9 @@ mac:
       arch:
         - x64
         - arm64
-  category: public.app-category.business
-  # icon 설정 제거 (기본 아이콘 사용)
-  # icon: build/icon.icns
+  category: public.app.business
+  # macOS 아이콘 설정
+  icon: icon.icns
 
 linux:
   target:
@@ -103,3 +104,5 @@ linux:
       arch:
         - x64
   category: Utility
+  # Linux 아이콘 설정
+  icon: icon.png
