@@ -12,7 +12,7 @@
     "dev:vite": "vite",
     "dev:electron": "wait-on http://localhost:5173 -t 30000 && electron .",
     "build:electron:dev": "tsc -p tsconfig.electron.json",
-    "build": "npm run build:all && electron-builder",
+    "build": "npm install && npm run build:all && electron-builder",
     "build:all": "npm run build:electron:dev && vite build",
     "build:win": "npm run build:all && electron-builder --win",
     "build:win:publish": "npm run build:all && electron-builder --win --publish onTag",
