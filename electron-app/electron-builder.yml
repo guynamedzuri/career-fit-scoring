@@ -63,9 +63,9 @@ win:
     - target: nsis
       arch:
         - x64
-  # Windows 앱 아이콘 설정
-  icon: icon.ico
   requestedExecutionLevel: asInvoker
+  # 아이콘 설정: icon.ico 파일이 유효한 ICO 포맷이 아니어서 임시 비활성화
+  # icon: icon.ico
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
   signAndEditExecutable: false
@@ -79,10 +79,10 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: 이력서 적합도 평가 시스템
-  # 아이콘 설정 활성화
-  installerIcon: icon.ico
-  uninstallerIcon: icon.ico
-  installerHeaderIcon: icon.ico
+  # 아이콘 설정: icon.ico 파일이 유효한 ICO 포맷이 아니어서 임시 비활성화
+  # installerIcon: icon.ico
+  # uninstallerIcon: icon.ico
+  # installerHeaderIcon: icon.ico
   deleteAppDataOnUninstall: false
   # 조용한 업데이트를 위한 설정
   runAfterFinish: false  # 설치 후 자동 실행 방지 (electron-updater가 처리)
