@@ -1,6 +1,6 @@
 {
   "name": "career-fit-scoring-app",
-  "version": "1.0.74",
+  "version": "1.0.75",
   "description": "Electron desktop app for resume scoring using career-fit-scoring algorithm",
   "main": "electron/main.js",
   "author": {
@@ -15,7 +15,7 @@
     "build": "npm install && npm run build:all && electron-builder",
     "build:all": "npm run build:electron:dev && npm run inject-version && vite build",
     "build:win": "npm run build:all && electron-builder --win",
-    "build:win:publish": "npm run build:all && electron-builder --win --publish onTag && npm run fix-icon",
+    "build:win:publish": "npm run build:all && electron-builder --win --publish onTag",
     "clean": "npx rimraf dist dist-installer",
     "clean:build": "npm run clean && npm run build:win:publish && npm run generate-latest",
     "generate-latest": "node generate-latest-yml.js",
@@ -23,8 +23,8 @@
     "build:mac": "npm run build:all && electron-builder --mac",
     "build:linux": "npm run build:all && electron-builder --linux",
     "build:electron": "tsc -p tsconfig.electron.json && electron-builder",
-    "inject-version": "node -e \"const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8')); const appTsx = fs.readFileSync('src/App.tsx', 'utf-8'); const updated = appTsx.replace(/Version \\d+\\.\\d+\\.\\d+/, `Version ${pkg.version}`); fs.writeFileSync('src/App.tsx', updated); console.log('Version injected:', pkg.version);\"",
-    "fix-icon": "node -e \"const fs = require('fs'); const path = require('path'); const execSync = require('child_process').execSync; const iconPath = path.join(__dirname, 'icon.ico'); const unpackedPath = path.join(__dirname, 'dist-installer/win-unpacked/이력서 적합도 평가 시스템.exe'); if (fs.existsSync(unpackedPath)) { console.log('Fixing icon for executable...'); execSync(`rcedit \\\"${unpackedPath}\\\" --set-icon \\\"${iconPath}\\\"`, { stdio: 'inherit' }); console.log('Icon fixed successfully'); } else { console.log('Unpacked executable not found, skipping icon fix'); }\""
+    "inject-version": "node -e \"const fs = require('fs'); const pkg = JSON.parse(fs.readFileSync('package.json', 'utf-8')); const appTsx = fs.readFileSync('src/App.tsx', 'utf-8'); const updated = appTsx.replace(/Version \\d+\\.\\d+\\.\\d+/, 'Version ' + pkg.version); fs.writeFileSync('src/App.tsx', updated); console.log('Version injected:', pkg.version);\"",
+    "fix-icon": "node -e \"const fs = require('fs'); const path = require('path'); const execSync = require('child_process').execSync; const iconPath = path.join(__dirname, 'icon.ico'); const unpackedPath = path.join(__dirname, 'dist-installer/win-unpacked/이력서 적합도 평가 시스템.exe'); if (fs.existsSync(unpackedPath)) { console.log('Fixing icon for executable...'); execSync('rcedit \\\"' + unpackedPath + '\\\" --set-icon \\\"' + iconPath + '\\\"', { stdio: 'inherit' }); console.log('Icon fixed successfully'); } else { console.log('Unpacked executable not found, skipping icon fix'); }\""
     "preview": "vite preview"
   },
   "dependencies": {
