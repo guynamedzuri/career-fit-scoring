@@ -622,22 +622,22 @@ function createWindow() {
   // 아이콘 경로 설정 (프로덕션과 개발 환경 모두 처리)
   let iconPath: string | undefined;
   if (app.isPackaged) {
-    // 프로덕션: 앱 루트 디렉토리의 favicon.ico 사용
-    // extraResources로 루트에 복사된 favicon.ico 사용
+    // 프로덕션: 앱 루트 디렉토리의 icon.ico 사용 (256x256 포함)
+    // extraResources로 루트에 복사된 icon.ico 사용
     const appPath = app.getAppPath();
     // asar: false일 때 appPath는 resources/app이므로, 상위로 올라가서 루트 찾기
     if (appPath.includes('resources/app')) {
-      iconPath = path.join(path.dirname(path.dirname(appPath)), 'favicon.ico');
+      iconPath = path.join(path.dirname(path.dirname(appPath)), 'icon.ico');
     } else {
-      iconPath = path.join(path.dirname(appPath), 'favicon.ico');
+      iconPath = path.join(path.dirname(appPath), 'icon.ico');
     }
     // 루트에 없으면 resources에서 찾기
     if (!fs.existsSync(iconPath)) {
-      iconPath = path.join(process.resourcesPath || path.dirname(appPath), 'favicon.ico');
+      iconPath = path.join(process.resourcesPath || path.dirname(appPath), 'icon.ico');
     }
   } else {
-    // 개발 환경: electron-app 디렉토리의 favicon.ico 사용
-    iconPath = path.join(__dirname, '..', 'favicon.ico');
+    // 개발 환경: electron-app 디렉토리의 icon.ico 사용
+    iconPath = path.join(__dirname, '..', 'icon.ico');
   }
   
   // 개발 환경과 프로덕션 환경에 따라 다른 창 설정
