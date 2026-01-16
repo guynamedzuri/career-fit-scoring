@@ -64,10 +64,8 @@ win:
       arch:
         - x64
   requestedExecutionLevel: asInvoker
-  # 아이콘 설정: 다중 시도
-  icon: 
-    - icon.ico
-    - build/icon.ico
+  # 아이콘 설정: 새로운 256x256 ICO
+  icon: icon.ico
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
   signAndEditExecutable: false
@@ -81,16 +79,10 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: 이력서 적합도 평가 시스템
-  # 아이콘 설정: 다중 시도
-  installerIcon: 
-    - icon.ico
-    - build/icon.ico
-  uninstallerIcon: 
-    - icon.ico
-    - build/icon.ico
-  installerHeaderIcon: 
-    - icon.ico
-    - build/icon.ico
+  # 아이콘 설정: 새로운 256x256 ICO
+  installerIcon: icon.ico
+  uninstallerIcon: icon.ico
+  installerHeaderIcon: icon.ico
   deleteAppDataOnUninstall: false
   # 조용한 업데이트를 위한 설정
   runAfterFinish: false  # 설치 후 자동 실행 방지 (electron-updater가 처리)
