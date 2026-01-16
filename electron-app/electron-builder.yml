@@ -17,7 +17,7 @@ publish:
 
 directories:
   output: dist-installer
-  buildResources: .  # electron-app 디렉토리 (favicon.ico가 여기에 있어야 win.icon이 작동함)
+  buildResources: .  # electron-app 디렉토리 (icon.ico가 여기에 있어야 win.icon이 작동함)
 
 files:
   # 필수 파일들
