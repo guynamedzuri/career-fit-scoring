@@ -80,7 +80,6 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: 이력서 적합도 평가 시스템
   # 아이콘 설정 활성화
-  icon: icon.ico
   installerIcon: icon.ico
   uninstallerIcon: icon.ico
   installerHeaderIcon: icon.ico
