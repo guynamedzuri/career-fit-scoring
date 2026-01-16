@@ -64,8 +64,12 @@ win:
       arch:
         - x64
   requestedExecutionLevel: asInvoker
-  # 아이콘 설정: 새로운 256x256 ICO
+  # 아이콘 설정: Windows 리소스 강제 적용
   icon: icon.ico
+  # 실행 파일 리소스 강제 설정
+  extraResources:
+    - from: icon.ico
+      to: icon.ico
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
   signAndEditExecutable: false
