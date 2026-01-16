@@ -17,14 +17,15 @@ publish:
 
 directories:
   output: dist-installer
-  buildResources: build
+  buildResources: .
 
 files:
-  # 필수 파일들
+  # 필수 파일들 - 아이콘을 명시적으로 포함
   - electron/**/*
   - dist/**/*
   - package.json
   - "../.env"
+  - icon.ico
   # 모든 node_modules 포함 후 career-fit-scoring만 제외
   - "node_modules/**/*"
   # career-fit-scoring만 명시적으로 제외 (용량 문제 해결)
@@ -64,8 +65,10 @@ win:
       arch:
         - x64
   requestedExecutionLevel: asInvoker
-  # 아이콘 설정: Windows 리소스 강제 적용
-  icon: icon.ico
+  # 아이콘 설정: 절대 경로 방식
+  icon: 
+    src: icon.ico
+    size: 256
   # 실행 파일 리소스 강제 설정
   extraResources:
     - from: icon.ico
