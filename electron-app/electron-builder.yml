@@ -103,8 +103,8 @@ nsis:
   deleteAppDataOnUninstall: false
   # 조용한 업데이트를 위한 설정
   runAfterFinish: false  # 설치 후 자동 실행 방지 (electron-updater가 처리)
-  # NSIS 스크립트 커스터마이징으로 바로가기 아이콘 강제 설정
-  # include: build/installer.nsh  # PowerShell 명령어 문제로 임시 비활성화
+  # NSIS 스크립트 커스터마이징 (현재 비활성화)
+  # include: build/installer.nsh  # 바로가기 아이콘은 실행 파일 아이콘을 자동으로 사용
 
 mac:
   target:
