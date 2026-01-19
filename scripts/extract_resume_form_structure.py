@@ -65,8 +65,9 @@ def extract_images_from_cell(cell) -> list:
         list: 이미지 정보 리스트
     """
     images = []
+    found_ids = set()
     
-    # 방법 1: paragraph의 runs에서 이미지 찾기
+    # paragraph의 runs에서 이미지 찾기
     for para in cell.paragraphs:
         for run in para.runs:
             # run.element에서 이미지 찾기
@@ -74,27 +75,14 @@ def extract_images_from_cell(cell) -> list:
             for drawing in drawings:
                 embed_id = drawing.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
                 link_id = drawing.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}link')
-                if embed_id or link_id:
+                img_id = embed_id or link_id
+                if img_id and img_id not in found_ids:
+                    found_ids.add(img_id)
                     images.append({
                         "embed_id": embed_id,
                         "link_id": link_id,
                         "has_image": True
                     })
-    
-    # 방법 2: cell.element에서 직접 이미지 찾기 (셀 내부의 모든 이미지)
-    cell_drawings = cell.element.findall('.//a:blip', namespaces={'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'})
-    found_ids = set()
-    for drawing in cell_drawings:
-        embed_id = drawing.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
-        link_id = drawing.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}link')
-        img_id = embed_id or link_id
-        if img_id and img_id not in found_ids:
-            found_ids.add(img_id)
-            images.append({
-                "embed_id": embed_id,
-                "link_id": link_id,
-                "has_image": True
-            })
     
     return images
 
