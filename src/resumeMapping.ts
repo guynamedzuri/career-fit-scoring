@@ -16,9 +16,15 @@ export interface ResumeMappingConfig {
   basicInfo: {
     tableIndex: number;
     name?: { rowIndex: number; cellIndex: number } | { searchRow: string; searchCol: string };
+    nameEnglish?: { rowIndex: number; cellIndex: number } | { searchRow: string; searchCol: string };
     birthDate?: { rowIndex: number; cellIndex: number } | { searchRow: string; searchCol: string };
     email?: { rowIndex: number; cellIndex: number } | { searchRow: string; searchCol: string };
     phone?: { rowIndex: number; cellIndex: number } | { searchRow: string; searchCol: string };
+    phoneHome?: { rowIndex: number; cellIndex: number } | { searchRow: string; searchCol: string };
+    address?: { rowIndex: number; cellIndex: number } | { searchRow: string; searchCol: string };
+    desiredSalary?: { rowIndex: number; cellIndex: number } | { searchRow: string; searchCol: string };
+    photo?: { rowIndex: number; cellIndex: number }; // 증명사진 위치
+    militaryService?: { rowIndex: number; cellIndexStart: number; cellIndexEnd: number }; // 병역 정보 (여러 셀)
   };
   
   // 자격증 정보
@@ -26,9 +32,54 @@ export interface ResumeMappingConfig {
     tableIndex: number;
     headerRowIndex?: number; // 헤더 행 인덱스 (없으면 0)
     dataStartRowIndex?: number; // 데이터 시작 행 인덱스 (없으면 headerRowIndex + 1)
+    dataEndRowIndex?: number; // 데이터 종료 행 인덱스
     nameColumn?: number | { searchText: string }; // 자격증명 열
+    gradeColumn?: number | { searchText: string }; // 등급/점수 열
+    issuerColumn?: number | { searchText: string }; // 발행기관 열
     dateColumn?: number | { searchText: string }; // 취득일 열
     maxCount?: number; // 최대 개수 (기본값: 10)
+  };
+  
+  // 어학 정보
+  languageTests?: {
+    tableIndex: number;
+    headerRowIndex?: number;
+    dataStartRowIndex?: number;
+    dataEndRowIndex?: number;
+    nameColumn?: number | { searchText: string }; // 어학종류명
+    scoreColumn?: number | { searchText: string }; // 점수/등급
+    dateColumn?: number | { searchText: string }; // 취득일자
+    maxCount?: number;
+  };
+  
+  // 해외연수 정보
+  overseasTraining?: {
+    tableIndex: number;
+    headerRowIndex?: number;
+    dataStartRowIndex?: number;
+    dataEndRowIndex?: number;
+    countryColumn?: number | { searchText: string }; // 연수 국가
+    durationColumn?: number | { searchText: string }; // 거주기간
+    purposeColumn?: number | { searchText: string }; // 거주목적
+    maxCount?: number;
+  };
+  
+  // 수상경력 정보
+  awards?: {
+    tableIndex: number;
+    headerRowIndex?: number;
+    dataStartRowIndex?: number;
+    dataEndRowIndex?: number;
+    nameColumn?: number | { searchText: string }; // 수상명
+    organizationColumn?: number | { searchText: string }; // 수상기관
+    detailColumn?: number | { searchText: string }; // 수상내역
+    maxCount?: number;
+  };
+  
+  // 자기소개서
+  selfIntroduction?: {
+    tableIndex: number;
+    answers: Array<{ rowIndex: number; cellIndex: number }>; // 각 답안의 위치
   };
   
   // 경력 정보
@@ -81,59 +132,126 @@ export interface ResumeMappingConfig {
 }
 
 /**
- * 기본 매핑 설정 (예시)
- * 실제 이력서 폼에 맞게 수정해야 합니다.
+ * 기본 매핑 설정
+ * resume_form.docx 양식에 맞게 설정됨
  */
 export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
   basicInfo: {
-    tableIndex: 0, // 첫 번째 테이블
-    name: { searchRow: '이름', searchCol: '이름' },
-    birthDate: { searchRow: '생년월일', searchCol: '생년월일' },
-    email: { searchRow: '이메일', searchCol: '이메일' },
-    phone: { searchRow: '전화번호', searchCol: '전화번호' },
+    tableIndex: 1, // 테이블 1: 기본 인적사항
+    // (1,1): 한글이름 + 한문이름
+    name: { rowIndex: 1, cellIndex: 1 },
+    // (2,1): 영문이름
+    nameEnglish: { rowIndex: 2, cellIndex: 1 },
+    // (1,5): 희망연봉
+    desiredSalary: { rowIndex: 1, cellIndex: 5 },
+    // (2,5): 증명사진
+    photo: { rowIndex: 2, cellIndex: 5 },
+    // (3,1): 생년월일
+    birthDate: { rowIndex: 3, cellIndex: 1 },
+    // (3,4): 이메일
+    email: { rowIndex: 3, cellIndex: 4 },
+    // (4,1): 현재 주소지
+    address: { rowIndex: 4, cellIndex: 1 },
+    // (5,1): 자택전화번호
+    phoneHome: { rowIndex: 5, cellIndex: 1 },
+    // (6,1): 이동전화번호
+    phone: { rowIndex: 6, cellIndex: 1 },
+    // (8,1~5): 병역 관련 (5개 셀)
+    militaryService: { rowIndex: 8, cellIndexStart: 1, cellIndexEnd: 5 },
   },
   certificates: {
-    tableIndex: 1, // 두 번째 테이블
-    headerRowIndex: 0,
-    dataStartRowIndex: 1,
-    nameColumn: { searchText: '자격증명' },
-    dateColumn: { searchText: '취득일' },
-    maxCount: 10,
+    tableIndex: 4, // 테이블 4: 자격사항
+    headerRowIndex: 1,
+    dataStartRowIndex: 2, // row 2~4
+    dataEndRowIndex: 4,
+    // (2~4,3): 자격증 이름
+    nameColumn: 3,
+    // (2~4,4): 등급/점수
+    gradeColumn: 4,
+    // (2~4,5): 발행기관
+    issuerColumn: 5,
+    maxCount: 3,
+  },
+  languageTests: {
+    tableIndex: 4, // 테이블 4: 어학 정보
+    headerRowIndex: 1,
+    dataStartRowIndex: 2, // row 2~4
+    dataEndRowIndex: 4,
+    // (2~4,0): 어학종류명
+    nameColumn: 0,
+    // (2~4,1): 점수/등급
+    scoreColumn: 1,
+    // (2~4,2): 취득일자
+    dateColumn: 2,
+    maxCount: 3,
   },
   careers: {
-    tableIndex: 2, // 세 번째 테이블
-    headerRowIndex: 0,
-    dataStartRowIndex: 1,
-    companyNameColumn: { searchText: '회사명' },
-    startDateColumn: { searchText: '입사일' },
-    endDateColumn: { searchText: '퇴사일' },
-    jobTypeColumn: { searchText: '직종' },
-    employmentStatusColumn: { searchText: '재직상태' },
+    tableIndex: 3, // 테이블 3: 경력사항
+    headerRowIndex: 1,
+    dataStartRowIndex: 2, // row 2~6
+    // (2~6,2): 회사명
+    companyNameColumn: 2,
+    // (2~6,0): 입사년월
+    startDateColumn: 0,
+    // (2~6,1): 퇴사년월
+    endDateColumn: 1,
+    // (2~6,4): 직위
+    jobTypeColumn: 4,
+    // (2~6,6): 이직사유
+    employmentStatusColumn: 6,
     maxCount: 5,
   },
   education: {
-    tableIndex: 3, // 네 번째 테이블
-    headerRowIndex: 0,
-    dataStartRowIndex: 1,
-    schoolNameColumn: { searchText: '학교명' },
-    degreeTypeColumn: { searchText: '학위' },
-    graduationTypeColumn: { searchText: '졸업여부' },
-    majorColumn: { searchText: '전공' },
-    gpaColumn: { searchText: '학점' },
-    maxGpaColumn: { searchText: '만점' },
-    maxCount: 5,
+    tableIndex: 2, // 테이블 2: 학력사항
+    headerRowIndex: 1,
+    dataStartRowIndex: 2, // row 2~7
+    // (2~7,2): 학교명
+    schoolNameColumn: 2,
+    // (2~7,6): 졸업구분
+    graduationTypeColumn: 6,
+    // (2~7,3): 전공명
+    majorColumn: 3,
+    // (2~7,4): 학점 (평균점수/총점수 형식)
+    gpaColumn: 4,
+    // (2~7,0): 입학년월
+    // (2~7,1): 졸업년월
+    // (2~7,5): 학교 소재지
+    maxCount: 6,
   },
-  graduateSchool: {
-    tableIndex: 4, // 다섯 번째 테이블
-    headerRowIndex: 0,
-    dataStartRowIndex: 1,
-    schoolNameColumn: { searchText: '학교명' },
-    degreeTypeColumn: { searchText: '학위' },
-    graduationTypeColumn: { searchText: '졸업여부' },
-    majorColumn: { searchText: '전공' },
-    gpaColumn: { searchText: '학점' },
-    maxGpaColumn: { searchText: '만점' },
-    maxCount: 5,
+  overseasTraining: {
+    tableIndex: 4, // 테이블 4: 해외연수
+    headerRowIndex: 5,
+    dataStartRowIndex: 6, // row 6~8
+    dataEndRowIndex: 8,
+    // (6~8,0): 연수 국가
+    countryColumn: 0,
+    // (6~8,1): 거주기간
+    durationColumn: 1,
+    // (6~8,2): 거주목적
+    purposeColumn: 2,
+    maxCount: 3,
+  },
+  awards: {
+    tableIndex: 4, // 테이블 4: 수상경력
+    headerRowIndex: 5,
+    dataStartRowIndex: 6, // row 6~8
+    dataEndRowIndex: 8,
+    // (6~8,3): 수상명
+    nameColumn: 3,
+    // (6~8,4): 수상기관
+    organizationColumn: 4,
+    // (6~8,5): 수상내역
+    detailColumn: 5,
+    maxCount: 3,
+  },
+  selfIntroduction: {
+    tableIndex: 5, // 테이블 5: 자기소개서
+    answers: [
+      { rowIndex: 1, cellIndex: 1 }, // 자기소개서 답안 1
+      { rowIndex: 3, cellIndex: 1 }, // 자기소개서 답안 2
+      { rowIndex: 5, cellIndex: 1 }, // 자기소개서 답안 3
+      { rowIndex: 7, cellIndex: 1 }, // 자기소개서 답안 4
+    ],
   },
 };
 
