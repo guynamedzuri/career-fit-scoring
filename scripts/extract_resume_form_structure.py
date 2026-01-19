@@ -8,13 +8,16 @@
 
 import sys
 import json
+import os
 from pathlib import Path
+from io import BytesIO
 
 try:
     from docx import Document
     from docx.table import Table
     from docx.oxml.table import CT_Tbl
     from docx.oxml.text.paragraph import CT_P
+    from docx.oxml.ns import qn
 except ImportError:
     print("ERROR: python-docx 라이브러리가 필요합니다.")
     print("설치 방법: pip3 install python-docx")
@@ -51,6 +54,51 @@ def extract_table_structure(doc_path: str) -> dict:
     return result
 
 
+def extract_images_from_cell(cell) -> list:
+    """
+    셀에서 이미지 추출
+    
+    Args:
+        cell: docx Table Cell 객체
+        
+    Returns:
+        list: 이미지 정보 리스트
+    """
+    images = []
+    
+    # 방법 1: paragraph의 runs에서 이미지 찾기
+    for para in cell.paragraphs:
+        for run in para.runs:
+            # run.element에서 이미지 찾기
+            drawings = run.element.findall('.//a:blip', namespaces={'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'})
+            for drawing in drawings:
+                embed_id = drawing.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                link_id = drawing.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}link')
+                if embed_id or link_id:
+                    images.append({
+                        "embed_id": embed_id,
+                        "link_id": link_id,
+                        "has_image": True
+                    })
+    
+    # 방법 2: cell.element에서 직접 이미지 찾기 (셀 내부의 모든 이미지)
+    cell_drawings = cell.element.findall('.//a:blip', namespaces={'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'})
+    found_ids = set()
+    for drawing in cell_drawings:
+        embed_id = drawing.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+        link_id = drawing.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}link')
+        img_id = embed_id or link_id
+        if img_id and img_id not in found_ids:
+            found_ids.add(img_id)
+            images.append({
+                "embed_id": embed_id,
+                "link_id": link_id,
+                "has_image": True
+            })
+    
+    return images
+
+
 def extract_table_data(table: Table, table_index: int) -> dict:
     """
     테이블에서 모든 행과 셀 데이터 추출
@@ -80,10 +128,16 @@ def extract_table_data(table: Table, table_index: int) -> dict:
             cell_text = "\n".join([para.text for para in cell.paragraphs])
             cell_text = cell_text.strip()
             
+            # 셀 내 이미지 추출
+            images = extract_images_from_cell(cell)
+            
             cell_data = {
                 "cell_index": cell_idx,
                 "text": cell_text,
-                "is_empty": len(cell_text) == 0,
+                "is_empty": len(cell_text) == 0 and len(images) == 0,
+                "has_image": len(images) > 0,
+                "image_count": len(images),
+                "images": images,
                 "position": {
                     "table_index": table_index,
                     "row_index": row_idx,
@@ -116,12 +170,23 @@ def print_structure_summary(structure: dict):
             print(f"\n  행 {row['row_index']} (총 {row['cell_count']}개 셀):")
             
             for cell in row["cells"]:
-                status = "빈칸" if cell["is_empty"] else "내용 있음"
+                status_parts = []
+                if cell["is_empty"]:
+                    status_parts.append("빈칸")
+                else:
+                    if cell["text"]:
+                        status_parts.append("텍스트 있음")
+                    if cell["has_image"]:
+                        status_parts.append(f"이미지 {cell['image_count']}개")
+                status = " / ".join(status_parts) if status_parts else "빈칸"
+                
                 text_preview = cell["text"][:50] + "..." if len(cell["text"]) > 50 else cell["text"]
                 
                 print(f"    셀 [{row['row_index']}, {cell['cell_index']}]: {status}")
                 if cell["text"]:
-                    print(f"      내용: {text_preview}")
+                    print(f"      텍스트: {text_preview}")
+                if cell["has_image"]:
+                    print(f"      이미지: {cell['image_count']}개 발견 (embed_id: {cell['images'][0]['embed_id'] if cell['images'] else 'N/A'})")
                 print(f"      위치: 테이블{cell['position']['table_index']}, 행{cell['position']['row_index']}, 열{cell['position']['cell_index']}")
 
 
