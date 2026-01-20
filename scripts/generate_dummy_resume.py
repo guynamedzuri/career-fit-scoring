@@ -282,7 +282,7 @@ def load_env_file():
     return env_vars
 
 
-def call_azure_openai(prompt: str, system_prompt: str = None) -> Optional[str]:
+def call_azure_openai(prompt: str, system_prompt: str = None, max_tokens: int = 1000, temperature: float = 0.7) -> Optional[str]:
     """Azure OpenAI API 호출"""
     env_vars = load_env_file()
     
@@ -310,10 +310,10 @@ def call_azure_openai(prompt: str, system_prompt: str = None) -> Optional[str]:
             },
             json={
                 "messages": messages,
-                "max_tokens": 1000,
-                "temperature": 0.7
+                "max_tokens": max_tokens,
+                "temperature": temperature
             },
-            timeout=30
+            timeout=60
         )
         
         if response.status_code == 200:
@@ -328,6 +328,80 @@ def call_azure_openai(prompt: str, system_prompt: str = None) -> Optional[str]:
         return None
     
     return None
+
+
+def generate_resume_data_with_ai() -> Optional[Dict]:
+    """AI를 사용해서 이력서의 모든 데이터를 JSON 형식으로 생성"""
+    system_prompt = """당신은 이력서 작성 전문가입니다. 한국의 현실적이고 맥락 있는 이력서 데이터를 JSON 형식으로 생성해주세요.
+반드시 유효한 JSON 형식으로만 응답하고, 다른 설명은 포함하지 마세요."""
+
+    prompt = """다음 형식의 JSON으로 한국인 이력서 데이터를 생성해주세요. 모든 데이터는 현실적이고 일관성 있게 만들어주세요.
+
+{
+  "basicInfo": {
+    "name": "한글이름 (예: 김민준)",
+    "nameEnglish": "영문이름 (예: Minjun Kim)",
+    "birthDate": "생년월일 (예: 1995.03.15)",
+    "email": "이메일주소 (예: minjun.kim@gmail.com)",
+    "phone": "이동전화 (예: 010-1234-5678)",
+    "phoneHome": "자택전화 (예: 02-1234-5678)",
+    "address": "주소 (예: 서울특별시 강남구 테헤란로 123)",
+    "desiredSalary": "희망연봉 (예: 4000만원)",
+    "militaryService": "병역사항 (예: 현역, 보충역, 면제, 해당없음 중 하나)"
+  },
+  "education": [
+    {
+      "start": "입학년월 (예: 2014.03)",
+      "end": "졸업년월 (예: 2018.02)",
+      "school": "학교명 (예: 서울대학교)",
+      "major": "전공명 (예: 컴퓨터공학과)",
+      "gpa": "학점 (예: 3.85/4.5)",
+      "location": "소재지 (예: 서울특별시)",
+      "graduation": "졸업구분 (예: 졸업, 졸업예정, 수료 중 하나)"
+    }
+  ],
+  "careers": [
+    {
+      "start": "입사년월 (예: 2018.03)",
+      "end": "퇴사년월 또는 재직중 (예: 2024.12 또는 재직중)",
+      "company": "회사명 (예: 삼성전자)",
+      "department": "근무부서 (예: 개발팀)",
+      "position": "직위 (예: 선임연구원)",
+      "salary": "연봉 (예: 5000만원)",
+      "reason": "이직사유 (예: 개인사정, 이직, 계약만료, 회사사정, 전직희망 중 하나)"
+    }
+  ]
+}
+
+다음 조건을 만족해야 합니다:
+1. 학력은 1-3개 (최종 학력은 대학교 또는 대학원)
+2. 경력은 1-4개 (일부는 재직중일 수 있음)
+3. 모든 날짜는 일관성 있게 (예: 대학교 졸업 후 바로 취업)
+4. 연봉은 경력에 따라 합리적으로 증가
+5. 회사명, 학교명은 실제와 유사하게
+6. 반드시 유효한 JSON만 출력 (설명 없이)"""
+
+    ai_result = call_azure_openai(prompt, system_prompt, max_tokens=2000, temperature=0.8)
+    
+    if not ai_result:
+        return None
+    
+    # JSON 파싱 시도 (코드 블록이나 마크다운 제거)
+    try:
+        # ```json 또는 ``` 제거
+        cleaned_result = ai_result.strip()
+        if cleaned_result.startswith('```'):
+            lines = cleaned_result.split('\n')
+            cleaned_result = '\n'.join(lines[1:-1]) if len(lines) > 2 else cleaned_result
+            if cleaned_result.startswith('json'):
+                cleaned_result = cleaned_result[4:].strip()
+        
+        data = json.loads(cleaned_result)
+        return data
+    except json.JSONDecodeError as e:
+        print(f"  WARNING: JSON 파싱 실패: {e}")
+        print(f"  AI 응답: {ai_result[:500]}")
+        return None
 
 
 def generate_self_introduction(use_ai: bool = False, name: str = "", career_info: List[Dict] = None) -> List[str]:
@@ -422,17 +496,54 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False)
             print(f"WARNING: 예상된 테이블 개수(6개)보다 적습니다: {len(tables)}개")
         
         # 더미 데이터 생성
-        korean_name, english_name = generate_korean_name()
-        birth_date = generate_birth_date()
-        email = generate_email(korean_name)
-        phone = generate_phone()
-        phone_home = generate_phone()
-        address = generate_address()
-        salary = generate_salary()
-        military = random.choice(MILITARY_STATUS)
+        if use_ai:
+            # AI로 모든 데이터 생성
+            print("  AI로 이력서 데이터 생성 중...", end=' ')
+            ai_data = generate_resume_data_with_ai()
+            if ai_data:
+                # AI 생성 데이터 사용
+                basic_info = ai_data.get('basicInfo', {})
+                korean_name = basic_info.get('name', '')
+                english_name = basic_info.get('nameEnglish', '')
+                birth_date = basic_info.get('birthDate', '')
+                email = basic_info.get('email', '')
+                phone = basic_info.get('phone', '')
+                phone_home = basic_info.get('phoneHome', '')
+                address = basic_info.get('address', '')
+                salary = basic_info.get('desiredSalary', '')
+                military = basic_info.get('militaryService', '')
+                
+                educations = ai_data.get('education', [])
+                careers = ai_data.get('careers', [])
+                
+                print("완료")
+            else:
+                # AI 실패 시 기본 생성 방식으로 폴백
+                print("실패, 기본 생성 방식 사용")
+                korean_name, english_name = generate_korean_name()
+                birth_date = generate_birth_date()
+                email = generate_email(korean_name)
+                phone = generate_phone()
+                phone_home = generate_phone()
+                address = generate_address()
+                salary = generate_salary()
+                military = random.choice(MILITARY_STATUS)
+                educations = generate_education()
+                careers = generate_career()
+        else:
+            # 기본 랜덤 생성
+            korean_name, english_name = generate_korean_name()
+            birth_date = generate_birth_date()
+            email = generate_email(korean_name)
+            phone = generate_phone()
+            phone_home = generate_phone()
+            address = generate_address()
+            salary = generate_salary()
+            military = random.choice(MILITARY_STATUS)
+            educations = generate_education()
+            careers = generate_career()
         
-        educations = generate_education()
-        careers = generate_career()
+        # 자격증과 어학은 항상 랜덤 생성 (AI 옵션 없음)
         certificates = generate_certificates()
         languages = generate_languages()
         
