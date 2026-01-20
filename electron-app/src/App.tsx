@@ -20,6 +20,8 @@ function App() {
   const [showSaveLoadModal, setShowSaveLoadModal] = useState<boolean>(false);
   const [userPrompt, setUserPrompt] = useState<any>(null);
   const [loadedData, setLoadedData] = useState<any>(null);
+  // "실행하기"를 누른 시점의 설정 스냅샷 (뒤로가기 시 이 값으로 복원)
+  const [executedSnapshot, setExecutedSnapshot] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const handleExecute = () => {
@@ -57,6 +59,13 @@ function App() {
       // 새로운 자동저장 항목을 맨 위에 추가
       localStorage.setItem('jobConfigSaves', JSON.stringify([autoSaveData, ...filteredItems]));
     }
+
+    // 뒤로가기 시 복원할 "실행 시점" 스냅샷 저장
+    // (ResultView에서 뒤로가기하면 JobConfigForm이 remount 되므로, 이 값으로 다시 채움)
+    setExecutedSnapshot({
+      selectedFolder,
+      userPrompt,
+    });
     
     // 로딩 시작
     setIsProcessing(true);
@@ -66,9 +75,13 @@ function App() {
   };
 
   const handleBackToConfig = () => {
-    // 뒤로가기 시 loadedData를 초기화하여 프리셋 데이터로 폼이 덮어써지지 않도록 함
-    // 실행하기를 누른 시점의 설정(현재 폼 상태)이 유지됨
-    setLoadedData(null);
+    // 뒤로가기 시 "실행하기"를 누른 시점의 설정으로 복원
+    // (마지막으로 불러온 프리셋으로 덮어써지지 않도록 loadedData를 스냅샷으로 설정)
+    if (executedSnapshot) {
+      setLoadedData(executedSnapshot);
+    } else {
+      setLoadedData(null);
+    }
     setViewMode('config');
   };
 
