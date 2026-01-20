@@ -127,12 +127,19 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
     // Python 스크립트에서 반환한 에러 메시지 확인
     if (error.stderr) {
       try {
-        const errorJson = JSON.parse(error.stderr.trim());
-        if (errorJson.error) {
-          throw new Error(`DOCX 파싱 실패: ${errorJson.error}`);
+        // stderr에서 JSON 에러 메시지 추출 시도
+        const stderrStr = error.stderr.toString();
+        // JSON 객체 찾기 (중괄호로 시작하고 끝나는 부분)
+        const jsonMatch = stderrStr.match(/\{[\s\S]*"error"[\s\S]*\}/);
+        if (jsonMatch) {
+          const errorJson = JSON.parse(jsonMatch[0]);
+          if (errorJson.error) {
+            throw new Error(`DOCX 파싱 실패: ${errorJson.error}`);
+          }
         }
       } catch (e) {
         // JSON 파싱 실패 시 원본 에러 사용
+        console.warn('[DOCX Parser] Failed to parse error JSON:', e);
       }
     }
     

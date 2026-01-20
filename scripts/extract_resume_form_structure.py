@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 이력서 양식(DOCX)에서 모든 테이블과 셀을 추출하여 위치 정보를 출력하는 스크립트
 
@@ -11,6 +12,17 @@ import json
 import os
 from pathlib import Path
 from io import BytesIO
+
+# Windows에서 한글 경로 처리
+if sys.platform == 'win32':
+    import locale
+    # 콘솔 인코딩 설정
+    if sys.stdout.encoding != 'utf-8':
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+            sys.stderr.reconfigure(encoding='utf-8')
+        except:
+            pass
 
 try:
     from docx import Document
@@ -254,10 +266,12 @@ def main():
         print(error_msg, file=sys.stderr)
         sys.exit(1)
     
+    # Windows에서 한글 경로 처리: sys.argv는 이미 올바른 인코딩으로 받아옴
+    # 하지만 안전을 위해 명시적으로 처리
     docx_path = sys.argv[1]
     
-    # 경로 정규화
-    docx_path = os.path.normpath(docx_path)
+    # 경로 정규화 및 절대 경로 변환
+    docx_path = os.path.abspath(os.path.normpath(docx_path))
     
     if not os.path.exists(docx_path):
         error_msg = json.dumps({"error": f"File not found at '{docx_path}'"})
