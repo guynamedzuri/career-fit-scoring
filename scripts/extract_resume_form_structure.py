@@ -30,6 +30,9 @@ def extract_table_structure(doc_path: str) -> dict:
     
     Args:
         doc_path: DOCX 파일 경로 (한글/공백 포함 가능)
+    
+    Returns:
+        dict: 테이블 구조 정보
     """
     # 경로 정규화 (Windows 경로 처리)
     doc_path = os.path.normpath(doc_path)
@@ -40,10 +43,26 @@ def extract_table_structure(doc_path: str) -> dict:
             "error": f"File not found at '{doc_path}'"
         }
     
-    Returns:
-        dict: 테이블 구조 정보
-    """
-    doc = Document(doc_path)
+    # 파일 읽기 권한 확인
+    if not os.access(doc_path, os.R_OK):
+        return {
+            "error": f"File is not readable: '{doc_path}'"
+        }
+    
+    try:
+        # 절대 경로로 변환하여 경로 문제 해결
+        abs_path = os.path.abspath(doc_path)
+        doc = Document(abs_path)
+    except Exception as e:
+        error_detail = str(e)
+        # "Package not found" 에러는 파일 경로 문제일 수 있음
+        if "Package not found" in error_detail:
+            return {
+                "error": f"Failed to open DOCX file. The file may be corrupted or the path is incorrect: '{doc_path}'. Error: {error_detail}"
+            }
+        return {
+            "error": f"Failed to open DOCX file '{doc_path}': {error_detail}"
+        }
     
     result = {
         "file_path": doc_path,
