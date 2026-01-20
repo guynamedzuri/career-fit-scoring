@@ -157,14 +157,17 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           if (onProcessingChange) {
             onProcessingChange(true);
           }
-          // processResumeFiles는 비동기이므로 await 없이 호출
-          // 로딩 상태는 processResumeFiles 내부에서도 관리하지만 여기서도 시작
-          processResumeFiles(toProcess).catch(err => {
-            console.error('[Process] Error in processResumeFiles:', err);
-            if (onProcessingChange) {
-              onProcessingChange(false);
-            }
-          });
+          // processResumeFiles 완료를 기다린 후 AI 분석 시작
+          processResumeFiles(toProcess)
+            .then(() => {
+              console.log('[Process] All files processed, AI analysis will be triggered by useEffect');
+            })
+            .catch(err => {
+              console.error('[Process] Error in processResumeFiles:', err);
+              if (onProcessingChange) {
+                onProcessingChange(false);
+              }
+            });
         } else {
           // 처리할 파일이 없고, AI 분석이 필요한 파일이 있으면 로딩 유지
           // AI 분석이 필요한지 확인
@@ -606,7 +609,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         return;
       }
 
-      console.log(`[AI Analysis] Starting analysis for ${needsAnalysis.length} files`);
+      console.log(`[AI Analysis] Starting analysis for ${needsAnalysis.length} files:`, needsAnalysis.map(r => r.fileName));
       isAiAnalysisRunning.current = true;
       setAiProcessing(true);
       if (onProcessingChange) {
@@ -614,6 +617,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       }
       try {
         const aiPromises = needsAnalysis.map(async (result) => {
+          console.log(`[AI Analysis] Processing ${result.fileName}...`);
           try {
             if (!result.applicationData) {
               console.warn(`[AI Analysis] No applicationData for ${result.fileName}`);
@@ -714,7 +718,14 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       }
     };
 
-    runInitialAiAnalysis();
+    // 디바운싱: results가 빠르게 변경될 때를 대비하여 약간의 지연 후 실행
+    const timeoutId = setTimeout(() => {
+      runInitialAiAnalysis();
+    }, 100);
+    
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [results, userPrompt, selectedFiles, selectedFolder, onProcessingChange]);
 
   // AI 보고서 모달 열기
