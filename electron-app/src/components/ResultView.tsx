@@ -126,7 +126,8 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               applicationData: cachedData.applicationData,
               aiGrade: cachedData.aiGrade,
               aiReport: cachedData.aiReport,
-              aiChecked: cachedData.aiChecked,
+              // aiChecked가 true이지만 aiGrade나 aiReport가 없으면 재분석 필요
+              aiChecked: cachedData.aiChecked && cachedData.aiGrade && cachedData.aiReport ? true : false,
               searchableText: cachedData.searchableText || file.name,
             };
           } else {
@@ -167,8 +168,11 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         } else {
           // 처리할 파일이 없고, AI 분석이 필요한 파일이 있으면 로딩 유지
           // AI 분석이 필요한지 확인
+          // aiChecked가 false이거나, aiChecked가 true이지만 aiGrade나 aiReport가 없으면 재분석 필요
           const needsAiAnalysis = results.some(r => 
-            r.status === 'completed' && r.applicationData && !r.aiChecked
+            r.status === 'completed' && 
+            r.applicationData && 
+            (!r.aiChecked || (r.aiChecked && (!r.aiGrade || !r.aiReport)))
           );
           if (!needsAiAnalysis && onProcessingChange) {
             onProcessingChange(false);
@@ -587,10 +591,11 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       }
 
       // 이미 AI 분석이 완료된 파일이 있는지 확인
+      // aiChecked가 false이거나, aiChecked가 true이지만 aiGrade나 aiReport가 없으면 재분석 필요
       const needsAnalysis = results.filter(r => 
         r.status === 'completed' && 
         r.applicationData && 
-        !r.aiChecked
+        (!r.aiChecked || (r.aiChecked && (!r.aiGrade || !r.aiReport)))
       );
 
       if (needsAnalysis.length === 0) {
