@@ -958,7 +958,17 @@ ipcMain.handle('load-cache', async (event, folderPath: string, filePaths: string
         continue;
       }
       
-      const cacheEntry = cacheData.entries[filePath];
+      // Windows에서 경로 표기(\ vs /)나 normalize 차이로 키 매칭이 실패하는 경우가 있어
+      // 여러 형태로 lookup 한 뒤, 최종적으로는 "요청 받은 filePath" 키로 반환한다.
+      const normalized = path.normalize(filePath);
+      const swappedSlashes = filePath.includes('\\') ? filePath.replace(/\\/g, '/') : filePath.replace(/\//g, '\\');
+      const altNormalized = path.normalize(swappedSlashes);
+
+      const cacheEntry =
+        cacheData.entries[filePath] ||
+        cacheData.entries[normalized] ||
+        cacheData.entries[swappedSlashes] ||
+        cacheData.entries[altNormalized];
       
       // 캐시에 있고, 파일이 변경되지 않았는지 확인
       if (cacheEntry && 
