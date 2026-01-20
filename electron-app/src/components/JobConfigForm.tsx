@@ -523,11 +523,15 @@ export default function JobConfigForm({
       return;
     }
 
-    // userPrompt 전달
+    // userPrompt 전달 (모든 필드 포함)
     if (onUserPromptChange) {
       onUserPromptChange({
         jobDescription,
+        requiredQualifications: requiredQualifications.trim(),
+        preferredQualifications: preferredQualifications.trim(),
+        requiredCertifications,
         gradeCriteria,
+        scoringWeights,
       });
     }
 

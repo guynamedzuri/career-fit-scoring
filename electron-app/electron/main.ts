@@ -1558,19 +1558,20 @@ ipcMain.handle('ai-check-resume', async (event, data: {
       throw new Error('userPrompt가 제공되지 않았습니다.');
     }
     
-    if (!data.userPrompt.jobDescription || typeof data.userPrompt.jobDescription !== 'string' || !data.userPrompt.jobDescription.trim()) {
-      throw new Error('jobDescription이 비어있습니다.');
-    }
-    
-    // 안전한 접근을 위한 기본값 설정
+    // 안전한 접근을 위한 기본값 설정 (검증 전에 먼저 설정)
     const userPrompt = {
-      jobDescription: data.userPrompt.jobDescription || '',
-      requiredQualifications: data.userPrompt.requiredQualifications || '',
-      preferredQualifications: data.userPrompt.preferredQualifications || '',
+      jobDescription: (data.userPrompt.jobDescription && typeof data.userPrompt.jobDescription === 'string') ? data.userPrompt.jobDescription : '',
+      requiredQualifications: (data.userPrompt.requiredQualifications && typeof data.userPrompt.requiredQualifications === 'string') ? data.userPrompt.requiredQualifications : '',
+      preferredQualifications: (data.userPrompt.preferredQualifications && typeof data.userPrompt.preferredQualifications === 'string') ? data.userPrompt.preferredQualifications : '',
       requiredCertifications: Array.isArray(data.userPrompt.requiredCertifications) ? data.userPrompt.requiredCertifications : [],
       gradeCriteria: data.userPrompt.gradeCriteria || {},
       scoringWeights: data.userPrompt.scoringWeights || {},
     };
+    
+    // jobDescription 검증 (안전한 userPrompt 객체 사용)
+    if (!userPrompt.jobDescription || !userPrompt.jobDescription.trim()) {
+      throw new Error('jobDescription이 비어있습니다.');
+    }
     
     // AI 프롬프트 구성
     const systemPrompt = `당신은 채용 담당자입니다. 이력서의 경력을 분석하여 업무 내용과의 적합도를 평가하고 등급을 부여해야 합니다.
