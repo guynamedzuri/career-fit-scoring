@@ -1468,15 +1468,23 @@ ipcMain.handle('process-resume', async (event, filePath: string) => {
 // 생년월일로 나이 계산
 function calculateAge(birthDate: string): number | undefined {
   try {
-    // YYYY-MM-DD 또는 YYYYMMDD 형식 파싱
+    // YYYY-MM-DD, YYYY.MM.DD, 또는 YYYYMMDD 형식 파싱
     let year: number, month: number, day: number;
     
     if (birthDate.includes('-')) {
+      // YYYY-MM-DD 형식
       const parts = birthDate.split('-');
       year = parseInt(parts[0]);
       month = parseInt(parts[1]);
       day = parseInt(parts[2]);
+    } else if (birthDate.includes('.')) {
+      // YYYY.MM.DD 형식
+      const parts = birthDate.split('.');
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+      day = parseInt(parts[2]);
     } else if (birthDate.length === 8) {
+      // YYYYMMDD 형식
       year = parseInt(birthDate.substring(0, 4));
       month = parseInt(birthDate.substring(4, 6));
       day = parseInt(birthDate.substring(6, 8));
@@ -1493,6 +1501,7 @@ function calculateAge(birthDate: string): number | undefined {
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
     
+    // 만나이 계산: 생일이 지나지 않았으면 1살 빼기
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
       age--;
     }

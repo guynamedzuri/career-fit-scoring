@@ -2,6 +2,55 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Search, ChevronUp, ChevronDown, Download, Info, AlertCircle, CheckCircle2, Filter } from 'lucide-react';
 import '../styles/result-view.css';
 
+// 생년월일로부터 만나이 계산 함수
+function calculateAgeFromBirthDate(birthDate: string | undefined): number | undefined {
+  if (!birthDate) return undefined;
+  
+  try {
+    // YYYY-MM-DD, YYYY.MM.DD, 또는 YYYYMMDD 형식 파싱
+    let year: number, month: number, day: number;
+    
+    if (birthDate.includes('-')) {
+      // YYYY-MM-DD 형식
+      const parts = birthDate.split('-');
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+      day = parseInt(parts[2]);
+    } else if (birthDate.includes('.')) {
+      // YYYY.MM.DD 형식
+      const parts = birthDate.split('.');
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+      day = parseInt(parts[2]);
+    } else if (birthDate.length === 8) {
+      // YYYYMMDD 형식
+      year = parseInt(birthDate.substring(0, 4));
+      month = parseInt(birthDate.substring(4, 6));
+      day = parseInt(birthDate.substring(6, 8));
+    } else {
+      return undefined;
+    }
+    
+    if (isNaN(year) || isNaN(month) || isNaN(day)) {
+      return undefined;
+    }
+    
+    const today = new Date();
+    const birth = new Date(year, month - 1, day);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    
+    // 만나이 계산: 생일이 지나지 않았으면 1살 빼기
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    
+    return age;
+  } catch {
+    return undefined;
+  }
+}
+
 interface DocxFile {
   name: string;
   path: string;
@@ -329,13 +378,25 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     if (filters.minAge) {
       const minAge = parseInt(filters.minAge);
       if (!isNaN(minAge)) {
-        filtered = filtered.filter(r => r.age !== undefined && r.age >= minAge);
+        filtered = filtered.filter(r => {
+          // applicationData.birthDate가 있으면 그것을 사용해서 나이 계산
+          const calculatedAge = r.applicationData?.birthDate 
+            ? calculateAgeFromBirthDate(r.applicationData.birthDate)
+            : r.age;
+          return calculatedAge !== undefined && calculatedAge >= minAge;
+        });
       }
     }
     if (filters.maxAge) {
       const maxAge = parseInt(filters.maxAge);
       if (!isNaN(maxAge)) {
-        filtered = filtered.filter(r => r.age !== undefined && r.age <= maxAge);
+        filtered = filtered.filter(r => {
+          // applicationData.birthDate가 있으면 그것을 사용해서 나이 계산
+          const calculatedAge = r.applicationData?.birthDate 
+            ? calculateAgeFromBirthDate(r.applicationData.birthDate)
+            : r.age;
+          return calculatedAge !== undefined && calculatedAge <= maxAge;
+        });
       }
     }
     if (filters.minScore) {
@@ -389,8 +450,15 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           compareB = b.name || b.fileName;
           break;
         case 'age':
-          compareA = a.age ?? 0;
-          compareB = b.age ?? 0;
+          // applicationData.birthDate가 있으면 그것을 사용해서 나이 계산
+          const ageA = a.applicationData?.birthDate 
+            ? calculateAgeFromBirthDate(a.applicationData.birthDate)
+            : a.age;
+          const ageB = b.applicationData?.birthDate 
+            ? calculateAgeFromBirthDate(b.applicationData.birthDate)
+            : b.age;
+          compareA = ageA ?? 0;
+          compareB = ageB ?? 0;
           break;
         case 'lastCompany':
           compareA = a.lastCompany || '';
@@ -971,7 +1039,13 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                 </div>
               </div>
               <div className="table-cell cell-age">
-                {result.status === 'completed' && result.age !== undefined ? `${result.age}세` : '-'}
+                {result.status === 'completed' ? (() => {
+                  // applicationData.birthDate가 있으면 그것을 사용해서 나이 계산
+                  const calculatedAge = result.applicationData?.birthDate 
+                    ? calculateAgeFromBirthDate(result.applicationData.birthDate)
+                    : result.age;
+                  return calculatedAge !== undefined ? `${calculatedAge}세` : '-';
+                })() : '-'}
               </div>
               <div className="table-cell cell-company">
                 {result.status === 'completed' && result.lastCompany ? (
@@ -1073,7 +1147,13 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               <div className="detail-item">
                 <span className="detail-label">나이:</span>
                 <span className="detail-value">
-                  {selectedResult.status === 'completed' && selectedResult.age !== undefined ? `${selectedResult.age}세` : 'N/A'}
+                  {selectedResult.status === 'completed' ? (() => {
+                    // applicationData.birthDate가 있으면 그것을 사용해서 나이 계산
+                    const calculatedAge = selectedResult.applicationData?.birthDate 
+                      ? calculateAgeFromBirthDate(selectedResult.applicationData.birthDate)
+                      : selectedResult.age;
+                    return calculatedAge !== undefined ? `${calculatedAge}세` : 'N/A';
+                  })() : 'N/A'}
                 </span>
               </div>
               <div className="detail-item">
