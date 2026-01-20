@@ -13,7 +13,7 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       // career-fit-scoring 모듈을 소스에서 직접 참조 (개발 모드)
-      'career-fit-scoring': path.resolve(__dirname, '../src'),
+      'career-fit-scoring': path.resolve(__dirname, '../src/index.ts'),
     },
   },
   base: './',
@@ -25,7 +25,10 @@ export default defineConfig({
     outDir: 'dist',
   },
   optimizeDeps: {
-    exclude: ['career-fit-scoring'],
+    include: ['career-fit-scoring'],
+    esbuildOptions: {
+      target: 'es2020',
+    },
   },
   define: {
     // 브라우저 환경에서 process.env를 사용할 수 있도록 정의
