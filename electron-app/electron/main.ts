@@ -3,8 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as http from 'http';
 import * as https from 'https';
-// career-fit-scoring 패키지에서 함수 import (path mapping 사용)
-import { extractTablesFromDocx, mapResumeDataToApplicationData } from 'career-fit-scoring';
+// career-fit-scoring 패키지에서 함수 import (상대 경로로 직접 import)
+import { extractTablesFromDocx, mapResumeDataToApplicationData } from '../../src/index';
 
 // electron-updater는 동적 import로 처리 (타입 에러 방지)
 let autoUpdater: any = null;
