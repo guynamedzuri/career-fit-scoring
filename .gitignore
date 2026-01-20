@@ -9,3 +9,6 @@ dist-installer/
 venv/
 __pycache__/
 *.pyc
+# 빌드된 JavaScript 파일들 (TypeScript 컴파일 결과)
+src/**/*.js
+!src/server/**/*.js
