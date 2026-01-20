@@ -286,12 +286,21 @@ def main():
         print(error_msg, file=sys.stderr)
         sys.exit(1)
     
-    # Windows에서 한글 경로 처리: sys.argv는 이미 올바른 인코딩으로 받아옴
-    # 하지만 안전을 위해 명시적으로 처리
+    # Windows에서 한글 경로 처리
+    # sys.argv는 이미 올바른 인코딩으로 받아오지만, 안전을 위해 명시적으로 처리
     docx_path = sys.argv[1]
     
     # 경로 정규화 및 절대 경로 변환
-    docx_path = os.path.abspath(os.path.normpath(docx_path))
+    # Windows에서 한글 경로를 올바르게 처리하기 위해
+    try:
+        # 먼저 경로를 정규화
+        docx_path = os.path.normpath(docx_path)
+        # 절대 경로로 변환
+        docx_path = os.path.abspath(docx_path)
+    except Exception as e:
+        error_msg = json.dumps({"error": f"Failed to process file path: {str(e)}"})
+        print(error_msg, file=sys.stderr)
+        sys.exit(1)
     
     if not os.path.exists(docx_path):
         error_msg = json.dumps({"error": f"File not found at '{docx_path}'"})
