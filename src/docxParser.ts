@@ -91,13 +91,41 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
     // JSON 파싱
     let structure: any;
     try {
+      // stdout이 비어있으면 stderr에서 에러 확인
+      if (!stdout || stdout.trim() === '') {
+        if (stderr) {
+          try {
+            const stderrStr = stderr.toString();
+            const jsonMatch = stderrStr.match(/\{[\s\S]*"error"[\s\S]*\}/);
+            if (jsonMatch) {
+              const errorJson = JSON.parse(jsonMatch[0]);
+              if (errorJson.error) {
+                throw new Error(errorJson.error);
+              }
+            }
+          } catch (e) {
+            // JSON 파싱 실패 시 원본 에러 사용
+          }
+          throw new Error(`Python 스크립트 실행 실패: ${stderr.toString().trim()}`);
+        }
+        throw new Error('Python 스크립트가 출력을 생성하지 않았습니다.');
+      }
+      
       structure = JSON.parse(stdout);
     } catch (parseError: any) {
       // JSON 파싱 실패 시 stderr 확인
       if (stderr) {
-        const errorMatch = stderr.match(/"error":\s*"([^"]+)"/);
-        if (errorMatch) {
-          throw new Error(errorMatch[1]);
+        try {
+          const stderrStr = stderr.toString();
+          const jsonMatch = stderrStr.match(/\{[\s\S]*"error"[\s\S]*\}/);
+          if (jsonMatch) {
+            const errorJson = JSON.parse(jsonMatch[0]);
+            if (errorJson.error) {
+              throw new Error(errorJson.error);
+            }
+          }
+        } catch (e) {
+          // JSON 파싱 실패 시 원본 에러 사용
         }
       }
       throw new Error(`JSON 파싱 실패: ${parseError.message}`);
