@@ -3,6 +3,7 @@ import JobConfigForm from './components/JobConfigForm';
 import ResumeFileList from './components/ResumeFileList';
 import ResultView from './components/ResultView';
 import SaveLoadModal from './components/SaveLoadModal';
+import LoadingSpinner from './components/LoadingSpinner';
 import './styles/app.css';
 
 type ViewMode = 'config' | 'result';
@@ -19,6 +20,7 @@ function App() {
   const [showSaveLoadModal, setShowSaveLoadModal] = useState<boolean>(false);
   const [userPrompt, setUserPrompt] = useState<any>(null);
   const [loadedData, setLoadedData] = useState<any>(null);
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
   const handleExecute = () => {
     // JobConfigForm의 검증 함수 호출
@@ -31,9 +33,8 @@ function App() {
     setSelectedFiles(files);
   };
 
-  const handleConfigExecute = () => {
+  const handleConfigExecute = async () => {
     // 검증 통과 시 실행할 로직
-    // TODO: 실제 점수 계산 로직 추가
     console.log('실행하기 - 모든 필수 입력 완료');
     console.log('Selected files:', selectedFiles);
     console.log('Job metadata:', jobMetadata);
@@ -57,7 +58,10 @@ function App() {
       localStorage.setItem('jobConfigSaves', JSON.stringify([autoSaveData, ...filteredItems]));
     }
     
-    // 결과 화면으로 전환
+    // 로딩 시작
+    setIsProcessing(true);
+    
+    // 결과 화면으로 전환 (AI 분석은 ResultView에서 자동 실행됨)
     setViewMode('result');
   };
 
@@ -72,11 +76,14 @@ function App() {
         <div className="app-content-wrapper">
           <ResultView 
             selectedFiles={selectedFiles}
-            jobMetadata={jobMetadata}
+            userPrompt={userPrompt}
             selectedFolder={selectedFolder}
             onBack={handleBackToConfig}
+            onProcessingChange={setIsProcessing}
+            jobMetadata={jobMetadata}
           />
         </div>
+        {isProcessing && <LoadingSpinner message="이력서 분석 중..." fullScreen />}
       </div>
     );
   }

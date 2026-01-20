@@ -140,22 +140,22 @@ def extract_table_data(table: Table, table_index: int) -> dict:
     return table_data
 
 
-def print_structure_summary(structure: dict):
+def print_structure_summary(structure: dict, file=sys.stdout):
     """
     구조 정보를 읽기 쉬운 형식으로 출력
     """
-    print("=" * 80)
-    print(f"이력서 양식 구조 분석: {structure['file_path']}")
-    print("=" * 80)
-    print(f"\n총 테이블 개수: {structure['total_tables']}\n")
+    print("=" * 80, file=file)
+    print(f"이력서 양식 구조 분석: {structure['file_path']}", file=file)
+    print("=" * 80, file=file)
+    print(f"\n총 테이블 개수: {structure['total_tables']}\n", file=file)
     
     for table in structure["tables"]:
-        print(f"\n{'=' * 80}")
-        print(f"테이블 {table['table_index']} (총 {table['row_count']}행)")
-        print(f"{'=' * 80}")
+        print(f"\n{'=' * 80}", file=file)
+        print(f"테이블 {table['table_index']} (총 {table['row_count']}행)", file=file)
+        print(f"{'=' * 80}", file=file)
         
         for row in table["rows"]:
-            print(f"\n  행 {row['row_index']} (총 {row['cell_count']}개 셀):")
+            print(f"\n  행 {row['row_index']} (총 {row['cell_count']}개 셀):", file=file)
             
             for cell in row["cells"]:
                 status_parts = []
@@ -170,12 +170,12 @@ def print_structure_summary(structure: dict):
                 
                 text_preview = cell["text"][:50] + "..." if len(cell["text"]) > 50 else cell["text"]
                 
-                print(f"    셀 [{row['row_index']}, {cell['cell_index']}]: {status}")
+                print(f"    셀 [{row['row_index']}, {cell['cell_index']}]: {status}", file=file)
                 if cell["text"]:
-                    print(f"      텍스트: {text_preview}")
+                    print(f"      텍스트: {text_preview}", file=file)
                 if cell["has_image"]:
-                    print(f"      이미지: {cell['image_count']}개 발견 (embed_id: {cell['images'][0]['embed_id'] if cell['images'] else 'N/A'})")
-                print(f"      위치: 테이블{cell['position']['table_index']}, 행{cell['position']['row_index']}, 열{cell['position']['cell_index']}")
+                    print(f"      이미지: {cell['image_count']}개 발견 (embed_id: {cell['images'][0]['embed_id'] if cell['images'] else 'N/A'})", file=file)
+                print(f"      위치: 테이블{cell['position']['table_index']}, 행{cell['position']['row_index']}, 열{cell['position']['cell_index']}", file=file)
 
 
 def print_mapping_template(structure: dict):
@@ -226,24 +226,25 @@ def main():
     docx_path = sys.argv[1]
     
     if not Path(docx_path).exists():
-        print(f"ERROR: 파일을 찾을 수 없습니다: {docx_path}")
+        print(f"ERROR: 파일을 찾을 수 없습니다: {docx_path}", file=sys.stderr)
         sys.exit(1)
     
     try:
         # 구조 추출
         structure = extract_table_structure(docx_path)
         
-        # 출력
-        print_structure_summary(structure)
-        print_mapping_template(structure)
+        # JSON만 출력 (stdout으로 출력하여 Node.js에서 파싱 가능하도록)
+        # stderr로는 요약 정보 출력 (선택적)
+        json_output = json.dumps(structure, ensure_ascii=False, indent=2)
+        print(json_output)
         
-        # JSON 저장
-        save_json_output(structure)
+        # stderr로 요약 정보 출력 (선택적, 디버깅용)
+        if os.getenv('VERBOSE') == '1':
+            print_structure_summary(structure, file=sys.stderr)
         
     except Exception as e:
-        print(f"ERROR: {e}")
-        import traceback
-        traceback.print_exc()
+        error_msg = json.dumps({"error": str(e)})
+        print(error_msg, file=sys.stderr)
         sys.exit(1)
 
 

@@ -1417,6 +1417,93 @@ ipcMain.handle('read-official-certificates', async () => {
   }
 });
 
+// 이력서 처리 IPC 핸들러
+ipcMain.handle('process-resume', async (event, filePath: string) => {
+  try {
+    // career-fit-scoring 패키지에서 함수 import
+    const { extractTablesFromDocx, mapResumeDataToApplicationData } = require('career-fit-scoring');
+    
+    // DOCX 파일에서 테이블 추출
+    const tables = await extractTablesFromDocx(filePath);
+    
+    // 매핑 설정으로 applicationData 변환
+    const applicationData = mapResumeDataToApplicationData(tables);
+    
+    // 추가 정보 추출 (이름, 나이, 직전 회사, 연봉 등)
+    const name = applicationData.name || undefined;
+    const birthDate = applicationData.birthDate || undefined;
+    const age = birthDate ? calculateAge(birthDate) : undefined;
+    const lastCompany = applicationData.careerCompanyName1 || undefined;
+    const lastSalary = applicationData.careerSalary1 || undefined;
+    const residence = applicationData.residence || undefined;
+    
+    // 검색 가능한 텍스트 생성
+    const searchableText = [
+      name,
+      lastCompany,
+      applicationData.universityName1,
+      applicationData.certificateName1,
+      applicationData.certificateName2,
+      applicationData.certificateName3,
+    ].filter(Boolean).join(' ');
+    
+    return {
+      success: true,
+      applicationData,
+      name,
+      age,
+      lastCompany,
+      lastSalary,
+      residence,
+      searchableText,
+    };
+  } catch (error: any) {
+    console.error('[Process Resume] Error:', error);
+    return {
+      success: false,
+      error: error.message || '이력서 처리 실패',
+    };
+  }
+});
+
+// 생년월일로 나이 계산
+function calculateAge(birthDate: string): number | undefined {
+  try {
+    // YYYY-MM-DD 또는 YYYYMMDD 형식 파싱
+    let year: number, month: number, day: number;
+    
+    if (birthDate.includes('-')) {
+      const parts = birthDate.split('-');
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]);
+      day = parseInt(parts[2]);
+    } else if (birthDate.length === 8) {
+      year = parseInt(birthDate.substring(0, 4));
+      month = parseInt(birthDate.substring(4, 6));
+      day = parseInt(birthDate.substring(6, 8));
+    } else {
+      return undefined;
+    }
+    
+    if (isNaN(year) || isNaN(month) || isNaN(day)) {
+      return undefined;
+    }
+    
+    const today = new Date();
+    const birth = new Date(year, month - 1, day);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    
+    return age;
+  } catch {
+    return undefined;
+  }
+}
+
 // Azure OpenAI API 호출 IPC 핸들러
 ipcMain.handle('ai-check-resume', async (event, data: {
   applicationData: any;

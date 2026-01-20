@@ -36,6 +36,44 @@ export default function SaveLoadModal({ currentData, onClose, onLoad }: SaveLoad
 
   useEffect(() => {
     loadSavedItems();
+    // 테스트용 프리셋이 없으면 생성
+    const items = JSON.parse(localStorage.getItem('jobConfigSaves') || '[]');
+    const hasTestPreset = items.some((item: SavedItem) => item.name === '테스트용 프리셋');
+    
+    if (!hasTestPreset) {
+      const testPreset: SavedItem = {
+        name: '테스트용 프리셋',
+        timestamp: new Date().toISOString(),
+        data: {
+          selectedFolder: '',
+          userPrompt: {
+            jobDescription: '일반프레스 (40~80톤) 설비 양산 운영 경험, 금형셋업 및 타발 업무, 자주검사 및 포장, 룸램프, RY TERMINAL, AMATEUR 터미널, F CONTACTOR ASSY 등 양산 경험 보유',
+            requiredQualifications: '',
+            preferredQualifications: '',
+            requiredCertifications: [],
+            gradeCriteria: {
+              최상: '하위 등급의 모든 조건(OR 조건도 AND로)을 만족하면서 자기소개서에 LS오토모티브라는 키워드 있는 경우',
+              상: '중 등급 조건을 만족하면서 경력 중에 업무 내용과 거의 동일한 실무 경험이 있거나 업무내용과 관련있는 경력을 1년 이상 유지한 경우',
+              중: '하 등급 조건을 만족하면서 경력 중에 업무 내용과 직접적으로 관련이 있는 경우',
+              하: '자기소개서의 문항마다 제한 글자수의 80% 이상 채웠으며 제조업, 현장 경력이 1개 이상인 경우',
+              최하: '최상, 상, 중, 하 조건을 만족하지 못하며 이력서가 빈약하고 성의가 없는 경우',
+            },
+            scoringWeights: {
+              career: 100,
+              requirements: 0,
+              preferred: 0,
+              certifications: 0,
+            },
+          },
+          selectedFiles: [],
+        },
+        isAutoSave: false,
+      };
+      
+      const updatedItems = [testPreset, ...items];
+      localStorage.setItem('jobConfigSaves', JSON.stringify(updatedItems));
+      loadSavedItems();
+    }
   }, []);
 
   const loadSavedItems = () => {

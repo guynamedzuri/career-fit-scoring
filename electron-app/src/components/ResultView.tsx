@@ -30,7 +30,7 @@ interface ScoringResult {
 
 interface ResultViewProps {
   selectedFiles: DocxFile[];
-  userPrompt: {
+  userPrompt?: {
     jobDescription: string;
     requiredQualifications: string;
     preferredQualifications: string;
@@ -51,12 +51,14 @@ interface ResultViewProps {
   };
   selectedFolder: string; // 캐시를 위해 폴더 경로 필요
   onBack: () => void;
+  onProcessingChange?: (processing: boolean) => void;
+  jobMetadata?: any; // App.tsx에서 전달하는 jobMetadata
 }
 
 type SortField = 'name' | 'age' | 'lastCompany' | 'residence' | 'totalScore' | 'aiGrade' | 'status';
 type SortOrder = 'asc' | 'desc';
 
-export default function ResultView({ selectedFiles, userPrompt, selectedFolder, onBack }: ResultViewProps) {
+export default function ResultView({ selectedFiles, userPrompt, selectedFolder, onBack, onProcessingChange, jobMetadata }: ResultViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('totalScore');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -147,6 +149,14 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
 
         setResults(results);
         console.log('[Cache] Loaded', Object.keys(cached).length, 'cached entries,', toProcess.length, 'files to process');
+        
+        // 처리할 파일이 있으면 처리 시작
+        if (toProcess.length > 0 && window.electron?.processResume) {
+          processResumeFiles(toProcess);
+        } else if (results.some(r => r.status === 'completed' && r.applicationData && !r.aiChecked)) {
+          // 처리할 파일은 없지만 AI 분석이 필요한 파일이 있으면 AI 분석 시작
+          // (AI 분석은 별도 useEffect에서 처리됨)
+        }
       } catch (error) {
         console.error('[Cache] Error loading cache:', error);
         // 에러 발생 시 플레이스홀더만 설정
@@ -168,6 +178,102 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
 
     loadCachedData();
   }, [selectedFiles, selectedFolder]);
+  
+  // 이력서 파일 처리 함수
+  const processResumeFiles = async (filePaths: string[]) => {
+    if (!window.electron?.processResume) {
+      console.error('[Process] processResume not available');
+      return;
+    }
+    
+    if (onProcessingChange) {
+      onProcessingChange(true);
+    }
+    
+    try {
+      const processPromises = filePaths.map(async (filePath) => {
+        const file = selectedFiles.find(f => f.path === filePath);
+        if (!file) return null;
+        
+        // 상태를 processing으로 변경
+        setResults(prevResults =>
+          prevResults.map(r => 
+            r.filePath === filePath ? { ...r, status: 'processing' as const } : r
+          )
+        );
+        
+        try {
+          const result = await window.electron!.processResume(filePath);
+          
+          if (result.success) {
+            // 점수 계산 (나중에 구현)
+            const totalScore = 0; // TODO: 실제 점수 계산
+            
+            // 결과 업데이트
+            setResults(prevResults =>
+              prevResults.map(r => {
+                if (r.filePath === filePath) {
+                  return {
+                    ...r,
+                    status: 'completed' as const,
+                    totalScore,
+                    name: result.name,
+                    age: result.age,
+                    lastCompany: result.lastCompany,
+                    lastSalary: result.lastSalary,
+                    residence: result.residence,
+                    applicationData: result.applicationData,
+                    searchableText: result.searchableText || r.fileName,
+                  };
+                }
+                return r;
+              })
+            );
+            
+            // 캐시에 저장
+            if (window.electron?.saveCache && selectedFolder) {
+              await window.electron.saveCache(selectedFolder, [{
+                filePath,
+                fileName: file.name,
+                data: {
+                  totalScore,
+                  name: result.name,
+                  age: result.age,
+                  lastCompany: result.lastCompany,
+                  lastSalary: result.lastSalary,
+                  residence: result.residence,
+                  applicationData: result.applicationData,
+                  searchableText: result.searchableText || file.name,
+                },
+              }]);
+            }
+            
+            return { filePath, success: true };
+          } else {
+            throw new Error(result.error || '처리 실패');
+          }
+        } catch (error: any) {
+          console.error(`[Process] Error processing ${filePath}:`, error);
+          setResults(prevResults =>
+            prevResults.map(r => 
+              r.filePath === filePath 
+                ? { ...r, status: 'error' as const, errorMessage: error.message || '처리 실패' }
+                : r
+            )
+          );
+          return { filePath, success: false, error: error.message };
+        }
+      });
+      
+      await Promise.all(processPromises);
+    } catch (error) {
+      console.error('[Process] Overall error:', error);
+    } finally {
+      if (onProcessingChange) {
+        onProcessingChange(false);
+      }
+    }
+  };
 
   // 검색 및 정렬된 결과
   const filteredAndSortedResults = useMemo(() => {
@@ -432,7 +538,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     });
   };
 
-  // 초기 로드 시 모든 이력서에 대해 AI 분석 실행
+  // 이력서 처리 완료 후 AI 분석 실행
   useEffect(() => {
     const runInitialAiAnalysis = async () => {
       if (!userPrompt || !userPrompt.jobDescription || userPrompt.jobDescription.trim() === '' || selectedFiles.length === 0 || !window.electron?.aiCheckResume) {
@@ -454,11 +560,17 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
 
       if (needsAnalysis.length === 0) {
         console.log('[AI Analysis] No files need analysis');
+        if (onProcessingChange) {
+          onProcessingChange(false);
+        }
         return;
       }
 
       console.log(`[AI Analysis] Starting analysis for ${needsAnalysis.length} files`);
       setAiProcessing(true);
+      if (onProcessingChange) {
+        onProcessingChange(true);
+      }
       try {
         const aiPromises = needsAnalysis.map(async (result) => {
           try {
@@ -554,6 +666,9 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         console.error('[AI Analysis] Overall error:', error);
       } finally {
         setAiProcessing(false);
+        if (onProcessingChange) {
+          onProcessingChange(false);
+        }
       }
     };
 

@@ -30,31 +30,100 @@ export interface RawTableCell {
  * @returns 추출된 테이블 데이터 배열
  */
 export async function extractTablesFromDocx(filePath: string): Promise<RawTableData[]> {
-  // TODO: 실제 DOCX 파싱 라이브러리 사용 (docx 또는 mammoth)
-  // 현재는 구조만 정의
+  // Python 스크립트를 사용하여 DOCX 파싱
+  const { execFile } = require('child_process');
+  const { promisify } = require('util');
+  const execFileAsync = promisify(execFile);
+  const path = require('path');
+  const fs = require('fs');
   
-  // 예시 구조:
-  // const docx = require('docx');
-  // const fs = require('fs');
-  // const fileBuffer = fs.readFileSync(filePath);
-  // const doc = await docx.Document.load(fileBuffer);
-  // 
-  // const tables: RawTableData[] = [];
-  // doc.body.forEach((element, index) => {
-  //   if (element.type === 'table') {
-  //     const rows: RawTableRow[] = element.rows.map((row, rowIdx) => ({
-  //       cells: row.cells.map((cell, cellIdx) => ({
-  //         text: cell.text || '',
-  //         rowIndex: rowIdx,
-  //         cellIndex: cellIdx,
-  //       })),
-  //     }));
-  //     tables.push({ tableIndex: index, rows });
-  //   }
-  // });
-  // return tables;
+  try {
+    // Python 스크립트 경로 찾기
+    const projectRoot = findProjectRoot();
+    const scriptPath = projectRoot 
+      ? path.join(projectRoot, 'scripts', 'extract_resume_form_structure.py')
+      : path.join(__dirname, '..', 'scripts', 'extract_resume_form_structure.py');
+    
+    if (!fs.existsSync(scriptPath)) {
+      throw new Error(`Python script not found: ${scriptPath}`);
+    }
+    
+    // Python 가상환경 활성화 스크립트 경로
+    const venvPython = projectRoot 
+      ? path.join(projectRoot, '.venv', 'bin', 'python3')
+      : null;
+    
+    const pythonCmd = venvPython && fs.existsSync(venvPython) ? venvPython : 'python3';
+    
+    // Python 스크립트 실행하여 JSON 출력 받기
+    const { stdout, stderr } = await execFileAsync(pythonCmd, [scriptPath, filePath], {
+      maxBuffer: 10 * 1024 * 1024, // 10MB 버퍼
+    });
+    
+    // stderr에 에러가 있으면 확인
+    if (stderr && stderr.trim() && !stderr.includes('INFO')) {
+      console.warn('[DOCX Parser] Python stderr:', stderr);
+    }
+    
+    // JSON 파싱
+    let structure: any;
+    try {
+      structure = JSON.parse(stdout);
+    } catch (parseError: any) {
+      // JSON 파싱 실패 시 stderr 확인
+      if (stderr) {
+        const errorMatch = stderr.match(/"error":\s*"([^"]+)"/);
+        if (errorMatch) {
+          throw new Error(errorMatch[1]);
+        }
+      }
+      throw new Error(`JSON 파싱 실패: ${parseError.message}`);
+    }
+    
+    // 에러 체크
+    if (structure.error) {
+      throw new Error(structure.error);
+    }
+    
+    // RawTableData 형식으로 변환
+    const tables: RawTableData[] = structure.tables.map((table: any) => ({
+      tableIndex: table.table_index,
+      rows: table.rows.map((row: any) => ({
+        cells: row.cells.map((cell: any) => ({
+          text: cell.text || '',
+          rowIndex: cell.position.row_index,
+          cellIndex: cell.position.cell_index,
+        })),
+      })),
+    }));
+    
+    return tables;
+  } catch (error: any) {
+    console.error('[DOCX Parser] Error:', error);
+    throw new Error(`DOCX 파싱 실패: ${error.message || error}`);
+  }
+}
+
+// 프로젝트 루트 찾기
+function findProjectRoot(): string | null {
+  const path = require('path');
+  const fs = require('fs');
+  let currentDir = __dirname;
   
-  throw new Error('DOCX 파싱 라이브러리 설치 필요');
+  // 최대 10단계 상위로 올라가면서 package.json 찾기
+  for (let i = 0; i < 10; i++) {
+    const packageJsonPath = path.join(currentDir, 'package.json');
+    if (fs.existsSync(packageJsonPath)) {
+      return currentDir;
+    }
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      break;
+    }
+    currentDir = parentDir;
+  }
+  
+  return null;
 }
 
 /**
