@@ -66,6 +66,9 @@ function App() {
   };
 
   const handleBackToConfig = () => {
+    // 뒤로가기 시 loadedData를 초기화하여 프리셋 데이터로 폼이 덮어써지지 않도록 함
+    // 실행하기를 누른 시점의 설정(현재 폼 상태)이 유지됨
+    setLoadedData(null);
     setViewMode('config');
   };
 
