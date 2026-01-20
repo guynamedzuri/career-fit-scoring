@@ -64,16 +64,36 @@ def extract_table_structure(doc_path: str) -> dict:
     try:
         # 절대 경로로 변환하여 경로 문제 해결
         abs_path = os.path.abspath(doc_path)
+        
+        # 파일 크기 확인 (0바이트 파일 체크)
+        file_size = os.path.getsize(abs_path)
+        if file_size == 0:
+            return {
+                "error": f"File is empty (0 bytes): '{doc_path}'"
+            }
+        
+        # python-docx로 파일 열기
+        # Windows에서 한글 경로를 처리하기 위해 파일을 직접 열어서 전달
         doc = Document(abs_path)
+    except FileNotFoundError:
+        return {
+            "error": f"File not found: '{doc_path}' (absolute path: '{os.path.abspath(doc_path)}')"
+        }
+    except PermissionError:
+        return {
+            "error": f"Permission denied: '{doc_path}'"
+        }
     except Exception as e:
         error_detail = str(e)
-        # "Package not found" 에러는 파일 경로 문제일 수 있음
-        if "Package not found" in error_detail:
+        error_type = type(e).__name__
+        
+        # "Package not found" 에러는 파일이 손상되었거나 DOCX 형식이 아닐 수 있음
+        if "Package not found" in error_detail or "BadZipFile" in error_type:
             return {
-                "error": f"Failed to open DOCX file. The file may be corrupted or the path is incorrect: '{doc_path}'. Error: {error_detail}"
+                "error": f"Failed to open DOCX file. The file may be corrupted, not a valid DOCX file, or the path contains special characters that cannot be handled. Path: '{doc_path}' (absolute: '{os.path.abspath(doc_path)}'). Error: {error_detail}"
             }
         return {
-            "error": f"Failed to open DOCX file '{doc_path}': {error_detail}"
+            "error": f"Failed to open DOCX file '{doc_path}': {error_detail} (Type: {error_type})"
         }
     
     result = {
