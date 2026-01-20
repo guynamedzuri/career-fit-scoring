@@ -162,12 +162,20 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
         if (jsonMatch) {
           const errorJson = JSON.parse(jsonMatch[0]);
           if (errorJson.error) {
+            // 에러 메시지가 이미 상세하므로 그대로 사용
             throw new Error(`DOCX 파싱 실패: ${errorJson.error}`);
           }
         }
-      } catch (e) {
+      } catch (e: any) {
         // JSON 파싱 실패 시 원본 에러 사용
         console.warn('[DOCX Parser] Failed to parse error JSON:', e);
+        // stderr의 원본 메시지 사용
+        if (error.stderr) {
+          const stderrStr = error.stderr.toString().trim();
+          if (stderrStr) {
+            throw new Error(`DOCX 파싱 실패: ${stderrStr}`);
+          }
+        }
       }
     }
     
