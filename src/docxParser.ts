@@ -70,8 +70,11 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
     }
     
     // Python 스크립트 실행하여 JSON 출력 받기
-    const { stdout, stderr } = await execFileAsync(pythonCmd, [scriptPath, filePath], {
+    // Windows에서 경로에 공백이 있으면 따옴표로 감싸기
+    const args = [scriptPath, filePath];
+    const { stdout, stderr } = await execFileAsync(pythonCmd, args, {
       maxBuffer: 10 * 1024 * 1024, // 10MB 버퍼
+      shell: process.platform === 'win32', // Windows에서 shell 사용 (경로 문제 해결)
     });
     
     // stderr에 에러가 있으면 확인
@@ -114,10 +117,24 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
     return tables;
   } catch (error: any) {
     console.error('[DOCX Parser] Error:', error);
-    // Windows에서 python 명령어가 없을 때 더 명확한 에러 메시지
-    if (error.message && error.message.includes('python') && process.platform === 'win32') {
-      throw new Error(`DOCX 파싱 실패: Python이 설치되어 있지 않거나 PATH에 없습니다. Python을 설치하고 PATH에 추가해주세요. (사용된 명령어: ${error.message.includes('python3') ? 'python3' : 'python'})`);
+    
+    // Python 스크립트에서 반환한 에러 메시지 확인
+    if (error.stderr) {
+      try {
+        const errorJson = JSON.parse(error.stderr.trim());
+        if (errorJson.error) {
+          throw new Error(`DOCX 파싱 실패: ${errorJson.error}`);
+        }
+      } catch (e) {
+        // JSON 파싱 실패 시 원본 에러 사용
+      }
     }
+    
+    // Windows에서 python 명령어가 없을 때 더 명확한 에러 메시지
+    if (error.code === 9009 || (error.message && error.message.includes('python') && process.platform === 'win32')) {
+      throw new Error(`DOCX 파싱 실패: Python이 설치되어 있지 않거나 PATH에 없습니다. Python을 설치하고 PATH에 추가해주세요. (사용된 명령어: ${error.message && error.message.includes('python3') ? 'python3' : 'python'})`);
+    }
+    
     throw new Error(`DOCX 파싱 실패: ${error.message || error}`);
   }
 }
