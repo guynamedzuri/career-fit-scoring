@@ -5,6 +5,7 @@
     "lib": ["ES2020", "DOM"],
     "declaration": false,
     "outDir": "./electron",
+    "rootDir": "./electron",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
