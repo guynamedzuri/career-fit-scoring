@@ -17,6 +17,8 @@ import json
 import os
 import random
 import argparse
+import uuid
+import requests
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional
@@ -264,7 +266,71 @@ def generate_languages() -> List[Dict]:
     return languages
 
 
-def generate_self_introduction() -> List[str]:
+def load_env_file():
+    """환경 변수 파일(.env) 로드"""
+    env_vars = {}
+    env_path = Path('.env')
+    
+    if env_path.exists():
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    env_vars[key.strip()] = value.strip().strip('"').strip("'")
+    
+    return env_vars
+
+
+def call_azure_openai(prompt: str, system_prompt: str = None) -> Optional[str]:
+    """Azure OpenAI API 호출"""
+    env_vars = load_env_file()
+    
+    api_key = env_vars.get('AZURE_OPENAI_API_KEY') or os.getenv('AZURE_OPENAI_API_KEY')
+    endpoint = env_vars.get('AZURE_OPENAI_ENDPOINT') or os.getenv('AZURE_OPENAI_ENDPOINT') or 'https://roar-mjm4cwji-swedencentral.openai.azure.com/'
+    deployment = env_vars.get('AZURE_OPENAI_DEPLOYMENT') or os.getenv('AZURE_OPENAI_DEPLOYMENT') or 'gpt-4o'
+    api_version = env_vars.get('AZURE_OPENAI_API_VERSION') or os.getenv('AZURE_OPENAI_API_VERSION') or '2024-12-01-preview'
+    
+    if not api_key:
+        return None
+    
+    url = f"{endpoint.rstrip('/')}/openai/deployments/{deployment}/chat/completions?api-version={api_version}"
+    
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+    
+    try:
+        response = requests.post(
+            url,
+            headers={
+                "api-key": api_key,
+                "Content-Type": "application/json"
+            },
+            json={
+                "messages": messages,
+                "max_tokens": 1000,
+                "temperature": 0.7
+            },
+            timeout=30
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if 'choices' in result and len(result['choices']) > 0:
+                return result['choices'][0]['message']['content'].strip()
+        else:
+            print(f"  WARNING: Azure OpenAI API 오류: {response.status_code} - {response.text[:200]}")
+            return None
+    except Exception as e:
+        print(f"  WARNING: AI 호출 실패: {e}")
+        return None
+    
+    return None
+
+
+def generate_self_introduction(use_ai: bool = False, name: str = "", career_info: List[Dict] = None) -> List[str]:
     """자기소개서 생성 (4개 항목)"""
     topics = [
         "지원동기 및 입사 후 포부",
@@ -274,12 +340,75 @@ def generate_self_introduction() -> List[str]:
     ]
     
     introductions = []
-    for topic in topics:
-        # 간단한 더미 텍스트 생성 (실제로는 AI를 사용할 수 있음)
-        intro = f"{topic}에 대한 답변입니다. 저는 {random.choice(COMPANIES)}에서 {random.randint(1, 5)}년간 근무하며 다양한 프로젝트를 수행했습니다. 이를 통해 {random.choice(['커뮤니케이션', '문제해결', '기획', '개발', '마케팅'])} 역량을 키웠으며, 귀사에서도 이러한 경험을 바탕으로 기여하고 싶습니다."
-        introductions.append(intro)
     
-    return introductions
+    if use_ai:
+        for i, topic in enumerate(topics):
+            # AI로 생성
+            system_prompt = "당신은 이력서 작성 전문가입니다. 자연스럽고 전문적인 자기소개서를 작성해주세요."
+            
+            career_summary = ""
+            if career_info and len(career_info) > 0:
+                career_summary = f"\n\n주요 경력:\n"
+                for career in career_info[:3]:
+                    career_summary += f"- {career['company']} {career['department']} {career['position']} ({career['start']} ~ {career['end']})\n"
+            
+            prompt = f"""다음 주제에 대해 자기소개서를 작성해주세요. 200-300자 정도로 자연스럽고 전문적으로 작성해주세요.
+
+주제: {topic}
+이름: {name}
+{career_summary}
+
+자기소개서 내용만 작성해주세요. 주제나 제목은 포함하지 마세요."""
+
+            ai_result = call_azure_openai(prompt, system_prompt)
+            if ai_result:
+                introductions.append(ai_result)
+            else:
+                # AI 실패 시 기본 텍스트
+                intro = f"{name}입니다. {topic}에 대해 말씀드리겠습니다. 저는 {random.choice(COMPANIES) if career_info else '다양한 기업'}에서 {random.randint(1, 5)}년간 근무하며 다양한 프로젝트를 수행했습니다. 이를 통해 {random.choice(['커뮤니케이션', '문제해결', '기획', '개발', '마케팅'])} 역량을 키웠으며, 귀사에서도 이러한 경험을 바탕으로 기여하고 싶습니다."
+                introductions.append(intro)
+        return introductions
+    else:
+        # 기본 더미 텍스트
+        for topic in topics:
+            intro = f"{topic}에 대한 답변입니다. 저는 {random.choice(COMPANIES)}에서 {random.randint(1, 5)}년간 근무하며 다양한 프로젝트를 수행했습니다. 이를 통해 {random.choice(['커뮤니케이션', '문제해결', '기획', '개발', '마케팅'])} 역량을 키웠으며, 귀사에서도 이러한 경험을 바탕으로 기여하고 싶습니다."
+            introductions.append(intro)
+        return introductions
+
+
+def generate_career_detail(use_ai: bool = False, career: Dict = None) -> str:
+    """경력기술서 상세 내용 생성"""
+    if not career:
+        return ""
+    
+    if use_ai:
+        system_prompt = "당신은 이력서 작성 전문가입니다. 경력기술서를 전문적이고 구체적으로 작성해주세요."
+        
+        prompt = f"""다음 경력 정보를 바탕으로 경력기술서를 작성해주세요. 300-400자 정도로 구체적이고 전문적으로 작성해주세요.
+
+회사명: {career['company']}
+부서: {career['department']}
+직위: {career['position']}
+근무기간: {career['start']} ~ {career['end']}
+연봉: {career['salary']}
+
+경력기술서에는 다음 내용을 포함해주세요:
+- 주요 업무 내용
+- 담당했던 프로젝트나 성과
+- 습득한 역량이나 전문성
+- 구체적인 업무 사례
+
+경력기술서 내용만 작성해주세요. 회사명이나 기간 등은 포함하지 마세요."""
+
+        ai_result = call_azure_openai(prompt, system_prompt)
+        if ai_result:
+            return ai_result
+        else:
+            # AI 실패 시 기본 텍스트
+            return f"{career['company']} {career['department']}에서 {career['position']}으로 근무하며 다양한 업무를 수행했습니다. 주요 업무는 {random.choice(['프로젝트 관리', '개발', '기획', '마케팅', '영업', '품질관리'])}였으며, 이를 통해 전문성을 키웠습니다."
+    else:
+        # 기본 더미 텍스트
+        return f"{career['company']} {career['department']}에서 {career['position']}으로 근무하며 다양한 업무를 수행했습니다. 주요 업무는 {random.choice(['프로젝트 관리', '개발', '기획', '마케팅', '영업', '품질관리'])}였으며, 이를 통해 전문성을 키웠습니다."
 
 
 def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False):
@@ -306,7 +435,13 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False)
         careers = generate_career()
         certificates = generate_certificates()
         languages = generate_languages()
-        self_intros = generate_self_introduction()
+        
+        # AI로 자기소개서 생성
+        if use_ai:
+            print("  AI로 자기소개서 생성 중...", end=' ')
+        self_intros = generate_self_introduction(use_ai, korean_name, careers)
+        if use_ai:
+            print("완료")
         
         # Table 1: 기본 정보
         if len(tables) > 0:
@@ -472,32 +607,34 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False)
                         if len(row.cells) > 6:
                             row.cells[6].text = career['reason']
                         
-                        # row 4, 8, 12, 16에 상세 내용
+                        # row 4, 8, 12, 16에 상세 내용 (AI로 생성)
                         if len(table6.rows) > block_start_row + 3:
                             detail_row = table6.rows[block_start_row + 3]
                             if len(detail_row.cells) > 0:
-                                detail_text = f"{career['company']} {career['department']}에서 {career['position']}으로 근무하며 다양한 업무를 수행했습니다. 주요 업무는 {random.choice(['프로젝트 관리', '개발', '기획', '마케팅', '영업', '품질관리'])}였으며, 이를 통해 전문성을 키웠습니다."
+                                if use_ai:
+                                    detail_text = generate_career_detail(use_ai, career)
+                                else:
+                                    detail_text = f"{career['company']} {career['department']}에서 {career['position']}으로 근무하며 다양한 업무를 수행했습니다. 주요 업무는 {random.choice(['프로젝트 관리', '개발', '기획', '마케팅', '영업', '품질관리'])}였으며, 이를 통해 전문성을 키웠습니다."
                                 detail_row.cells[0].text = detail_text
             except Exception as e:
                 print(f"WARNING: Table 6 처리 중 오류: {e}")
         
         # 저장
         doc.save(output_path)
-        print(f"✓ 생성 완료: {output_path}")
-        return True
+        return korean_name  # 이름 반환
         
     except Exception as e:
         print(f"ERROR: 더미 이력서 생성 실패: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        return None
 
 
 def main():
     parser = argparse.ArgumentParser(description='더미 이력서 생성기')
     parser.add_argument('--count', type=int, default=1, help='생성할 더미 이력서 개수 (기본값: 1)')
-    parser.add_argument('--output-dir', type=str, default='./dummy_resumes', help='출력 디렉토리 (기본값: ./dummy_resumes)')
-    parser.add_argument('--use-ai', action='store_true', help='AI를 사용해서 자기소개서 생성 (선택적)')
+    parser.add_argument('--output-dir', type=str, default='./generated_resumes', help='출력 디렉토리 (기본값: ./generated_resumes)')
+    parser.add_argument('--use-ai', action='store_true', help='AI를 사용해서 자기소개서 및 경력기술서 생성 (선택적, Azure OpenAI 필요)')
     parser.add_argument('--template', type=str, default='resume_form.docx', help='템플릿 파일 경로 (기본값: resume_form.docx)')
     
     args = parser.parse_args()
@@ -512,6 +649,16 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
+    # AI 사용 여부 확인
+    if args.use_ai:
+        env_vars = load_env_file()
+        api_key = env_vars.get('AZURE_OPENAI_API_KEY') or os.getenv('AZURE_OPENAI_API_KEY')
+        if not api_key:
+            print("WARNING: Azure OpenAI API 키가 설정되지 않았습니다.")
+            print("  .env 파일에 AZURE_OPENAI_API_KEY를 설정하거나 --use-ai 옵션을 제거하세요.")
+            print("  AI 없이 생성합니다...")
+            args.use_ai = False
+    
     print(f"템플릿: {template_path}")
     print(f"출력 디렉토리: {output_dir}")
     print(f"생성 개수: {args.count}")
@@ -521,12 +668,33 @@ def main():
     # 더미 이력서 생성
     success_count = 0
     for i in range(args.count):
-        output_filename = f"dummy_resume_{i+1:03d}.docx"
-        output_path = output_dir / output_filename
-        
         print(f"[{i+1}/{args.count}] 생성 중...", end=' ')
-        if fill_resume_form(template_path, str(output_path), args.use_ai):
+        
+        # 임시 파일로 먼저 생성
+        temp_path = output_dir / f"temp_{uuid.uuid4().hex[:8]}.docx"
+        name = fill_resume_form(template_path, str(temp_path), args.use_ai)
+        
+        if name:
+            # 이름_고유번호.docx 형식으로 저장
+            unique_id = uuid.uuid4().hex[:8]
+            output_filename = f"{name}_{unique_id}.docx"
+            output_path = output_dir / output_filename
+            
+            # 파일명 중복 체크
+            counter = 1
+            while output_path.exists():
+                output_filename = f"{name}_{unique_id}_{counter}.docx"
+                output_path = output_dir / output_filename
+                counter += 1
+            
+            # 임시 파일을 최종 파일명으로 이동
+            temp_path.rename(output_path)
+            print(f"✓ 완료: {output_filename}")
             success_count += 1
+        else:
+            if temp_path.exists():
+                temp_path.unlink()
+            print("✗ 실패")
     
     print()
     print(f"완료: {success_count}/{args.count}개 생성됨")

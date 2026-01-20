@@ -81,4 +81,34 @@ try {
   }
 }
 
+// requests가 설치되어 있는지 확인 (AI 기능용)
+console.log('[Python Env] Checking requests package...');
+try {
+  const checkCmd = isWindows
+    ? `"${venvPython}" -c "import requests"`
+    : `${venvPython} -c "import requests"`;
+  execSync(checkCmd, { 
+    stdio: 'ignore',
+    shell: isWindows
+  });
+  console.log('[Python Env] requests is already installed');
+} catch (error) {
+  console.log('[Python Env] requests not found. Installing...');
+  try {
+    const installCmd = isWindows
+      ? `"${venvPython}" -m pip install requests`
+      : `${venvPython} -m pip install requests`;
+    execSync(installCmd, {
+      cwd: projectRoot,
+      stdio: 'inherit',
+      shell: isWindows
+    });
+    console.log('[Python Env] requests installed successfully');
+  } catch (error) {
+    console.error('[Python Env] ERROR: Failed to install requests');
+    console.error(error.message);
+    process.exit(1);
+  }
+}
+
 console.log('[Python Env] Setup complete!');
