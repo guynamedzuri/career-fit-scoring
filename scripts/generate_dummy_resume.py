@@ -330,15 +330,23 @@ def call_azure_openai(prompt: str, system_prompt: str = None, max_tokens: int = 
     return None
 
 
-def generate_resume_data_with_ai() -> Optional[Dict]:
-    """AI를 사용해서 이력서의 모든 데이터를 JSON 형식으로 생성"""
+def generate_resume_data_with_ai(character_description: str = None) -> Optional[Dict]:
+    """AI를 사용해서 이력서의 모든 데이터를 JSON 형식으로 생성
+    
+    Args:
+        character_description: 캐릭터 배경 설명 (예: "중위권 대학의 애매한 성적, 공대 졸업 생산직 진출")
+    """
     system_prompt = """당신은 이력서 작성 전문가입니다. 한국의 현실적이고 맥락 있는 이력서 데이터를 JSON 형식으로 생성해주세요.
 반드시 유효한 JSON 형식으로만 응답하고, 다른 설명은 포함하지 마세요."""
 
-    prompt = """다음 형식의 JSON으로 한국인 이력서 데이터를 생성해주세요. 모든 데이터는 현실적이고 일관성 있게 만들어주세요.
+    character_context = ""
+    if character_description:
+        character_context = f"\n\n중요: 다음 캐릭터 배경에 맞게 이력서를 생성해주세요:\n{character_description}\n\n이 배경에 맞게 학교명, 학점, 전공, 회사명, 부서, 직위, 연봉 등을 현실적으로 설정해주세요."
 
-{
-  "basicInfo": {
+    prompt = """다음 형식의 JSON으로 한국인 이력서 데이터를 생성해주세요. 모든 데이터는 현실적이고 일관성 있게 만들어주세요.""" + character_context + """
+
+{{
+  "basicInfo": {{
     "name": "한글이름 (예: 김민준)",
     "nameEnglish": "영문이름 (예: Minjun Kim)",
     "birthDate": "생년월일 (예: 1995.03.15)",
@@ -348,9 +356,9 @@ def generate_resume_data_with_ai() -> Optional[Dict]:
     "address": "주소 (예: 서울특별시 강남구 테헤란로 123)",
     "desiredSalary": "희망연봉 (예: 4000만원)",
     "militaryService": "병역사항 (예: 현역, 보충역, 면제, 해당없음 중 하나)"
-  },
+  }},
   "education": [
-    {
+    {{
       "start": "입학년월 (예: 2014.03)",
       "end": "졸업년월 (예: 2018.02)",
       "school": "학교명 (예: 서울대학교)",
@@ -358,10 +366,10 @@ def generate_resume_data_with_ai() -> Optional[Dict]:
       "gpa": "학점 (예: 3.85/4.5)",
       "location": "소재지 (예: 서울특별시)",
       "graduation": "졸업구분 (예: 졸업, 졸업예정, 수료 중 하나)"
-    }
+    }}
   ],
   "careers": [
-    {
+    {{
       "start": "입사년월 (예: 2018.03)",
       "end": "퇴사년월 또는 재직중 (예: 2024.12 또는 재직중)",
       "company": "회사명 (예: 삼성전자)",
@@ -369,9 +377,9 @@ def generate_resume_data_with_ai() -> Optional[Dict]:
       "position": "직위 (예: 선임연구원)",
       "salary": "연봉 (예: 5000만원)",
       "reason": "이직사유 (예: 개인사정, 이직, 계약만료, 회사사정, 전직희망 중 하나)"
-    }
+    }}
   ]
-}
+}}
 
 다음 조건을 만족해야 합니다:
 1. 학력은 1-3개 (최종 학력은 대학교 또는 대학원)
@@ -485,8 +493,15 @@ def generate_career_detail(use_ai: bool = False, career: Dict = None) -> str:
         return f"{career['company']} {career['department']}에서 {career['position']}으로 근무하며 다양한 업무를 수행했습니다. 주요 업무는 {random.choice(['프로젝트 관리', '개발', '기획', '마케팅', '영업', '품질관리'])}였으며, 이를 통해 전문성을 키웠습니다."
 
 
-def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False):
-    """이력서 양식에 더미 데이터 채우기"""
+def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False, character_description: str = None):
+    """이력서 양식에 더미 데이터 채우기
+    
+    Args:
+        template_path: 템플릿 파일 경로
+        output_path: 출력 파일 경로
+        use_ai: AI 사용 여부
+        character_description: 캐릭터 배경 설명 (AI 사용 시)
+    """
     try:
         doc = Document(template_path)
         
@@ -498,8 +513,11 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False)
         # 더미 데이터 생성
         if use_ai:
             # AI로 모든 데이터 생성
-            print("  AI로 이력서 데이터 생성 중...", end=' ')
-            ai_data = generate_resume_data_with_ai()
+            if character_description:
+                print(f"  AI로 이력서 데이터 생성 중 (캐릭터: {character_description[:30]}...)...", end=' ')
+            else:
+                print("  AI로 이력서 데이터 생성 중...", end=' ')
+            ai_data = generate_resume_data_with_ai(character_description)
             if ai_data:
                 # AI 생성 데이터 사용
                 basic_info = ai_data.get('basicInfo', {})
@@ -753,6 +771,7 @@ def main():
     parser.add_argument('--count', type=int, default=1, help='생성할 더미 이력서 개수 (기본값: 1)')
     parser.add_argument('--output-dir', type=str, default='./generated_resumes', help='출력 디렉토리 (기본값: ./generated_resumes)')
     parser.add_argument('--use-ai', action='store_true', help='AI를 사용해서 자기소개서 및 경력기술서 생성 (선택적, Azure OpenAI 필요)')
+    parser.add_argument('--char', '--character', type=str, default=None, dest='character', help='캐릭터 배경 설명 (예: "중위권 대학의 애매한 성적, 공대 졸업 생산직 진출") - AI 사용 시에만 적용')
     parser.add_argument('--template', type=str, default='resume_form.docx', help='템플릿 파일 경로 (기본값: resume_form.docx)')
     
     args = parser.parse_args()
@@ -777,10 +796,18 @@ def main():
             print("  AI 없이 생성합니다...")
             args.use_ai = False
     
+    # 캐릭터 설명이 있는데 AI를 사용하지 않는 경우 경고
+    if args.character and not args.use_ai:
+        print("WARNING: --char 옵션은 --use-ai와 함께 사용해야 합니다.")
+        print("  --use-ai 옵션을 추가하거나 --char 옵션을 제거하세요.")
+        args.character = None
+    
     print(f"템플릿: {template_path}")
     print(f"출력 디렉토리: {output_dir}")
     print(f"생성 개수: {args.count}")
     print(f"AI 사용: {'예' if args.use_ai else '아니오'}")
+    if args.character:
+        print(f"캐릭터 배경: {args.character}")
     print()
     
     # 더미 이력서 생성
@@ -790,7 +817,7 @@ def main():
         
         # 임시 파일로 먼저 생성
         temp_path = output_dir / f"temp_{uuid.uuid4().hex[:8]}.docx"
-        name = fill_resume_form(template_path, str(temp_path), args.use_ai)
+        name = fill_resume_form(template_path, str(temp_path), args.use_ai, args.character)
         
         if name:
             # 이름_고유번호.docx 형식으로 저장
