@@ -443,57 +443,57 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False)
         if use_ai:
             print("완료")
         
-        # Table 1: 기본 정보
-        if len(tables) > 0:
-            table1 = tables[0]
+        # Table 1: 기본 정보 (tables[1]이 table1임, tables[0]은 table0으로 건드리면 안 됨)
+        if len(tables) > 1:
+            table1 = tables[1]
             try:
-                # 1,1: 한글이름, 한문이름
-                if len(table1.rows) > 0 and len(table1.rows[0].cells) > 0:
-                    table1.rows[0].cells[0].text = f"{korean_name}"
+                # (1,1): 한글이름, 한문이름 (Python 인덱스: rows[1].cells[1])
+                if len(table1.rows) > 1 and len(table1.rows[1].cells) > 1:
+                    table1.rows[1].cells[1].text = f"{korean_name}"
                 
-                # 1,5: 희망연봉
-                if len(table1.rows[0].cells) > 4:
-                    table1.rows[0].cells[4].text = salary
+                # (1,5): 희망연봉 (Python 인덱스: rows[1].cells[5])
+                if len(table1.rows) > 1 and len(table1.rows[1].cells) > 5:
+                    table1.rows[1].cells[5].text = salary
                 
-                # 2,1: 영문이름
-                if len(table1.rows) > 1:
-                    table1.rows[1].cells[0].text = english_name
+                # (2,1): 영문이름 (Python 인덱스: rows[2].cells[1])
+                if len(table1.rows) > 2 and len(table1.rows[2].cells) > 1:
+                    table1.rows[2].cells[1].text = english_name
                 
-                # 3,1: 생년월일
-                if len(table1.rows) > 2:
-                    table1.rows[2].cells[0].text = birth_date
+                # (3,1): 생년월일 (Python 인덱스: rows[3].cells[1])
+                if len(table1.rows) > 3 and len(table1.rows[3].cells) > 1:
+                    table1.rows[3].cells[1].text = birth_date
                 
-                # 3,4: 이메일
-                if len(table1.rows) > 2 and len(table1.rows[2].cells) > 3:
-                    table1.rows[2].cells[3].text = email
+                # (3,4): 이메일 (Python 인덱스: rows[3].cells[4])
+                if len(table1.rows) > 3 and len(table1.rows[3].cells) > 4:
+                    table1.rows[3].cells[4].text = email
                 
-                # 4,1: 주소
-                if len(table1.rows) > 3:
-                    table1.rows[3].cells[0].text = address
+                # (4,1): 주소 (Python 인덱스: rows[4].cells[1])
+                if len(table1.rows) > 4 and len(table1.rows[4].cells) > 1:
+                    table1.rows[4].cells[1].text = address
                 
-                # 5,1: 자택전화
-                if len(table1.rows) > 4:
-                    table1.rows[4].cells[0].text = phone_home
+                # (5,1): 자택전화 (Python 인덱스: rows[5].cells[1])
+                if len(table1.rows) > 5 and len(table1.rows[5].cells) > 1:
+                    table1.rows[5].cells[1].text = phone_home
                 
-                # 6,1: 이동전화
-                if len(table1.rows) > 5:
-                    table1.rows[5].cells[0].text = phone
+                # (6,1): 이동전화 (Python 인덱스: rows[6].cells[1])
+                if len(table1.rows) > 6 and len(table1.rows[6].cells) > 1:
+                    table1.rows[6].cells[1].text = phone
                 
-                # 8,1~5: 병역
-                if len(table1.rows) > 7:
-                    for i in range(5):
-                        if len(table1.rows[7].cells) > i:
-                            table1.rows[7].cells[i].text = military if i == 0 else ''
+                # (8,1~5): 병역 (Python 인덱스: rows[8].cells[1~5])
+                if len(table1.rows) > 8:
+                    for i in range(1, 6):  # cellIndex 1~5
+                        if len(table1.rows[8].cells) > i:
+                            table1.rows[8].cells[i].text = military if i == 1 else ''
             except Exception as e:
                 print(f"WARNING: Table 1 처리 중 오류: {e}")
         
-        # Table 2: 학력
-        if len(tables) > 1:
-            table2 = tables[1]
+        # Table 2: 학력 (tables[2]가 table2임)
+        if len(tables) > 2:
+            table2 = tables[2]
             try:
-                # row 2부터 7까지 (최대 6개)
+                # row 2부터 7까지 (최대 6개) (Python 인덱스: rows[2]~rows[7])
                 for i, edu in enumerate(educations[:6]):
-                    row_idx = i + 1  # row 2부터 시작
+                    row_idx = i + 2  # row 2부터 시작 (Python 인덱스: rows[2])
                     if len(table2.rows) > row_idx:
                         row = table2.rows[row_idx]
                         if len(row.cells) > 0:
@@ -513,13 +513,13 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False)
             except Exception as e:
                 print(f"WARNING: Table 2 처리 중 오류: {e}")
         
-        # Table 3: 경력
-        if len(tables) > 2:
-            table3 = tables[2]
+        # Table 3: 경력 (tables[3]가 table3임)
+        if len(tables) > 3:
+            table3 = tables[3]
             try:
-                # row 2부터 6까지 (최대 5개)
+                # row 2부터 6까지 (최대 5개) (Python 인덱스: rows[2]~rows[6])
                 for i, career in enumerate(careers[:5]):
-                    row_idx = i + 1  # row 2부터 시작
+                    row_idx = i + 2  # row 2부터 시작 (Python 인덱스: rows[2])
                     if len(table3.rows) > row_idx:
                         row = table3.rows[row_idx]
                         if len(row.cells) > 0:
@@ -539,13 +539,13 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False)
             except Exception as e:
                 print(f"WARNING: Table 3 처리 중 오류: {e}")
         
-        # Table 4: 어학/자격증/해외연수/수상경력
-        if len(tables) > 3:
-            table4 = tables[3]
+        # Table 4: 어학/자격증/해외연수/수상경력 (tables[4]가 table4임)
+        if len(tables) > 4:
+            table4 = tables[4]
             try:
-                # 어학 (row 2-4, cell 0-2)
+                # 어학 (row 2-4, cell 0-2) (Python 인덱스: rows[2]~rows[4])
                 for i, lang in enumerate(languages[:3]):
-                    row_idx = i + 1  # row 2부터
+                    row_idx = i + 2  # row 2부터 (Python 인덱스: rows[2])
                     if len(table4.rows) > row_idx:
                         row = table4.rows[row_idx]
                         if len(row.cells) > 0:
@@ -555,9 +555,9 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False)
                         if len(row.cells) > 2:
                             row.cells[2].text = lang['date']  # 취득일자
                 
-                # 자격증 (row 2-4, cell 3-5)
+                # 자격증 (row 2-4, cell 3-5) (Python 인덱스: rows[2]~rows[4])
                 for i, cert in enumerate(certificates[:3]):
-                    row_idx = i + 1  # row 2부터
+                    row_idx = i + 2  # row 2부터 (Python 인덱스: rows[2])
                     if len(table4.rows) > row_idx:
                         row = table4.rows[row_idx]
                         if len(row.cells) > 3:
@@ -569,12 +569,12 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False)
             except Exception as e:
                 print(f"WARNING: Table 4 처리 중 오류: {e}")
         
-        # Table 5: 자기소개서
-        if len(tables) > 4:
-            table5 = tables[4]
+        # Table 5: 자기소개서 (tables[5]가 table5임)
+        if len(tables) > 5:
+            table5 = tables[5]
             try:
-                # 1,1 / 3,1 / 5,1 / 7,1
-                intro_positions = [(0, 0), (2, 0), (4, 0), (6, 0)]
+                # (1,1) / (3,1) / (5,1) / (7,1) (Python 인덱스: rows[1].cells[1], rows[3].cells[1], etc.)
+                intro_positions = [(1, 1), (3, 1), (5, 1), (7, 1)]
                 for i, (row_idx, cell_idx) in enumerate(intro_positions):
                     if len(table5.rows) > row_idx and len(table5.rows[row_idx].cells) > cell_idx:
                         if i < len(self_intros):
@@ -582,16 +582,23 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False)
             except Exception as e:
                 print(f"WARNING: Table 5 처리 중 오류: {e}")
         
-        # Table 6: 경력기술 (선택적)
-        if len(tables) > 5:
-            table6 = tables[5]
+        # Table 6: 경력기술 (tables[6]가 table6임)
+        if len(tables) > 6:
+            table6 = tables[6]
             try:
                 # 경력 개수만큼 경력기술 작성
+                # dataRowIndex: 2, 6, 10, 14 (Python 인덱스: rows[2], rows[6], rows[10], rows[14])
+                # detailRowIndex: 4, 8, 12, 16 (Python 인덱스: rows[4], rows[8], rows[12], rows[16])
+                data_row_indices = [2, 6, 10, 14]
+                detail_row_indices = [4, 8, 12, 16]
+                
                 for i, career in enumerate(careers[:4]):
-                    block_start_row = i * 4  # 각 경력당 4행씩
-                    if len(table6.rows) > block_start_row + 1:
-                        # row 2, 6, 10, 14에 경력 정보
-                        row = table6.rows[block_start_row + 1]
+                    data_row_idx = data_row_indices[i]
+                    detail_row_idx = detail_row_indices[i]
+                    
+                    # 경력 정보 (row 2, 6, 10, 14)
+                    if len(table6.rows) > data_row_idx:
+                        row = table6.rows[data_row_idx]
                         if len(row.cells) > 0:
                             row.cells[0].text = career['start']
                         if len(row.cells) > 1:
@@ -606,16 +613,16 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False)
                             row.cells[5].text = career['salary']
                         if len(row.cells) > 6:
                             row.cells[6].text = career['reason']
-                        
-                        # row 4, 8, 12, 16에 상세 내용 (AI로 생성)
-                        if len(table6.rows) > block_start_row + 3:
-                            detail_row = table6.rows[block_start_row + 3]
-                            if len(detail_row.cells) > 0:
-                                if use_ai:
-                                    detail_text = generate_career_detail(use_ai, career)
-                                else:
-                                    detail_text = f"{career['company']} {career['department']}에서 {career['position']}으로 근무하며 다양한 업무를 수행했습니다. 주요 업무는 {random.choice(['프로젝트 관리', '개발', '기획', '마케팅', '영업', '품질관리'])}였으며, 이를 통해 전문성을 키웠습니다."
-                                detail_row.cells[0].text = detail_text
+                    
+                    # 상세 내용 (row 4, 8, 12, 16)
+                    if len(table6.rows) > detail_row_idx:
+                        detail_row = table6.rows[detail_row_idx]
+                        if len(detail_row.cells) > 0:
+                            if use_ai:
+                                detail_text = generate_career_detail(use_ai, career)
+                            else:
+                                detail_text = f"{career['company']} {career['department']}에서 {career['position']}으로 근무하며 다양한 업무를 수행했습니다. 주요 업무는 {random.choice(['프로젝트 관리', '개발', '기획', '마케팅', '영업', '품질관리'])}였으며, 이를 통해 전문성을 키웠습니다."
+                            detail_row.cells[0].text = detail_text
             except Exception as e:
                 print(f"WARNING: Table 6 처리 중 오류: {e}")
         
