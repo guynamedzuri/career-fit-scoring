@@ -566,6 +566,18 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False,
                 educations = ai_data.get('education', [])
                 careers = ai_data.get('careers', [])
                 
+                # 최신순으로 정렬 (졸업년월 기준 내림차순)
+                educations.sort(key=lambda x: (
+                    int(x.get('end', '0.0').split('.')[0]) * 100 + int(x.get('end', '0.0').split('.')[1]) if '.' in x.get('end', '0.0') else 0
+                ), reverse=True)
+                
+                # 경력 최신순으로 정렬 (시작년월 기준 내림차순, 재직중은 가장 최신으로 처리)
+                careers.sort(key=lambda x: (
+                    # 재직중이면 매우 큰 값으로 처리하여 최상단에 배치
+                    999999 if '재직중' in str(x.get('end', '')) else
+                    int(x.get('start', '0.0').split('.')[0]) * 100 + int(x.get('start', '0.0').split('.')[1]) if '.' in x.get('start', '0.0') else 0
+                ), reverse=True)
+                
                 print("완료")
             else:
                 # AI 실패 시 기본 생성 방식으로 폴백
@@ -580,6 +592,18 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False,
                 military = random.choice(MILITARY_STATUS)
                 educations = generate_education()
                 careers = generate_career()
+                
+                # 최신순으로 정렬 (졸업년월 기준 내림차순)
+                educations.sort(key=lambda x: (
+                    int(x.get('end', '0.0').split('.')[0]) * 100 + int(x.get('end', '0.0').split('.')[1]) if '.' in x.get('end', '0.0') else 0
+                ), reverse=True)
+                
+                # 경력 최신순으로 정렬 (시작년월 기준 내림차순, 재직중은 가장 최신으로 처리)
+                careers.sort(key=lambda x: (
+                    # 재직중이면 매우 큰 값으로 처리하여 최상단에 배치
+                    999999 if '재직중' in str(x.get('end', '')) else
+                    int(x.get('start', '0.0').split('.')[0]) * 100 + int(x.get('start', '0.0').split('.')[1]) if '.' in x.get('start', '0.0') else 0
+                ), reverse=True)
         else:
             # 기본 랜덤 생성
             korean_name, english_name = generate_korean_name()
@@ -592,6 +616,18 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False,
             military = random.choice(MILITARY_STATUS)
             educations = generate_education()
             careers = generate_career()
+            
+            # 최신순으로 정렬 (졸업년월 기준 내림차순)
+            educations.sort(key=lambda x: (
+                int(x.get('end', '0.0').split('.')[0]) * 100 + int(x.get('end', '0.0').split('.')[1]) if '.' in x.get('end', '0.0') else 0
+            ), reverse=True)
+            
+            # 경력 최신순으로 정렬 (시작년월 기준 내림차순, 재직중은 가장 최신으로 처리)
+            careers.sort(key=lambda x: (
+                # 재직중이면 매우 큰 값으로 처리하여 최상단에 배치
+                999999 if '재직중' in str(x.get('end', '')) else
+                int(x.get('start', '0.0').split('.')[0]) * 100 + int(x.get('start', '0.0').split('.')[1]) if '.' in x.get('start', '0.0') else 0
+            ), reverse=True)
         
         # 자격증과 어학은 항상 랜덤 생성 (AI 옵션 없음)
         certificates = generate_certificates()
