@@ -3,6 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as http from 'http';
 import * as https from 'https';
+// career-fit-scoring 패키지에서 함수 import (상대 경로로 직접 import)
+import { extractTablesFromDocx, mapResumeDataToApplicationData } from '../../src/index';
 
 // electron-updater는 동적 import로 처리 (타입 에러 방지)
 let autoUpdater: any = null;
@@ -1420,9 +1422,6 @@ ipcMain.handle('read-official-certificates', async () => {
 // 이력서 처리 IPC 핸들러
 ipcMain.handle('process-resume', async (event, filePath: string) => {
   try {
-    // career-fit-scoring 패키지에서 함수 import
-    const { extractTablesFromDocx, mapResumeDataToApplicationData } = require('career-fit-scoring');
-    
     // DOCX 파일에서 테이블 추출
     const tables = await extractTablesFromDocx(filePath);
     

@@ -39,7 +39,7 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "career-fit-scoring": "file:../dist",
+    "career-fit-scoring": "file:..",
     "electron-updater": "^6.7.3",
     "lucide-react": "^0.562.0",
     "react": "^18.2.0",
