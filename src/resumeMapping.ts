@@ -109,25 +109,23 @@ export interface ResumeMappingConfig {
     maxCount?: number; // 최대 개수 (기본값: 5)
   };
   
-  // 대학원 정보
-  graduateSchool?: {
+  // 경력기술 상세 (테이블 6)
+  careerDetails?: {
     tableIndex: number;
-    headerRowIndex?: number;
-    dataStartRowIndex?: number;
-    schoolNameColumn?: number | { searchText: string };
-    degreeTypeColumn?: number | { searchText: string };
-    graduationTypeColumn?: number | { searchText: string };
-    majorColumn?: number | { searchText: string };
-    gpaColumn?: number | { searchText: string };
-    maxGpaColumn?: number | { searchText: string };
+    blocks: Array<{
+      headerRowIndex: number; // 입사년월 등 헤더 행 (row 1, 5, 9, 13)
+      dataRowIndex: number; // 실제 데이터 행 (row 2, 6, 10, 14)
+      detailRowIndex: number; // 상세내용 행 (row 4, 8, 12, 16)
+    }>;
+    startDateColumn: number; // cell 0
+    endDateColumn: number; // cell 1
+    companyNameColumn: number; // cell 2
+    departmentColumn: number; // cell 3
+    positionColumn: number; // cell 4
+    salaryColumn: number; // cell 5
+    reasonColumn: number; // cell 6
+    detailColumn: number; // cell 0 (상세내용)
     maxCount?: number;
-  };
-  
-  // 주소 정보
-  address?: {
-    tableIndex: number;
-    addressColumn?: number | { searchText: string };
-    rowIndex?: number | { searchRow: string; searchCol: string };
   };
 }
 
@@ -213,9 +211,6 @@ export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
     majorColumn: 3,
     // (2~7,4): 학점 (평균점수/총점수 형식)
     gpaColumn: 4,
-    // (2~7,0): 입학년월
-    // (2~7,1): 졸업년월
-    // (2~7,5): 학교 소재지
     maxCount: 6,
   },
   overseasTraining: {
@@ -252,6 +247,24 @@ export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
       { rowIndex: 5, cellIndex: 1 }, // 자기소개서 답안 3
       { rowIndex: 7, cellIndex: 1 }, // 자기소개서 답안 4
     ],
+  },
+  careerDetails: {
+    tableIndex: 6, // 테이블 6: 경력기술 상세
+    blocks: [
+      { headerRowIndex: 1, dataRowIndex: 2, detailRowIndex: 4 }, // 첫 번째 경력 (row 1~4)
+      { headerRowIndex: 5, dataRowIndex: 6, detailRowIndex: 8 }, // 두 번째 경력 (row 5~8)
+      { headerRowIndex: 9, dataRowIndex: 10, detailRowIndex: 12 }, // 세 번째 경력 (row 9~12)
+      { headerRowIndex: 13, dataRowIndex: 14, detailRowIndex: 16 }, // 네 번째 경력 (row 13~16)
+    ],
+    startDateColumn: 0, // 입사년월
+    endDateColumn: 1, // 퇴사년월
+    companyNameColumn: 2, // 회사명
+    departmentColumn: 3, // 근무부서
+    positionColumn: 4, // 직위
+    salaryColumn: 5, // 연봉
+    reasonColumn: 6, // 이직사유
+    detailColumn: 0, // 상세내용 (cell 0)
+    maxCount: 4,
   },
 };
 
@@ -305,6 +318,23 @@ function resolveColumnIndex(
   }
   
   return -1;
+}
+
+/**
+ * 셀 값 안전하게 추출 (탐지 실패 시 undefined)
+ */
+function safeGetCellValue(
+  tables: RawTableData[],
+  tableIndex: number,
+  rowIndex: number,
+  cellIndex: number
+): string | undefined {
+  try {
+    const value = getCellValue(tables, tableIndex, rowIndex, cellIndex);
+    return value || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -382,54 +412,62 @@ export function mapResumeDataToApplicationData(
   const basicInfo = mappingConfig.basicInfo;
   if (basicInfo.tableIndex >= 0 && basicInfo.tableIndex < tables.length) {
     const namePos = resolveCellPosition(tables, basicInfo.tableIndex, basicInfo.name);
-    if (namePos) {
-      // 이름은 applicationData에 직접 저장하지 않음 (필요시 추가)
-    }
+    applicationData.name = namePos ? safeGetCellValue(tables, basicInfo.tableIndex, namePos.rowIndex, namePos.cellIndex) : undefined;
+    
+    const nameEnglishPos = resolveCellPosition(tables, basicInfo.tableIndex, basicInfo.nameEnglish);
+    applicationData.nameEnglish = nameEnglishPos ? safeGetCellValue(tables, basicInfo.tableIndex, nameEnglishPos.rowIndex, nameEnglishPos.cellIndex) : undefined;
     
     const birthDatePos = resolveCellPosition(tables, basicInfo.tableIndex, basicInfo.birthDate);
-    if (birthDatePos) {
-      applicationData.birthDate = getCellValue(
-        tables,
-        basicInfo.tableIndex,
-        birthDatePos.rowIndex,
-        birthDatePos.cellIndex
-      );
-    }
+    applicationData.birthDate = birthDatePos ? safeGetCellValue(tables, basicInfo.tableIndex, birthDatePos.rowIndex, birthDatePos.cellIndex) : undefined;
     
     const emailPos = resolveCellPosition(tables, basicInfo.tableIndex, basicInfo.email);
-    if (emailPos) {
-      applicationData.email = getCellValue(
-        tables,
-        basicInfo.tableIndex,
-        emailPos.rowIndex,
-        emailPos.cellIndex
-      );
-    }
+    applicationData.email = emailPos ? safeGetCellValue(tables, basicInfo.tableIndex, emailPos.rowIndex, emailPos.cellIndex) : undefined;
     
     const phonePos = resolveCellPosition(tables, basicInfo.tableIndex, basicInfo.phone);
-    if (phonePos) {
-      applicationData.phone = getCellValue(
-        tables,
-        basicInfo.tableIndex,
-        phonePos.rowIndex,
-        phonePos.cellIndex
-      );
+    applicationData.phone = phonePos ? safeGetCellValue(tables, basicInfo.tableIndex, phonePos.rowIndex, phonePos.cellIndex) : undefined;
+    
+    const phoneHomePos = resolveCellPosition(tables, basicInfo.tableIndex, basicInfo.phoneHome);
+    applicationData.phoneHome = phoneHomePos ? safeGetCellValue(tables, basicInfo.tableIndex, phoneHomePos.rowIndex, phoneHomePos.cellIndex) : undefined;
+    
+    const addressPos = resolveCellPosition(tables, basicInfo.tableIndex, basicInfo.address);
+    const addressValue = addressPos ? safeGetCellValue(tables, basicInfo.tableIndex, addressPos.rowIndex, addressPos.cellIndex) : undefined;
+    applicationData.address = addressValue;
+    applicationData.residence = classifyResidence(addressValue);
+    
+    const desiredSalaryPos = resolveCellPosition(tables, basicInfo.tableIndex, basicInfo.desiredSalary);
+    applicationData.desiredSalary = desiredSalaryPos ? safeGetCellValue(tables, basicInfo.tableIndex, desiredSalaryPos.rowIndex, desiredSalaryPos.cellIndex) : undefined;
+    
+    // 병역 정보 (여러 셀)
+    if (basicInfo.militaryService) {
+      const milRow = basicInfo.militaryService.rowIndex;
+      const milStart = basicInfo.militaryService.cellIndexStart;
+      const milEnd = basicInfo.militaryService.cellIndexEnd;
+      const milValues: string[] = [];
+      for (let i = milStart; i <= milEnd; i++) {
+        const val = safeGetCellValue(tables, basicInfo.tableIndex, milRow, i);
+        if (val) milValues.push(val);
+      }
+      applicationData.militaryService = milValues.length > 0 ? milValues.join(' ') : undefined;
     }
   }
   
-  // 2. 자격증 정보 추출
-  const certs = mappingConfig.certificates;
-  if (certs.tableIndex >= 0 && certs.tableIndex < tables.length) {
-    const headerRowIndex = certs.headerRowIndex ?? 0;
-    const dataStartRowIndex = certs.dataStartRowIndex ?? headerRowIndex + 1;
-    const nameCol = resolveColumnIndex(tables, certs.tableIndex, certs.nameColumn, headerRowIndex);
-    const dateCol = resolveColumnIndex(tables, certs.tableIndex, certs.dateColumn, headerRowIndex);
-    const maxCount = certs.maxCount ?? 10;
+  // 2. 학력 정보 추출
+  const education = mappingConfig.education;
+  if (education.tableIndex >= 0 && education.tableIndex < tables.length) {
+    const headerRowIndex = education.headerRowIndex ?? 0;
+    const dataStartRowIndex = education.dataStartRowIndex ?? headerRowIndex + 1;
+    const dataEndRowIndex = education.dataStartRowIndex !== undefined ? (education.maxCount ? dataStartRowIndex + education.maxCount - 1 : undefined) : undefined;
+    const schoolNameCol = resolveColumnIndex(tables, education.tableIndex, education.schoolNameColumn, headerRowIndex);
+    const graduationTypeCol = resolveColumnIndex(tables, education.tableIndex, education.graduationTypeColumn, headerRowIndex);
+    const majorCol = resolveColumnIndex(tables, education.tableIndex, education.majorColumn, headerRowIndex);
+    const gpaCol = resolveColumnIndex(tables, education.tableIndex, education.gpaColumn, headerRowIndex);
+    const maxCount = education.maxCount ?? 6;
     
-    const table = tables[certs.tableIndex];
-    let certIndex = 1;
+    const table = tables[education.tableIndex];
+    let eduIndex = 1;
     
-    for (let rowIdx = dataStartRowIndex; rowIdx < table.rows.length && certIndex <= maxCount; rowIdx++) {
+    const endRow = dataEndRowIndex !== undefined ? Math.min(dataEndRowIndex + 1, table.rows.length) : table.rows.length;
+    for (let rowIdx = dataStartRowIndex; rowIdx < endRow && eduIndex <= maxCount; rowIdx++) {
       const row = table.rows[rowIdx];
       
       // 빈 행이면 건너뛰기
@@ -437,25 +475,57 @@ export function mapResumeDataToApplicationData(
         continue;
       }
       
-      if (nameCol >= 0 && nameCol < row.cells.length) {
-        const certName = row.cells[nameCol].text.trim();
-        if (certName) {
-          applicationData[`certificateName${certIndex}`] = certName;
+      // 입학년월 (cell 0)
+      const startDate = safeGetCellValue(tables, education.tableIndex, rowIdx, 0);
+      if (startDate) applicationData[`educationStartDate${eduIndex}`] = startDate;
+      
+      // 졸업년월 (cell 1)
+      const endDate = safeGetCellValue(tables, education.tableIndex, rowIdx, 1);
+      if (endDate) applicationData[`educationEndDate${eduIndex}`] = endDate;
+      
+      // 학교명 (cell 2)
+      if (schoolNameCol >= 0 && schoolNameCol < row.cells.length) {
+        const schoolName = safeGetCellValue(tables, education.tableIndex, rowIdx, schoolNameCol);
+        if (schoolName) {
+          applicationData[`universityName${eduIndex}`] = schoolName;
           
-          if (dateCol >= 0 && dateCol < row.cells.length) {
-            const certDate = row.cells[dateCol].text.trim();
-            if (certDate) {
-              applicationData[`certificateDate${certIndex}`] = certDate;
+          // 전공명 (cell 3)
+          if (majorCol >= 0 && majorCol < row.cells.length) {
+            const major = safeGetCellValue(tables, education.tableIndex, rowIdx, majorCol);
+            if (major) applicationData[`universityMajor${eduIndex}_1`] = major;
+          }
+          
+          // 학점 (cell 4) - 평균점수/총점수 형식
+          if (gpaCol >= 0 && gpaCol < row.cells.length) {
+            const gpa = safeGetCellValue(tables, education.tableIndex, rowIdx, gpaCol);
+            if (gpa) {
+              applicationData[`universityGPA${eduIndex}`] = gpa;
+              // 평균점수/총점수 파싱
+              const parts = gpa.split('/');
+              if (parts.length === 2) {
+                applicationData[`universityGPA${eduIndex}`] = parts[0].trim();
+                applicationData[`universityGPAMax${eduIndex}`] = parts[1].trim();
+              }
             }
           }
           
-          certIndex++;
+          // 소재지 (cell 5)
+          const location = safeGetCellValue(tables, education.tableIndex, rowIdx, 5);
+          if (location) applicationData[`universityLocation${eduIndex}`] = location;
+          
+          // 졸업구분 (cell 6)
+          if (graduationTypeCol >= 0 && graduationTypeCol < row.cells.length) {
+            const graduationType = safeGetCellValue(tables, education.tableIndex, rowIdx, graduationTypeCol);
+            if (graduationType) applicationData[`universityGraduationType${eduIndex}`] = graduationType;
+          }
+          
+          eduIndex++;
         }
       }
     }
   }
   
-  // 3. 경력 정보 추출
+  // 3. 경력 정보 추출 (테이블 3)
   const careers = mappingConfig.careers;
   if (careers.tableIndex >= 0 && careers.tableIndex < tables.length) {
     const headerRowIndex = careers.headerRowIndex ?? 0;
@@ -479,36 +549,36 @@ export function mapResumeDataToApplicationData(
       }
       
       if (companyCol >= 0 && companyCol < row.cells.length) {
-        const companyName = row.cells[companyCol].text.trim();
+        const companyName = safeGetCellValue(tables, careers.tableIndex, rowIdx, companyCol);
         if (companyName) {
           applicationData[`careerCompanyName${careerIndex}`] = companyName;
           
           if (startDateCol >= 0 && startDateCol < row.cells.length) {
-            const startDate = row.cells[startDateCol].text.trim();
-            if (startDate) {
-              applicationData[`careerStartDate${careerIndex}`] = startDate;
-            }
+            const startDate = safeGetCellValue(tables, careers.tableIndex, rowIdx, startDateCol);
+            if (startDate) applicationData[`careerStartDate${careerIndex}`] = startDate;
           }
           
           if (endDateCol >= 0 && endDateCol < row.cells.length) {
-            const endDate = row.cells[endDateCol].text.trim();
-            if (endDate) {
-              applicationData[`careerEndDate${careerIndex}`] = endDate;
-            }
+            const endDate = safeGetCellValue(tables, careers.tableIndex, rowIdx, endDateCol);
+            if (endDate) applicationData[`careerEndDate${careerIndex}`] = endDate;
           }
+          
+          // 근무부서 (cell 3)
+          const department = safeGetCellValue(tables, careers.tableIndex, rowIdx, 3);
+          if (department) applicationData[`careerDepartment${careerIndex}`] = department;
           
           if (jobTypeCol >= 0 && jobTypeCol < row.cells.length) {
-            const jobType = row.cells[jobTypeCol].text.trim();
-            if (jobType) {
-              applicationData[`careerJobType${careerIndex}`] = jobType;
-            }
+            const jobType = safeGetCellValue(tables, careers.tableIndex, rowIdx, jobTypeCol);
+            if (jobType) applicationData[`careerJobType${careerIndex}`] = jobType;
           }
           
+          // 연봉 (cell 5)
+          const salary = safeGetCellValue(tables, careers.tableIndex, rowIdx, 5);
+          if (salary) applicationData[`careerSalary${careerIndex}`] = salary;
+          
           if (employmentStatusCol >= 0 && employmentStatusCol < row.cells.length) {
-            const employmentStatus = row.cells[employmentStatusCol].text.trim();
-            if (employmentStatus) {
-              applicationData[`careerEmploymentStatus${careerIndex}`] = employmentStatus;
-            }
+            const employmentStatus = safeGetCellValue(tables, careers.tableIndex, rowIdx, employmentStatusCol);
+            if (employmentStatus) applicationData[`careerEmploymentStatus${careerIndex}`] = employmentStatus;
           }
           
           careerIndex++;
@@ -517,186 +587,218 @@ export function mapResumeDataToApplicationData(
     }
   }
   
-  // 4. 학력 정보 추출 (대학교)
-  const education = mappingConfig.education;
-  if (education.tableIndex >= 0 && education.tableIndex < tables.length) {
-    const headerRowIndex = education.headerRowIndex ?? 0;
-    const dataStartRowIndex = education.dataStartRowIndex ?? headerRowIndex + 1;
-    const schoolNameCol = resolveColumnIndex(tables, education.tableIndex, education.schoolNameColumn, headerRowIndex);
-    const degreeTypeCol = resolveColumnIndex(tables, education.tableIndex, education.degreeTypeColumn, headerRowIndex);
-    const graduationTypeCol = resolveColumnIndex(tables, education.tableIndex, education.graduationTypeColumn, headerRowIndex);
-    const majorCol = resolveColumnIndex(tables, education.tableIndex, education.majorColumn, headerRowIndex);
-    const gpaCol = resolveColumnIndex(tables, education.tableIndex, education.gpaColumn, headerRowIndex);
-    const maxGpaCol = resolveColumnIndex(tables, education.tableIndex, education.maxGpaColumn, headerRowIndex);
-    const maxCount = education.maxCount ?? 5;
+  // 4. 자격증 정보 추출
+  const certs = mappingConfig.certificates;
+  if (certs.tableIndex >= 0 && certs.tableIndex < tables.length) {
+    const headerRowIndex = certs.headerRowIndex ?? 0;
+    const dataStartRowIndex = certs.dataStartRowIndex ?? headerRowIndex + 1;
+    const dataEndRowIndex = certs.dataEndRowIndex ?? dataStartRowIndex;
+    const nameCol = resolveColumnIndex(tables, certs.tableIndex, certs.nameColumn, headerRowIndex);
+    const gradeCol = resolveColumnIndex(tables, certs.tableIndex, certs.gradeColumn, headerRowIndex);
+    const issuerCol = resolveColumnIndex(tables, certs.tableIndex, certs.issuerColumn, headerRowIndex);
+    const maxCount = certs.maxCount ?? 3;
     
-    const table = tables[education.tableIndex];
-    let eduIndex = 1;
+    const table = tables[certs.tableIndex];
+    let certIndex = 1;
     
-    for (let rowIdx = dataStartRowIndex; rowIdx < table.rows.length && eduIndex <= maxCount; rowIdx++) {
+    for (let rowIdx = dataStartRowIndex; rowIdx <= dataEndRowIndex && rowIdx < table.rows.length && certIndex <= maxCount; rowIdx++) {
       const row = table.rows[rowIdx];
       
-      // 빈 행이면 건너뛰기
-      if (row.cells.every(cell => !cell.text.trim())) {
-        continue;
-      }
-      
-      if (schoolNameCol >= 0 && schoolNameCol < row.cells.length) {
-        const schoolName = row.cells[schoolNameCol].text.trim();
-        if (schoolName) {
-          applicationData[`universityName${eduIndex}`] = schoolName;
+      if (nameCol >= 0 && nameCol < row.cells.length) {
+        const certName = safeGetCellValue(tables, certs.tableIndex, rowIdx, nameCol);
+        if (certName) {
+          applicationData[`certificateName${certIndex}`] = certName;
           
-          if (degreeTypeCol >= 0 && degreeTypeCol < row.cells.length) {
-            const degreeType = row.cells[degreeTypeCol].text.trim();
-            if (degreeType) {
-              applicationData[`universityDegreeType${eduIndex}`] = degreeType;
-            }
+          if (gradeCol >= 0 && gradeCol < row.cells.length) {
+            const grade = safeGetCellValue(tables, certs.tableIndex, rowIdx, gradeCol);
+            if (grade) applicationData[`certificateGrade${certIndex}`] = grade;
           }
           
-          if (graduationTypeCol >= 0 && graduationTypeCol < row.cells.length) {
-            const graduationType = row.cells[graduationTypeCol].text.trim();
-            if (graduationType) {
-              applicationData[`universityGraduationType${eduIndex}`] = graduationType;
-            }
+          if (issuerCol >= 0 && issuerCol < row.cells.length) {
+            const issuer = safeGetCellValue(tables, certs.tableIndex, rowIdx, issuerCol);
+            if (issuer) applicationData[`certificateIssuer${certIndex}`] = issuer;
           }
           
-          // 전공은 여러 개일 수 있으므로 (최대 4개)
-          if (majorCol >= 0 && majorCol < row.cells.length) {
-            const major = row.cells[majorCol].text.trim();
-            if (major) {
-              applicationData[`universityMajor${eduIndex}_1`] = major;
-            }
-          }
-          
-          if (gpaCol >= 0 && gpaCol < row.cells.length) {
-            const gpa = row.cells[gpaCol].text.trim();
-            if (gpa) {
-              applicationData[`universityGPA${eduIndex}`] = gpa;
-            }
-          }
-          
-          if (maxGpaCol >= 0 && maxGpaCol < row.cells.length) {
-            const maxGpa = row.cells[maxGpaCol].text.trim();
-            if (maxGpa) {
-              applicationData[`universityGPAMax${eduIndex}`] = maxGpa;
-            }
-          }
-          
-          eduIndex++;
+          certIndex++;
         }
       }
     }
   }
   
-  // 5. 대학원 정보 추출
-  if (mappingConfig.graduateSchool) {
-    const gradSchool = mappingConfig.graduateSchool;
-    if (gradSchool.tableIndex >= 0 && gradSchool.tableIndex < tables.length) {
-      const headerRowIndex = gradSchool.headerRowIndex ?? 0;
-      const dataStartRowIndex = gradSchool.dataStartRowIndex ?? headerRowIndex + 1;
-      const schoolNameCol = resolveColumnIndex(tables, gradSchool.tableIndex, gradSchool.schoolNameColumn, headerRowIndex);
-      const degreeTypeCol = resolveColumnIndex(tables, gradSchool.tableIndex, gradSchool.degreeTypeColumn, headerRowIndex);
-      const graduationTypeCol = resolveColumnIndex(tables, gradSchool.tableIndex, gradSchool.graduationTypeColumn, headerRowIndex);
-      const majorCol = resolveColumnIndex(tables, gradSchool.tableIndex, gradSchool.majorColumn, headerRowIndex);
-      const gpaCol = resolveColumnIndex(tables, gradSchool.tableIndex, gradSchool.gpaColumn, headerRowIndex);
-      const maxGpaCol = resolveColumnIndex(tables, gradSchool.tableIndex, gradSchool.maxGpaColumn, headerRowIndex);
-      const maxCount = gradSchool.maxCount ?? 5;
+  // 5. 어학 정보 추출
+  if (mappingConfig.languageTests) {
+    const langTests = mappingConfig.languageTests;
+    if (langTests.tableIndex >= 0 && langTests.tableIndex < tables.length) {
+      const headerRowIndex = langTests.headerRowIndex ?? 0;
+      const dataStartRowIndex = langTests.dataStartRowIndex ?? headerRowIndex + 1;
+      const dataEndRowIndex = langTests.dataEndRowIndex ?? dataStartRowIndex;
+      const nameCol = resolveColumnIndex(tables, langTests.tableIndex, langTests.nameColumn, headerRowIndex);
+      const scoreCol = resolveColumnIndex(tables, langTests.tableIndex, langTests.scoreColumn, headerRowIndex);
+      const dateCol = resolveColumnIndex(tables, langTests.tableIndex, langTests.dateColumn, headerRowIndex);
+      const maxCount = langTests.maxCount ?? 3;
       
-      const table = tables[gradSchool.tableIndex];
-      let gradIndex = 1;
+      const table = tables[langTests.tableIndex];
+      let langIndex = 1;
       
-      for (let rowIdx = dataStartRowIndex; rowIdx < table.rows.length && gradIndex <= maxCount; rowIdx++) {
+      for (let rowIdx = dataStartRowIndex; rowIdx <= dataEndRowIndex && rowIdx < table.rows.length && langIndex <= maxCount; rowIdx++) {
         const row = table.rows[rowIdx];
         
-        // 빈 행이면 건너뛰기
-        if (row.cells.every(cell => !cell.text.trim())) {
-          continue;
-        }
-        
-        if (schoolNameCol >= 0 && schoolNameCol < row.cells.length) {
-          const schoolName = row.cells[schoolNameCol].text.trim();
-          if (schoolName) {
-            applicationData[`graduateSchoolName${gradIndex}`] = schoolName;
+        if (nameCol >= 0 && nameCol < row.cells.length) {
+          const langName = safeGetCellValue(tables, langTests.tableIndex, rowIdx, nameCol);
+          if (langName) {
+            applicationData[`languageTestName${langIndex}`] = langName;
             
-            if (degreeTypeCol >= 0 && degreeTypeCol < row.cells.length) {
-              const degreeType = row.cells[degreeTypeCol].text.trim();
-              if (degreeType) {
-                applicationData[`graduateSchoolDegreeType${gradIndex}`] = degreeType;
-              }
+            if (scoreCol >= 0 && scoreCol < row.cells.length) {
+              const score = safeGetCellValue(tables, langTests.tableIndex, rowIdx, scoreCol);
+              if (score) applicationData[`languageTestScore${langIndex}`] = score;
             }
             
-            if (graduationTypeCol >= 0 && graduationTypeCol < row.cells.length) {
-              const graduationType = row.cells[graduationTypeCol].text.trim();
-              if (graduationType) {
-                applicationData[`graduateSchoolGraduationType${gradIndex}`] = graduationType;
-              }
+            if (dateCol >= 0 && dateCol < row.cells.length) {
+              const date = safeGetCellValue(tables, langTests.tableIndex, rowIdx, dateCol);
+              if (date) applicationData[`languageTestDate${langIndex}`] = date;
             }
             
-            // 전공은 여러 개일 수 있으므로 (최대 4개)
-            if (majorCol >= 0 && majorCol < row.cells.length) {
-              const major = row.cells[majorCol].text.trim();
-              if (major) {
-                applicationData[`graduateSchoolMajor${gradIndex}_1`] = major;
-              }
-            }
-            
-            if (gpaCol >= 0 && gpaCol < row.cells.length) {
-              const gpa = row.cells[gpaCol].text.trim();
-              if (gpa) {
-                applicationData[`graduateSchoolGPA${gradIndex}`] = gpa;
-              }
-            }
-            
-            if (maxGpaCol >= 0 && maxGpaCol < row.cells.length) {
-              const maxGpa = row.cells[maxGpaCol].text.trim();
-              if (maxGpa) {
-                applicationData[`graduateSchoolGPAMax${gradIndex}`] = maxGpa;
-              }
-            }
-            
-            gradIndex++;
+            langIndex++;
           }
         }
       }
     }
   }
   
-  // 6. 주소 정보 추출 및 거주지 분류
-  if (mappingConfig.address) {
-    const addressInfo = mappingConfig.address;
-    if (addressInfo.tableIndex >= 0 && addressInfo.tableIndex < tables.length) {
-      let addressText = '';
+  // 6. 해외연수 정보 추출
+  if (mappingConfig.overseasTraining) {
+    const training = mappingConfig.overseasTraining;
+    if (training.tableIndex >= 0 && training.tableIndex < tables.length) {
+      const headerRowIndex = training.headerRowIndex ?? 0;
+      const dataStartRowIndex = training.dataStartRowIndex ?? headerRowIndex + 1;
+      const dataEndRowIndex = training.dataEndRowIndex ?? dataStartRowIndex;
+      const countryCol = resolveColumnIndex(tables, training.tableIndex, training.countryColumn, headerRowIndex);
+      const durationCol = resolveColumnIndex(tables, training.tableIndex, training.durationColumn, headerRowIndex);
+      const purposeCol = resolveColumnIndex(tables, training.tableIndex, training.purposeColumn, headerRowIndex);
+      const maxCount = training.maxCount ?? 3;
       
-      if (addressInfo.rowIndex !== undefined) {
-        // 직접 인덱스로 찾기
-        if (typeof addressInfo.rowIndex === 'number') {
-          const col = typeof addressInfo.addressColumn === 'number' 
-            ? addressInfo.addressColumn 
-            : resolveColumnIndex(tables, addressInfo.tableIndex, addressInfo.addressColumn, addressInfo.rowIndex);
-          if (col >= 0) {
-            addressText = getCellValue(tables, addressInfo.tableIndex, addressInfo.rowIndex, col);
+      const table = tables[training.tableIndex];
+      let trainingIndex = 1;
+      
+      for (let rowIdx = dataStartRowIndex; rowIdx <= dataEndRowIndex && rowIdx < table.rows.length && trainingIndex <= maxCount; rowIdx++) {
+        const row = table.rows[rowIdx];
+        
+        if (countryCol >= 0 && countryCol < row.cells.length) {
+          const country = safeGetCellValue(tables, training.tableIndex, rowIdx, countryCol);
+          if (country) {
+            applicationData[`overseasTrainingCountry${trainingIndex}`] = country;
+            
+            if (durationCol >= 0 && durationCol < row.cells.length) {
+              const duration = safeGetCellValue(tables, training.tableIndex, rowIdx, durationCol);
+              if (duration) applicationData[`overseasTrainingDuration${trainingIndex}`] = duration;
+            }
+            
+            if (purposeCol >= 0 && purposeCol < row.cells.length) {
+              const purpose = safeGetCellValue(tables, training.tableIndex, rowIdx, purposeCol);
+              if (purpose) applicationData[`overseasTrainingPurpose${trainingIndex}`] = purpose;
+            }
+            
+            trainingIndex++;
           }
-        } else {
-          // 검색으로 찾기
-          const pos = resolveCellPosition(tables, addressInfo.tableIndex, addressInfo.rowIndex);
-          if (pos) {
-            addressText = getCellValue(tables, addressInfo.tableIndex, pos.rowIndex, pos.cellIndex);
-          }
-        }
-      } else if (addressInfo.addressColumn !== undefined) {
-        // 열만 지정된 경우 (첫 번째 행에서 찾기)
-        const col = resolveColumnIndex(tables, addressInfo.tableIndex, addressInfo.addressColumn, 0);
-        if (col >= 0) {
-          addressText = getCellValue(tables, addressInfo.tableIndex, 0, col);
         }
       }
+    }
+  }
+  
+  // 7. 수상경력 정보 추출
+  if (mappingConfig.awards) {
+    const awards = mappingConfig.awards;
+    if (awards.tableIndex >= 0 && awards.tableIndex < tables.length) {
+      const headerRowIndex = awards.headerRowIndex ?? 0;
+      const dataStartRowIndex = awards.dataStartRowIndex ?? headerRowIndex + 1;
+      const dataEndRowIndex = awards.dataEndRowIndex ?? dataStartRowIndex;
+      const nameCol = resolveColumnIndex(tables, awards.tableIndex, awards.nameColumn, headerRowIndex);
+      const orgCol = resolveColumnIndex(tables, awards.tableIndex, awards.organizationColumn, headerRowIndex);
+      const detailCol = resolveColumnIndex(tables, awards.tableIndex, awards.detailColumn, headerRowIndex);
+      const maxCount = awards.maxCount ?? 3;
       
-      if (addressText) {
-        const residence = classifyResidence(addressText);
-        if (residence) {
-          applicationData.residence = residence;
+      const table = tables[awards.tableIndex];
+      let awardIndex = 1;
+      
+      for (let rowIdx = dataStartRowIndex; rowIdx <= dataEndRowIndex && rowIdx < table.rows.length && awardIndex <= maxCount; rowIdx++) {
+        const row = table.rows[rowIdx];
+        
+        if (nameCol >= 0 && nameCol < row.cells.length) {
+          const awardName = safeGetCellValue(tables, awards.tableIndex, rowIdx, nameCol);
+          if (awardName) {
+            applicationData[`awardName${awardIndex}`] = awardName;
+            
+            if (orgCol >= 0 && orgCol < row.cells.length) {
+              const org = safeGetCellValue(tables, awards.tableIndex, rowIdx, orgCol);
+              if (org) applicationData[`awardOrganization${awardIndex}`] = org;
+            }
+            
+            if (detailCol >= 0 && detailCol < row.cells.length) {
+              const detail = safeGetCellValue(tables, awards.tableIndex, rowIdx, detailCol);
+              if (detail) applicationData[`awardDetail${awardIndex}`] = detail;
+            }
+            
+            awardIndex++;
+          }
         }
       }
+    }
+  }
+  
+  // 8. 자기소개서 추출
+  if (mappingConfig.selfIntroduction) {
+    const selfIntro = mappingConfig.selfIntroduction;
+    if (selfIntro.tableIndex >= 0 && selfIntro.tableIndex < tables.length) {
+      selfIntro.answers.forEach((answer, index) => {
+        const answerText = safeGetCellValue(tables, selfIntro.tableIndex, answer.rowIndex, answer.cellIndex);
+        applicationData[`selfIntroduction${index + 1}`] = answerText;
+      });
+    }
+  }
+  
+  // 9. 경력기술 상세 추출 (테이블 6)
+  if (mappingConfig.careerDetails) {
+    const careerDetails = mappingConfig.careerDetails;
+    if (careerDetails.tableIndex >= 0 && careerDetails.tableIndex < tables.length) {
+      const maxCount = careerDetails.maxCount ?? 4;
+      const table = tables[careerDetails.tableIndex];
+      
+      careerDetails.blocks.slice(0, maxCount).forEach((block, index) => {
+        const detailIndex = index + 1;
+        
+        // 데이터 행에서 정보 추출 (row 2, 6, 10, 14)
+        if (block.dataRowIndex < table.rows.length) {
+          const dataRow = table.rows[block.dataRowIndex];
+          
+          const startDate = safeGetCellValue(tables, careerDetails.tableIndex, block.dataRowIndex, careerDetails.startDateColumn);
+          if (startDate) applicationData[`careerDetailStartDate${detailIndex}`] = startDate;
+          
+          const endDate = safeGetCellValue(tables, careerDetails.tableIndex, block.dataRowIndex, careerDetails.endDateColumn);
+          if (endDate) applicationData[`careerDetailEndDate${detailIndex}`] = endDate;
+          
+          const companyName = safeGetCellValue(tables, careerDetails.tableIndex, block.dataRowIndex, careerDetails.companyNameColumn);
+          if (companyName) applicationData[`careerDetailCompanyName${detailIndex}`] = companyName;
+          
+          const department = safeGetCellValue(tables, careerDetails.tableIndex, block.dataRowIndex, careerDetails.departmentColumn);
+          if (department) applicationData[`careerDetailDepartment${detailIndex}`] = department;
+          
+          const position = safeGetCellValue(tables, careerDetails.tableIndex, block.dataRowIndex, careerDetails.positionColumn);
+          if (position) applicationData[`careerDetailPosition${detailIndex}`] = position;
+          
+          const salary = safeGetCellValue(tables, careerDetails.tableIndex, block.dataRowIndex, careerDetails.salaryColumn);
+          if (salary) applicationData[`careerDetailSalary${detailIndex}`] = salary;
+          
+          const reason = safeGetCellValue(tables, careerDetails.tableIndex, block.dataRowIndex, careerDetails.reasonColumn);
+          if (reason) applicationData[`careerDetailReason${detailIndex}`] = reason;
+        }
+        
+        // 상세내용 행에서 정보 추출 (row 4, 8, 12, 16)
+        if (block.detailRowIndex < table.rows.length) {
+          const detailRow = table.rows[block.detailRowIndex];
+          const detail = safeGetCellValue(tables, careerDetails.tableIndex, block.detailRowIndex, careerDetails.detailColumn);
+          if (detail) applicationData[`careerDetailDescription${detailIndex}`] = detail;
+        }
+      });
     }
   }
   
