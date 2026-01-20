@@ -593,6 +593,20 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         return;
       }
 
+      // 모든 파일이 처리 완료되었는지 확인
+      const allFilesProcessed = results.every(r => 
+        r.status === 'completed' || r.status === 'error'
+      );
+
+      // 아직 처리 중인 파일이 있으면 대기
+      if (!allFilesProcessed && results.length > 0) {
+        console.log('[AI Analysis] Waiting for all files to be processed...', {
+          total: results.length,
+          completed: results.filter(r => r.status === 'completed' || r.status === 'error').length,
+        });
+        return;
+      }
+
       // 이미 AI 분석이 완료된 파일이 있는지 확인
       // aiChecked가 false이거나, aiChecked가 true이지만 aiGrade나 aiReport가 없으면 재분석 필요
       const needsAnalysis = results.filter(r => 
@@ -719,9 +733,10 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     };
 
     // 디바운싱: results가 빠르게 변경될 때를 대비하여 약간의 지연 후 실행
+    // 모든 파일이 처리 완료될 때까지 기다리기 위해 더 긴 지연 시간 사용
     const timeoutId = setTimeout(() => {
       runInitialAiAnalysis();
-    }, 100);
+    }, 500);
     
     return () => {
       clearTimeout(timeoutId);
