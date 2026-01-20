@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Search, ChevronUp, ChevronDown, Download, Info, AlertCircle, CheckCircle2, Filter } from 'lucide-react';
 import '../styles/result-view.css';
 
@@ -561,11 +561,14 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     });
   };
 
+  // AI 분석 실행 중 추적을 위한 ref
+  const isAiAnalysisRunning = useRef(false);
+
   // 이력서 처리 완료 후 AI 분석 실행
   useEffect(() => {
     const runInitialAiAnalysis = async () => {
       // 이미 AI 분석이 진행 중이면 중복 실행 방지
-      if (aiProcessing) {
+      if (isAiAnalysisRunning.current || aiProcessing) {
         console.log('[AI Analysis] Already processing, skipping...');
         return;
       }
@@ -599,6 +602,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       }
 
       console.log(`[AI Analysis] Starting analysis for ${needsAnalysis.length} files`);
+      isAiAnalysisRunning.current = true;
       setAiProcessing(true);
       if (onProcessingChange) {
         onProcessingChange(true);
@@ -612,7 +616,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                 filePath: result.filePath,
                 aiGrade: undefined,
                 aiReport: undefined,
-                aiChecked: false,
+                aiChecked: true, // 에러가 발생해도 aiChecked를 true로 설정하여 무한루프 방지
                 error: '이력서 데이터가 없습니다',
               };
             }
@@ -639,7 +643,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               filePath: result.filePath,
               aiGrade: undefined,
               aiReport: undefined,
-              aiChecked: false,
+              aiChecked: true, // 에러가 발생해도 aiChecked를 true로 설정하여 무한루프 방지
               error: error instanceof Error ? error.message : 'AI 분석 실패',
             };
           }
@@ -697,6 +701,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       } catch (error) {
         console.error('[AI Analysis] Overall error:', error);
       } finally {
+        isAiAnalysisRunning.current = false;
         setAiProcessing(false);
         if (onProcessingChange) {
           onProcessingChange(false);
@@ -705,7 +710,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     };
 
     runInitialAiAnalysis();
-  }, [results, userPrompt, selectedFiles, selectedFolder, onProcessingChange, aiProcessing]);
+  }, [results, userPrompt, selectedFiles, selectedFolder, onProcessingChange]);
 
   // AI 보고서 모달 열기
   const handleOpenAiReport = (report: string) => {
