@@ -49,11 +49,25 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
     }
     
     // Python 가상환경 활성화 스크립트 경로
-    const venvPython = projectRoot 
-      ? path.join(projectRoot, '.venv', 'bin', 'python3')
-      : null;
+    // Windows: .venv\Scripts\python.exe
+    // Linux/Mac: .venv/bin/python3
+    let venvPython: string | null = null;
+    if (projectRoot) {
+      const isWindows = process.platform === 'win32';
+      if (isWindows) {
+        venvPython = path.join(projectRoot, '.venv', 'Scripts', 'python.exe');
+      } else {
+        venvPython = path.join(projectRoot, '.venv', 'bin', 'python3');
+      }
+    }
     
-    const pythonCmd = venvPython && fs.existsSync(venvPython) ? venvPython : 'python3';
+    // Python 명령어 결정 (Windows는 python, Linux/Mac는 python3)
+    let pythonCmd: string;
+    if (venvPython && fs.existsSync(venvPython)) {
+      pythonCmd = venvPython;
+    } else {
+      pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    }
     
     // Python 스크립트 실행하여 JSON 출력 받기
     const { stdout, stderr } = await execFileAsync(pythonCmd, [scriptPath, filePath], {
