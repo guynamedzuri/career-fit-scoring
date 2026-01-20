@@ -28,6 +28,18 @@ def extract_table_structure(doc_path: str) -> dict:
     """
     DOCX 파일에서 모든 테이블과 셀의 구조를 추출
     
+    Args:
+        doc_path: DOCX 파일 경로 (한글/공백 포함 가능)
+    """
+    # 경로 정규화 (Windows 경로 처리)
+    doc_path = os.path.normpath(doc_path)
+    
+    # 파일 존재 확인
+    if not os.path.exists(doc_path):
+        return {
+            "error": f"File not found at '{doc_path}'"
+        }
+    
     Returns:
         dict: 테이블 구조 정보
     """
@@ -219,19 +231,29 @@ def save_json_output(structure: dict, output_path: str = "resume_form_structure.
 
 def main():
     if len(sys.argv) < 2:
-        print("사용법: python3 scripts/extract_resume_form_structure.py <docx_file>")
-        print("예시: python3 scripts/extract_resume_form_structure.py resume_form.docx")
+        error_msg = json.dumps({"error": "Usage: python3 scripts/extract_resume_form_structure.py <docx_file>"})
+        print(error_msg, file=sys.stderr)
         sys.exit(1)
     
     docx_path = sys.argv[1]
     
-    if not Path(docx_path).exists():
-        print(f"ERROR: 파일을 찾을 수 없습니다: {docx_path}", file=sys.stderr)
+    # 경로 정규화
+    docx_path = os.path.normpath(docx_path)
+    
+    if not os.path.exists(docx_path):
+        error_msg = json.dumps({"error": f"File not found at '{docx_path}'"})
+        print(error_msg, file=sys.stderr)
         sys.exit(1)
     
     try:
         # 구조 추출
         structure = extract_table_structure(docx_path)
+        
+        # 에러가 있으면 stderr로 출력하고 종료
+        if "error" in structure:
+            error_msg = json.dumps(structure)
+            print(error_msg, file=sys.stderr)
+            sys.exit(1)
         
         # JSON만 출력 (stdout으로 출력하여 Node.js에서 파싱 가능하도록)
         # stderr로는 요약 정보 출력 (선택적)
@@ -243,7 +265,7 @@ def main():
             print_structure_summary(structure, file=sys.stderr)
         
     except Exception as e:
-        error_msg = json.dumps({"error": str(e)})
+        error_msg = json.dumps({"error": f"Unexpected error: {str(e)}"})
         print(error_msg, file=sys.stderr)
         sys.exit(1)
 
