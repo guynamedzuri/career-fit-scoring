@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Search, ChevronUp, ChevronDown, Download, Info, AlertCircle, CheckCircle2, Filter } from 'lucide-react';
 import '../styles/result-view.css';
 
@@ -152,10 +152,27 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         
         // 처리할 파일이 있으면 처리 시작
         if (toProcess.length > 0 && window.electron?.processResume) {
-          processResumeFiles(toProcess);
-        } else if (results.some(r => r.status === 'completed' && r.applicationData && !r.aiChecked)) {
-          // 처리할 파일은 없지만 AI 분석이 필요한 파일이 있으면 AI 분석 시작
-          // (AI 분석은 별도 useEffect에서 처리됨)
+          // 로딩 시작
+          if (onProcessingChange) {
+            onProcessingChange(true);
+          }
+          // processResumeFiles는 비동기이므로 await 없이 호출
+          // 로딩 상태는 processResumeFiles 내부에서도 관리하지만 여기서도 시작
+          processResumeFiles(toProcess).catch(err => {
+            console.error('[Process] Error in processResumeFiles:', err);
+            if (onProcessingChange) {
+              onProcessingChange(false);
+            }
+          });
+        } else {
+          // 처리할 파일이 없고, AI 분석이 필요한 파일이 있으면 로딩 유지
+          // AI 분석이 필요한지 확인
+          const needsAiAnalysis = results.some(r => 
+            r.status === 'completed' && r.applicationData && !r.aiChecked
+          );
+          if (!needsAiAnalysis && onProcessingChange) {
+            onProcessingChange(false);
+          }
         }
       } catch (error) {
         console.error('[Cache] Error loading cache:', error);
@@ -180,9 +197,12 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
   }, [selectedFiles, selectedFolder]);
   
   // 이력서 파일 처리 함수
-  const processResumeFiles = async (filePaths: string[]) => {
+  const processResumeFiles = useCallback(async (filePaths: string[]) => {
     if (!window.electron?.processResume) {
       console.error('[Process] processResume not available');
+      if (onProcessingChange) {
+        onProcessingChange(false);
+      }
       return;
     }
     
@@ -266,14 +286,17 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       });
       
       await Promise.all(processPromises);
+      
+      // 모든 파일 처리 완료 후 AI 분석 시작 (결과가 업데이트된 후)
+      // AI 분석은 별도 useEffect에서 자동으로 실행됨
+      // 여기서는 로딩 상태를 유지하지 않음 (AI 분석이 별도로 로딩 상태 관리)
     } catch (error) {
       console.error('[Process] Overall error:', error);
-    } finally {
       if (onProcessingChange) {
         onProcessingChange(false);
       }
     }
-  };
+  }, [selectedFiles, selectedFolder, onProcessingChange]);
 
   // 검색 및 정렬된 결과
   const filteredAndSortedResults = useMemo(() => {
@@ -548,6 +571,9 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           hasFiles: selectedFiles.length > 0,
           hasElectron: !!window.electron?.aiCheckResume,
         });
+        if (onProcessingChange) {
+          onProcessingChange(false);
+        }
         return;
       }
 
@@ -673,7 +699,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     };
 
     runInitialAiAnalysis();
-  }, [results, userPrompt, selectedFiles, selectedFolder]);
+  }, [results, userPrompt, selectedFiles, selectedFolder, onProcessingChange]);
 
   // AI 보고서 모달 열기
   const handleOpenAiReport = (report: string) => {
