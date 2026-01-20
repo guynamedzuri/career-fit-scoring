@@ -330,20 +330,33 @@ def call_azure_openai(prompt: str, system_prompt: str = None, max_tokens: int = 
     return None
 
 
-def generate_resume_data_with_ai(character_description: str = None) -> Optional[Dict]:
+def generate_resume_data_with_ai(character_description: str = None, field_description: str = None) -> Optional[Dict]:
     """AI를 사용해서 이력서의 모든 데이터를 JSON 형식으로 생성
     
     Args:
         character_description: 캐릭터 배경 설명 (예: "중위권 대학의 애매한 성적, 공대 졸업 생산직 진출")
+        field_description: 채용분야 설명 (예: "부품생산팀 PRESS분야 채용. 담당업무는 일반프레스(40~80톤) 설비 양산 운영...")
     """
     system_prompt = """당신은 이력서 작성 전문가입니다. 한국의 현실적이고 맥락 있는 이력서 데이터를 JSON 형식으로 생성해주세요.
 반드시 유효한 JSON 형식으로만 응답하고, 다른 설명은 포함하지 마세요."""
+
+    # 공통 프롬프트: LS오토모티브 회사 정보
+    company_info = """
+지원 회사 정보:
+- 회사명: LS오토모티브
+- 사업 분야: 자동차 인터페이스 제작 (창문, 의자조절 연동 스위치, 램프, 방향지시등레버 등)
+- 이력서는 이 회사에 지원하는 것으로 작성해주세요.
+"""
 
     character_context = ""
     if character_description:
         character_context = f"\n\n중요: 다음 캐릭터 배경에 맞게 이력서를 생성해주세요:\n{character_description}\n\n이 배경에 맞게 학교명, 학점, 전공, 회사명, 부서, 직위, 연봉 등을 현실적으로 설정해주세요."
 
-    prompt = """다음 형식의 JSON으로 한국인 이력서 데이터를 생성해주세요. 모든 데이터는 현실적이고 일관성 있게 만들어주세요.""" + character_context + """
+    field_context = ""
+    if field_description:
+        field_context = f"\n\n중요: 다음 채용분야에 맞게 이력서를 생성해주세요:\n{field_description}\n\n이 채용분야에 적합한 경력, 전공, 자격증 등을 포함하여 현실적으로 설정해주세요."
+
+    prompt = company_info + """다음 형식의 JSON으로 한국인 이력서 데이터를 생성해주세요. 모든 데이터는 현실적이고 일관성 있게 만들어주세요.""" + character_context + field_context + """
 
 {{
   "basicInfo": {{
@@ -412,8 +425,15 @@ def generate_resume_data_with_ai(character_description: str = None) -> Optional[
         return None
 
 
-def generate_self_introduction(use_ai: bool = False, name: str = "", career_info: List[Dict] = None) -> List[str]:
-    """자기소개서 생성 (4개 항목)"""
+def generate_self_introduction(use_ai: bool = False, name: str = "", career_info: List[Dict] = None, field_description: str = None) -> List[str]:
+    """자기소개서 생성 (4개 항목)
+    
+    Args:
+        use_ai: AI 사용 여부
+        name: 이름
+        career_info: 경력 정보
+        field_description: 채용분야 설명
+    """
     topics = [
         "지원동기 및 입사 후 포부",
         "성장과정 및 강점",
@@ -424,6 +444,13 @@ def generate_self_introduction(use_ai: bool = False, name: str = "", career_info
     introductions = []
     
     if use_ai:
+        # 공통 프롬프트: LS오토모티브 회사 정보
+        company_info = """
+지원 회사 정보:
+- 회사명: LS오토모티브
+- 사업 분야: 자동차 인터페이스 제작 (창문, 의자조절 연동 스위치, 램프, 방향지시등레버 등)
+"""
+        
         for i, topic in enumerate(topics):
             # AI로 생성
             system_prompt = "당신은 이력서 작성 전문가입니다. 자연스럽고 전문적인 자기소개서를 작성해주세요."
@@ -434,11 +461,15 @@ def generate_self_introduction(use_ai: bool = False, name: str = "", career_info
                 for career in career_info[:3]:
                     career_summary += f"- {career['company']} {career['department']} {career['position']} ({career['start']} ~ {career['end']})\n"
             
-            prompt = f"""다음 주제에 대해 자기소개서를 작성해주세요. 200-300자 정도로 자연스럽고 전문적으로 작성해주세요.
+            field_info = ""
+            if field_description:
+                field_info = f"\n\n채용분야 정보:\n{field_description}\n\n이 채용분야에 맞게 자기소개서를 작성해주세요."
+            
+            prompt = company_info + f"""다음 주제에 대해 자기소개서를 작성해주세요. 200-300자 정도로 자연스럽고 전문적으로 작성해주세요.
 
 주제: {topic}
 이름: {name}
-{career_summary}
+{career_summary}{field_info}
 
 자기소개서 내용만 작성해주세요. 주제나 제목은 포함하지 마세요."""
 
@@ -493,7 +524,7 @@ def generate_career_detail(use_ai: bool = False, career: Dict = None) -> str:
         return f"{career['company']} {career['department']}에서 {career['position']}으로 근무하며 다양한 업무를 수행했습니다. 주요 업무는 {random.choice(['프로젝트 관리', '개발', '기획', '마케팅', '영업', '품질관리'])}였으며, 이를 통해 전문성을 키웠습니다."
 
 
-def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False, character_description: str = None):
+def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False, character_description: str = None, field_description: str = None):
     """이력서 양식에 더미 데이터 채우기
     
     Args:
@@ -501,6 +532,7 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False,
         output_path: 출력 파일 경로
         use_ai: AI 사용 여부
         character_description: 캐릭터 배경 설명 (AI 사용 시)
+        field_description: 채용분야 설명 (AI 사용 시)
     """
     try:
         doc = Document(template_path)
@@ -517,7 +549,7 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False,
                 print(f"  AI로 이력서 데이터 생성 중 (캐릭터: {character_description[:30]}...)...", end=' ')
             else:
                 print("  AI로 이력서 데이터 생성 중...", end=' ')
-            ai_data = generate_resume_data_with_ai(character_description)
+            ai_data = generate_resume_data_with_ai(character_description, field_description)
             if ai_data:
                 # AI 생성 데이터 사용
                 basic_info = ai_data.get('basicInfo', {})
@@ -568,7 +600,7 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False,
         # AI로 자기소개서 생성
         if use_ai:
             print("  AI로 자기소개서 생성 중...", end=' ')
-        self_intros = generate_self_introduction(use_ai, korean_name, careers)
+        self_intros = generate_self_introduction(use_ai, korean_name, careers, field_description)
         if use_ai:
             print("완료")
         
@@ -772,6 +804,7 @@ def main():
     parser.add_argument('--output-dir', type=str, default='./generated_resumes', help='출력 디렉토리 (기본값: ./generated_resumes)')
     parser.add_argument('--use-ai', action='store_true', help='AI를 사용해서 자기소개서 및 경력기술서 생성 (선택적, Azure OpenAI 필요)')
     parser.add_argument('--char', '--character', type=str, default=None, dest='character', help='캐릭터 배경 설명 (예: "중위권 대학의 애매한 성적, 공대 졸업 생산직 진출") - AI 사용 시에만 적용')
+    parser.add_argument('--field', type=str, default=None, dest='field', help='채용분야 설명 (예: "부품생산팀 PRESS분야 채용. 담당업무는 일반프레스(40~80톤) 설비 양산 운영...") - AI 사용 시에만 적용')
     parser.add_argument('--template', type=str, default='resume_form.docx', help='템플릿 파일 경로 (기본값: resume_form.docx)')
     
     args = parser.parse_args()
@@ -802,12 +835,20 @@ def main():
         print("  --use-ai 옵션을 추가하거나 --char 옵션을 제거하세요.")
         args.character = None
     
+    # 채용분야 설명이 있는데 AI를 사용하지 않는 경우 경고
+    if args.field and not args.use_ai:
+        print("WARNING: --field 옵션은 --use-ai와 함께 사용해야 합니다.")
+        print("  --use-ai 옵션을 추가하거나 --field 옵션을 제거하세요.")
+        args.field = None
+    
     print(f"템플릿: {template_path}")
     print(f"출력 디렉토리: {output_dir}")
     print(f"생성 개수: {args.count}")
     print(f"AI 사용: {'예' if args.use_ai else '아니오'}")
     if args.character:
         print(f"캐릭터 배경: {args.character}")
+    if args.field:
+        print(f"채용분야: {args.field[:60]}..." if len(args.field) > 60 else f"채용분야: {args.field}")
     print()
     
     # 더미 이력서 생성
@@ -817,7 +858,7 @@ def main():
         
         # 임시 파일로 먼저 생성
         temp_path = output_dir / f"temp_{uuid.uuid4().hex[:8]}.docx"
-        name = fill_resume_form(template_path, str(temp_path), args.use_ai, args.character)
+        name = fill_resume_form(template_path, str(temp_path), args.use_ai, args.character, args.field)
         
         if name:
             # 이름_고유번호.docx 형식으로 저장
