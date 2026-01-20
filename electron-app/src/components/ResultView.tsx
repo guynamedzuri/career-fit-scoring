@@ -564,6 +564,12 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
   // 이력서 처리 완료 후 AI 분석 실행
   useEffect(() => {
     const runInitialAiAnalysis = async () => {
+      // 이미 AI 분석이 진행 중이면 중복 실행 방지
+      if (aiProcessing) {
+        console.log('[AI Analysis] Already processing, skipping...');
+        return;
+      }
+      
       if (!userPrompt || !userPrompt.jobDescription || userPrompt.jobDescription.trim() === '' || selectedFiles.length === 0 || !window.electron?.aiCheckResume) {
         console.log('[AI Analysis] Skipping - missing requirements:', {
           hasUserPrompt: !!userPrompt,
@@ -699,7 +705,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     };
 
     runInitialAiAnalysis();
-  }, [results, userPrompt, selectedFiles, selectedFolder, onProcessingChange]);
+  }, [results, userPrompt, selectedFiles, selectedFolder, onProcessingChange, aiProcessing]);
 
   // AI 보고서 모달 열기
   const handleOpenAiReport = (report: string) => {

@@ -1553,15 +1553,24 @@ ipcMain.handle('ai-check-resume', async (event, data: {
     // 이력서 데이터를 텍스트로 변환
     const resumeText = formatResumeDataForAI(data.applicationData);
     
+    // userPrompt 검증
+    if (!data.userPrompt) {
+      throw new Error('userPrompt가 제공되지 않았습니다.');
+    }
+    
+    if (!data.userPrompt.jobDescription || !data.userPrompt.jobDescription.trim()) {
+      throw new Error('jobDescription이 비어있습니다.');
+    }
+    
     // AI 프롬프트 구성
     const systemPrompt = `당신은 채용 담당자입니다. 이력서의 경력을 분석하여 업무 내용과의 적합도를 평가하고 등급을 부여해야 합니다.
 
 등급 체계:
-- 최상: ${data.userPrompt.gradeCriteria.최상 || '하위 등급의 모든 조건을 만족하는 경우'}
-- 상: ${data.userPrompt.gradeCriteria.상 || '중 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
-- 중: ${data.userPrompt.gradeCriteria.중 || '하 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
-- 하: ${data.userPrompt.gradeCriteria.하 || '기본 조건을 만족하는 경우'}
-- 최하: ${data.userPrompt.gradeCriteria.최하 || '기본 조건을 만족하지 못하는 경우'}
+- 최상: ${data.userPrompt.gradeCriteria?.최상 || '하위 등급의 모든 조건을 만족하는 경우'}
+- 상: ${data.userPrompt.gradeCriteria?.상 || '중 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
+- 중: ${data.userPrompt.gradeCriteria?.중 || '하 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
+- 하: ${data.userPrompt.gradeCriteria?.하 || '기본 조건을 만족하는 경우'}
+- 최하: ${data.userPrompt.gradeCriteria?.최하 || '기본 조건을 만족하지 못하는 경우'}
 
 응답 형식:
 1. 등급: [최상/상/중/하/최하 중 하나]
@@ -1571,25 +1580,25 @@ ipcMain.handle('ai-check-resume', async (event, data: {
 5. 종합 의견: [2-3문단으로 상세 분석]`;
 
     let userPromptText = `업무 내용:
-${data.userPrompt.jobDescription || '업무 내용이 없습니다.'}
+${data.userPrompt?.jobDescription || '업무 내용이 없습니다.'}
 
 `;
 
-    if (data.userPrompt.requiredQualifications.trim()) {
+    if (data.userPrompt?.requiredQualifications && data.userPrompt.requiredQualifications.trim()) {
       userPromptText += `필수 요구사항:
 ${data.userPrompt.requiredQualifications}
 
 `;
     }
 
-    if (data.userPrompt.preferredQualifications.trim()) {
+    if (data.userPrompt?.preferredQualifications && data.userPrompt.preferredQualifications.trim()) {
       userPromptText += `우대 사항:
 ${data.userPrompt.preferredQualifications}
 
 `;
     }
 
-    if (data.userPrompt.requiredCertifications.length > 0) {
+    if (data.userPrompt?.requiredCertifications && data.userPrompt.requiredCertifications.length > 0) {
       userPromptText += `필수 자격증:
 ${data.userPrompt.requiredCertifications.join(', ')}
 
