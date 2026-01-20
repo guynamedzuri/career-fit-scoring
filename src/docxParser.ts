@@ -31,9 +31,9 @@ export interface RawTableCell {
  */
 export async function extractTablesFromDocx(filePath: string): Promise<RawTableData[]> {
   // Python 스크립트를 사용하여 DOCX 파싱
-  const { execFile } = require('child_process');
+  const { exec } = require('child_process');
   const { promisify } = require('util');
-  const execFileAsync = promisify(execFile);
+  const execAsync = promisify(exec);
   const path = require('path');
   const fs = require('fs');
   
@@ -71,10 +71,16 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
     
     // Python 스크립트 실행하여 JSON 출력 받기
     // Windows에서 경로에 공백이 있으면 따옴표로 감싸기
-    const args = [scriptPath, filePath];
-    const { stdout, stderr } = await execFileAsync(pythonCmd, args, {
+    // exec를 사용하여 경로 문제 해결
+    const isWindows = process.platform === 'win32';
+    const pythonCmdQuoted = isWindows ? `"${pythonCmd}"` : pythonCmd;
+    const scriptPathQuoted = isWindows ? `"${scriptPath}"` : scriptPath;
+    const filePathQuoted = isWindows ? `"${filePath}"` : filePath;
+    const command = `${pythonCmdQuoted} ${scriptPathQuoted} ${filePathQuoted}`;
+    
+    const { stdout, stderr } = await execAsync(command, {
       maxBuffer: 10 * 1024 * 1024, // 10MB 버퍼
-      shell: process.platform === 'win32', // Windows에서 shell 사용 (경로 문제 해결)
+      shell: true, // shell 사용하여 경로 문제 해결
     });
     
     // stderr에 에러가 있으면 확인
