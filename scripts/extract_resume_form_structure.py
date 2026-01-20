@@ -74,6 +74,22 @@ def extract_table_structure(doc_path: str) -> dict:
         
         # python-docx로 파일 열기
         # Windows에서 한글 경로를 처리하기 위해 파일을 직접 열어서 전달
+        # zipfile을 사용하여 DOCX 파일이 유효한지 먼저 확인
+        import zipfile
+        try:
+            with zipfile.ZipFile(abs_path, 'r') as zip_ref:
+                # DOCX는 ZIP 파일이므로 먼저 ZIP으로 열 수 있는지 확인
+                pass
+        except zipfile.BadZipFile:
+            return {
+                "error": f"File is not a valid DOCX file (not a valid ZIP archive): '{doc_path}'"
+            }
+        except Exception as zip_error:
+            return {
+                "error": f"Failed to open file as ZIP (DOCX files are ZIP archives): '{doc_path}'. Error: {str(zip_error)}"
+            }
+        
+        # 이제 python-docx로 열기
         doc = Document(abs_path)
     except FileNotFoundError:
         return {
