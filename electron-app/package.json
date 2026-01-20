@@ -8,10 +8,11 @@
     "email": ""
   },
   "scripts": {
-    "dev": "npm run build:electron:dev && concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev": "npm run build:career-fit-scoring && npm run build:electron:dev && concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
     "dev:electron": "wait-on http://localhost:5173 -t 30000 && electron .",
     "build:electron:dev": "tsc -p tsconfig.electron.json",
+    "build:career-fit-scoring": "cd .. && npx tsc && cd electron-app",
     "build": "npm install && npm run build:all && electron-builder",
     "build:all": "npm run build:electron:dev && vite build",
     "build:win": "node -e \"const fs=require('fs'); if(!fs.existsSync('icon.ico')){console.error('ERROR: icon.ico not found in current directory!'); process.exit(1);} console.log('icon.ico found:', fs.realpathSync('icon.ico'));\" && npm run build:all && electron-builder --win",
