@@ -534,6 +534,71 @@ def generate_career_detail(use_ai: bool = False, career: Dict = None) -> str:
         return f"{career['company']} {career['department']}에서 {career['position']}으로 근무하며 다양한 업무를 수행했습니다. 주요 업무는 {random.choice(['프로젝트 관리', '개발', '기획', '마케팅', '영업', '품질관리'])}였으며, 이를 통해 전문성을 키웠습니다."
 
 
+def extract_char_keywords(character_description: str) -> str:
+    """char 설명에서 핵심 키워드 추출하여 파일명용 짧은 문자열 생성"""
+    if not character_description:
+        return ""
+    
+    keywords = []
+    char_lower = character_description.lower()
+    
+    # 학력 키워드
+    if '고졸' in character_description:
+        keywords.append('고졸')
+    elif '대졸(2~3년제)' in character_description or '전문대' in character_description or '2~3년제' in character_description:
+        keywords.append('전문대')
+    elif '대졸(4년제)' in character_description or '4년제' in character_description:
+        keywords.append('대졸4년')
+    elif '대졸' in character_description:
+        keywords.append('대졸')
+    
+    # 전공 키워드
+    if '기계과' in character_description or '기계공학' in character_description:
+        keywords.append('기계')
+    elif '공학' in character_description and '공학과는' not in character_description:
+        keywords.append('공학')
+    elif '비공학' in character_description or '공학과는' in character_description or '공학과' in character_description and '제외' in character_description:
+        keywords.append('비공학')
+    
+    # 거주지 키워드
+    if '지방' in character_description:
+        keywords.append('지방')
+    elif '서울' in character_description or '수도권' in character_description:
+        keywords.append('수도권')
+    
+    # 직무 키워드
+    if '영업' in character_description:
+        keywords.append('영업')
+    elif '생산직' in character_description:
+        keywords.append('생산')
+    elif '연구직' in character_description:
+        keywords.append('연구')
+    
+    # 연차 키워드
+    if '1~2년차' in character_description or '1-2년차' in character_description:
+        keywords.append('1-2년')
+    elif '3~5년차' in character_description or '3-5년차' in character_description:
+        keywords.append('3-5년')
+    elif '3년차' in character_description:
+        keywords.append('3년')
+    
+    # 연봉 키워드
+    if '3000 초반' in character_description or '3000초반' in character_description:
+        keywords.append('연봉3천초')
+    elif '3000 중후반' in character_description or '3000중후반' in character_description:
+        keywords.append('연봉3천중후')
+    elif '4000' in character_description:
+        keywords.append('연봉4천')
+    
+    if keywords:
+        return '_' + '_'.join(keywords)
+    else:
+        # 키워드가 없으면 해시값의 앞 4자리 사용
+        import hashlib
+        hash_val = hashlib.md5(character_description.encode()).hexdigest()[:4]
+        return f'_{hash_val}'
+
+
 def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False, character_description: str = None, field_description: str = None):
     """이력서 양식에 더미 데이터 채우기
     
@@ -907,15 +972,19 @@ def main():
         name = fill_resume_form(template_path, str(temp_path), args.use_ai, args.character, args.field)
         
         if name:
-            # 이름_고유번호.docx 형식으로 저장
+            # 이름_고유번호[char키워드].docx 형식으로 저장
             unique_id = uuid.uuid4().hex[:8]
-            output_filename = f"{name}_{unique_id}.docx"
+            
+            # char 정보에서 키워드 추출
+            char_keywords = extract_char_keywords(args.character) if args.character else ""
+            
+            output_filename = f"{name}_{unique_id}{char_keywords}.docx"
             output_path = output_dir / output_filename
             
             # 파일명 중복 체크
             counter = 1
             while output_path.exists():
-                output_filename = f"{name}_{unique_id}_{counter}.docx"
+                output_filename = f"{name}_{unique_id}{char_keywords}_{counter}.docx"
                 output_path = output_dir / output_filename
                 counter += 1
             
