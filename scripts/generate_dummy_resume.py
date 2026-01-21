@@ -552,13 +552,13 @@ def extract_char_keywords(character_description: str) -> str:
     elif '대졸' in character_description:
         keywords.append('대졸')
     
-    # 전공 키워드
-    if '기계과' in character_description or '기계공학' in character_description:
-        keywords.append('기계')
-    elif '공학' in character_description and '공학과는' not in character_description:
-        keywords.append('공학')
-    elif '비공학' in character_description or '공학과는' in character_description or '공학과' in character_description and '제외' in character_description:
+    # 전공 키워드 (순서 중요: 제외 조건을 먼저 체크)
+    if '비공학' in character_description or ('공학과' in character_description and '제외' in character_description) or '공학과는' in character_description:
         keywords.append('비공학')
+    elif '기계과' in character_description or '기계공학' in character_description:
+        keywords.append('기계')
+    elif '공학' in character_description:
+        keywords.append('공학')
     
     # 거주지 키워드
     if '지방' in character_description:
