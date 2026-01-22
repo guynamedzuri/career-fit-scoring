@@ -937,20 +937,52 @@ function createWindow() {
       }, 300);
     };
     
-    // 메인 윈도우가 실제로 표시될 준비가 되었을 때 신호 전송
+    // 메인 윈도우 로드 시작
+    mainWindow.loadFile(indexPath);
+    
+    // 메인 윈도우가 표시될 준비가 되면 표시
     mainWindow.once('ready-to-show', () => {
       console.log('[Main] Window ready-to-show event fired');
       if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();
-        // 윈도우가 표시된 후 약간의 지연을 두고 신호 전송
-        setTimeout(() => {
-          sendReadySignal();
-        }, 500);
       }
     });
     
-    mainWindow.loadFile(indexPath);
+    // 간단한 방법: 메인 윈도우 생성 후 일정 시간 후 신호 전송
+    let signalSent = false;
+    const sendReadySignal = () => {
+      if (signalSent) {
+        return;
+      }
+      signalSent = true;
+      console.log('[Main] Sending ready signal to splash screen...');
+      
+      // 별도 스플래시 프로세스에 메인 프로세스 준비 신호 전달
+      const os = require('os');
+      const signalFile = path.join(os.tmpdir(), 'career-fit-scoring-main-ready');
+      try {
+        fs.writeFileSync(signalFile, 'ready', 'utf-8');
+        console.log('[Main] Signal file created at:', signalFile);
+        console.log('[Main] Signal file exists:', fs.existsSync(signalFile));
+      } catch (e) {
+        console.error('[Main] Failed to create signal file:', e);
+      }
+      
+      // 메인 프로세스의 스플래시 닫기
+      setTimeout(() => {
+        if (splashWindow) {
+          splashWindow.close();
+          splashWindow = null;
+        }
+      }, 300);
+    };
+    
+    // 메인 윈도우 생성 후 3초 후 신호 전송 (안전장치)
+    setTimeout(() => {
+      console.log('[Main] Timeout reached (3 seconds), sending signal...');
+      sendReadySignal();
+    }, 3000);
   }
 
   mainWindow.on('closed', () => {
