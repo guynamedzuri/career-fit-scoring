@@ -25,4 +25,6 @@ contextBridge.exposeInMainWorld('electron', {
   onUpdateError: (callback: (error: string) => void) => {
     ipcRenderer.on('update-error', (_, error) => callback(error));
   },
+  // 스플래시 닫기 신호
+  notifyAppReady: () => ipcRenderer.invoke('app-ready'),
 });
