@@ -1699,6 +1699,62 @@ ipcMain.handle('qnet-search-certifications', async () => {
 });
 
 // 공인민간자격증 파일 읽기 IPC 핸들러
+// 자격증 파싱 IPC 핸들러 추가
+ipcMain.handle('parse-official-certificates', async (event, fileContent: string) => {
+  try {
+    if (!extractTablesFromDocx || !mapResumeDataToApplicationData) {
+      await loadCareerFitScoring();
+    }
+    // career-fit-scoring 모듈에서 함수 가져오기
+    const { parseOfficialCertificates } = require('career-fit-scoring');
+    return parseOfficialCertificates(fileContent);
+  } catch (e: any) {
+    try {
+      const module = require('../../src/index');
+      return module.parseOfficialCertificates(fileContent);
+    } catch (e2: any) {
+      writeLog(`[Parse Official Certs] Error: ${e2.message || e2}`, 'error');
+      throw e2;
+    }
+  }
+});
+
+ipcMain.handle('parse-additional-national-certificates', async (event, content: string) => {
+  try {
+    if (!extractTablesFromDocx || !mapResumeDataToApplicationData) {
+      await loadCareerFitScoring();
+    }
+    const { parseAdditionalNationalCertificates } = require('career-fit-scoring');
+    return parseAdditionalNationalCertificates(content);
+  } catch (e: any) {
+    try {
+      const module = require('../../src/index');
+      return module.parseAdditionalNationalCertificates(content);
+    } catch (e2: any) {
+      writeLog(`[Parse Additional Certs] Error: ${e2.message || e2}`, 'error');
+      throw e2;
+    }
+  }
+});
+
+ipcMain.handle('get-additional-national-certificates', async () => {
+  try {
+    if (!extractTablesFromDocx || !mapResumeDataToApplicationData) {
+      await loadCareerFitScoring();
+    }
+    const { ADDITIONAL_NATIONAL_CERTIFICATES } = require('career-fit-scoring');
+    return ADDITIONAL_NATIONAL_CERTIFICATES;
+  } catch (e: any) {
+    try {
+      const module = require('../../src/index');
+      return module.ADDITIONAL_NATIONAL_CERTIFICATES;
+    } catch (e2: any) {
+      writeLog(`[Get Additional Certs] Error: ${e2.message || e2}`, 'error');
+      throw e2;
+    }
+  }
+});
+
 ipcMain.handle('read-official-certificates', async () => {
   try {
     console.log('[Official Certs IPC] Starting file search...');

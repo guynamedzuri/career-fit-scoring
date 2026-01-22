@@ -4,6 +4,9 @@ contextBridge.exposeInMainWorld('electron', {
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   qnetSearchCertifications: () => ipcRenderer.invoke('qnet-search-certifications'),
   readOfficialCertificates: () => ipcRenderer.invoke('read-official-certificates'),
+  parseOfficialCertificates: (fileContent: string) => ipcRenderer.invoke('parse-official-certificates', fileContent),
+  parseAdditionalNationalCertificates: (content: string) => ipcRenderer.invoke('parse-additional-national-certificates', content),
+  getAdditionalNationalCertificates: () => ipcRenderer.invoke('get-additional-national-certificates'),
   getDocxFiles: (folderPath: string) => ipcRenderer.invoke('get-docx-files', folderPath),
   aiCheckResume: (data: { applicationData: any; userPrompt: any; fileName: string }) =>
     ipcRenderer.invoke('ai-check-resume', data),

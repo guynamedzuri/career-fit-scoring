@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { parseOfficialCertificates, parseAdditionalNationalCertificates, ADDITIONAL_NATIONAL_CERTIFICATES } from 'career-fit-scoring';
+// career-fit-scoring은 Node.js 전용이므로 IPC로 처리
 import '../styles/job-config-form.css';
 
 // Electron API 타입
@@ -9,6 +9,9 @@ declare global {
       selectFolder: () => Promise<string | null>;
       qnetSearchCertifications: () => Promise<string[]>;
       readOfficialCertificates: () => Promise<string | null>;
+      parseOfficialCertificates: (fileContent: string) => Promise<string[]>;
+      parseAdditionalNationalCertificates: (content: string) => Promise<string[]>;
+      getAdditionalNationalCertificates: () => Promise<string>;
     };
   }
 }
@@ -168,11 +171,15 @@ export default function JobConfigForm({
         if (window.electron?.readOfficialCertificates) {
           const fileContent = await window.electron.readOfficialCertificates();
           if (fileContent) {
-            const officialCerts = parseOfficialCertificates(fileContent);
-            officialCerts.forEach(cert => {
-              allCerts.push({ name: cert });
-            });
-            console.log('[Load Certs] Official: Loaded', officialCerts.length, 'certifications');
+            if (window.electron?.parseOfficialCertificates) {
+              const officialCerts = await window.electron.parseOfficialCertificates(fileContent);
+              officialCerts.forEach(cert => {
+                allCerts.push({ name: cert });
+              });
+              console.log('[Load Certs] Official: Loaded', officialCerts.length, 'certifications');
+            } else {
+              console.warn('[Load Certs] parseOfficialCertificates not available');
+            }
           } else {
             console.warn('[Load Certs] Official certs file not found');
           }
@@ -185,10 +192,15 @@ export default function JobConfigForm({
       
       // 추가 국가자격증
       try {
-        const additionalCerts = parseAdditionalNationalCertificates(ADDITIONAL_NATIONAL_CERTIFICATES);
-        additionalCerts.forEach(certName => {
-          allCerts.push({ name: certName });
-        });
+        if (window.electron?.getAdditionalNationalCertificates && window.electron?.parseAdditionalNationalCertificates) {
+          const additionalCertsContent = await window.electron.getAdditionalNationalCertificates();
+          const additionalCerts = await window.electron.parseAdditionalNationalCertificates(additionalCertsContent);
+          additionalCerts.forEach(certName => {
+            allCerts.push({ name: certName });
+          });
+        } else {
+          console.warn('[Load Certs] Additional certs functions not available');
+        }
       } catch (error) {
         console.error('[Load Certs] Additional certs error:', error);
       }
