@@ -836,7 +836,6 @@ function createWindow() {
       if (signalSent) return;
       signalSent = true;
       
-      console.log('Page loaded successfully');
       if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();
@@ -863,7 +862,6 @@ function createWindow() {
     
     // DOM이 준비되고 페이지 로드가 완료된 후 신호 전송
     mainWindow.webContents.once('dom-ready', () => {
-      console.log('DOM ready');
       // DOM이 준비된 후 약간의 지연을 두어 React 앱이 렌더링될 시간을 줌
       setTimeout(() => {
         sendReadySignal();
@@ -871,7 +869,7 @@ function createWindow() {
     });
     
     mainWindow.webContents.once('did-finish-load', () => {
-      console.log('Page load finished');
+      console.log('Page loaded successfully');
       // did-finish-load도 확인하되, dom-ready가 먼저 처리되도록 함
       setTimeout(() => {
         sendReadySignal();
@@ -905,7 +903,6 @@ function createWindow() {
       if (signalSent) return;
       signalSent = true;
       
-      console.log('Page loaded successfully');
       if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();
@@ -932,7 +929,6 @@ function createWindow() {
     
     // DOM이 준비되고 페이지 로드가 완료된 후 신호 전송
     mainWindow.webContents.once('dom-ready', () => {
-      console.log('DOM ready');
       // DOM이 준비된 후 약간의 지연을 두어 React 앱이 렌더링될 시간을 줌
       setTimeout(() => {
         sendReadySignal();
@@ -940,7 +936,7 @@ function createWindow() {
     });
     
     mainWindow.webContents.once('did-finish-load', () => {
-      console.log('Page load finished');
+      console.log('Page loaded successfully');
       // did-finish-load도 확인하되, dom-ready가 먼저 처리되도록 함
       setTimeout(() => {
         sendReadySignal();
