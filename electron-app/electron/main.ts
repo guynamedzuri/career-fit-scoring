@@ -946,14 +946,19 @@ function startSplashServer(): number {
     
     // 포트 번호를 파일에 저장 (스플래시 프로세스가 읽을 수 있도록)
     const os = require('os');
-    const portFile = path.join(os.tmpdir(), 'career-fit-scoring-splash-port');
+    const tmpDir = os.tmpdir();
+    console.log(`[Main] os.tmpdir() returned: ${tmpDir}`);
+    const portFile = path.join(tmpDir, 'career-fit-scoring-splash-port');
+    console.log(`[Main] Port file path: ${portFile}`);
     try {
       fs.writeFileSync(portFile, port.toString(), 'utf-8');
       console.log(`[Main] Port number (${port}) saved to: ${portFile}`);
       console.log(`[Main] Port file exists: ${fs.existsSync(portFile)}`);
-      console.log(`[Main] Port file content: "${fs.readFileSync(portFile, 'utf-8')}"`);
+      const savedContent = fs.readFileSync(portFile, 'utf-8');
+      console.log(`[Main] Port file content: "${savedContent}"`);
     } catch (e) {
       console.error('[Main] Failed to save port number:', e);
+      console.error('[Main] Error details:', e.message, e.stack);
     }
   });
   
