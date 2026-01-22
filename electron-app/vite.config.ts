@@ -23,6 +23,10 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    commonjsOptions: {
+      include: [/certificateParser\.js$/, /node_modules/],
+      transformMixedEsModules: true,
+    },
   },
   optimizeDeps: {
     include: ['career-fit-scoring'],
