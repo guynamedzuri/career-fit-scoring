@@ -71,7 +71,7 @@ app.whenReady().then(() => {
   <div class="logo">이력서 AI 분석</div>
   <div class="message">준비 중...</div>
   <div class="spinner"></div>
-  <div class="version">Version 1.0.78</div>
+  <div class="version">Version 1.1.0</div>
 </body>
 </html>
   `;
