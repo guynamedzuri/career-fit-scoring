@@ -30,13 +30,17 @@ function App() {
     const notifyReady = async () => {
       console.log('[App] notifyReady function called');
       try {
-        console.log('[App] Checking electron object:', (window as any).electron);
-        if ((window as any).electron?.notifyAppReady) {
+        const electron = (window as any).electron;
+        console.log('[App] Checking electron object:', electron);
+        console.log('[App] electron keys:', electron ? Object.keys(electron) : 'electron is null/undefined');
+        
+        if (electron?.notifyAppReady) {
           console.log('[App] Calling notifyAppReady...');
-          await (window as any).electron.notifyAppReady();
+          await electron.notifyAppReady();
           console.log('[App] App ready signal sent to main process');
         } else {
           console.error('[App] electron.notifyAppReady is not available');
+          console.error('[App] Available electron methods:', electron ? Object.keys(electron).join(', ') : 'none');
         }
       } catch (error) {
         console.error('[App] Failed to send app ready signal:', error);
