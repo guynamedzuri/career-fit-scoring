@@ -112,42 +112,55 @@ if (fs.existsSync(signalFile)) {
 console.log('[Splash] Waiting for main process signal at:', signalFile);
 
 // 메인 프로세스 준비 신호 확인 (500ms마다 체크)
+let signalDetected = false;
 const checkInterval = setInterval(() => {
+  if (signalDetected) {
+    return; // 이미 처리됨
+  }
+  
   if (fs.existsSync(signalFile)) {
+    signalDetected = true;
     console.log('[Splash] Main process ready signal detected, closing splash...');
+    
     // 메인 프로세스가 준비되었음을 알림
     if (splashWindow && !splashWindow.isDestroyed()) {
       splashWindow.close();
+      splashWindow = null;
     }
+    
     clearInterval(checkInterval);
+    
     // 신호 파일 삭제
     try {
       fs.unlinkSync(signalFile);
     } catch (e) {
       // 무시
     }
-    // 앱 종료
+    
+    // 스플래시 프로세스 종료 (별도 프로세스이므로 메인 앱에 영향 없음)
     setTimeout(() => {
+      console.log('[Splash] Exiting splash process...');
       app.quit();
     }, 500);
   }
 }, 500);
 
 // 최대 60초 후 자동 종료 (안전장치)
+// 단, 이 경우에도 메인 앱은 계속 실행되어야 하므로
+// 스플래시만 닫고 프로세스는 유지 (메인 앱이 나중에 닫을 수 있도록)
+let timeoutReached = false;
 setTimeout(() => {
-  console.log('[Splash] Timeout reached, closing splash...');
-  clearInterval(checkInterval);
-  if (splashWindow && !splashWindow.isDestroyed()) {
-    splashWindow.close();
-  }
-  try {
-    if (fs.existsSync(signalFile)) {
-      fs.unlinkSync(signalFile);
+  if (!timeoutReached) {
+    timeoutReached = true;
+    console.log('[Splash] Timeout reached, closing splash window only (keeping process alive)...');
+    clearInterval(checkInterval);
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.close();
+      splashWindow = null;
     }
-  } catch (e) {
-    // 무시
+    // 프로세스는 종료하지 않음 (메인 앱이 실행 중일 수 있음)
+    // 대신 창만 닫고 프로세스는 유지
   }
-  app.quit();
 }, 60000);
 
 app.on('window-all-closed', () => {
