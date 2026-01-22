@@ -913,8 +913,9 @@ app.whenReady().then(async () => {
   const signalFile = path.join(os.tmpdir(), 'career-fit-scoring-main-ready');
   try {
     fs.writeFileSync(signalFile, 'ready', 'utf-8');
+    console.log('[Main] Signal file created at:', signalFile);
   } catch (e) {
-    // 무시
+    console.error('[Main] Failed to create signal file:', e);
   }
   
   // 스플래시가 아직 없으면 생성 (이미 위에서 생성했을 수도 있음)
