@@ -11,15 +11,33 @@ const http = require('http');
 
 // package.json에서 버전 읽기
 // __dirname은 scripts/ 디렉토리를 가리키므로 상위 디렉토리의 package.json을 읽음
-const packageJsonPath = path.join(__dirname, '..', 'package.json');
+// 또는 process.cwd()를 사용하여 현재 작업 디렉토리 기준으로 찾기
 let appVersion = '1.0.0'; // 기본값
 try {
-  if (fs.existsSync(packageJsonPath)) {
+  // 여러 경로 시도
+  const possiblePaths = [
+    path.join(__dirname, '..', 'package.json'), // scripts/../package.json
+    path.join(process.cwd(), 'package.json'), // 현재 작업 디렉토리
+    path.join(__dirname, '..', '..', 'electron-app', 'package.json'), // 상위에서 electron-app
+  ];
+  
+  let packageJsonPath = null;
+  for (const pkgPath of possiblePaths) {
+    if (fs.existsSync(pkgPath)) {
+      packageJsonPath = pkgPath;
+      console.log('[Splash] Found package.json at:', pkgPath);
+      break;
+    }
+  }
+  
+  if (packageJsonPath) {
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
     appVersion = packageJson.version || appVersion;
-    console.log('[Splash] Loaded version from package.json:', appVersion);
+    console.log('[Splash] Loaded version from package.json:', appVersion, 'at:', packageJsonPath);
   } else {
-    console.warn('[Splash] package.json not found at:', packageJsonPath);
+    console.warn('[Splash] package.json not found. Tried paths:', possiblePaths);
+    console.warn('[Splash] __dirname:', __dirname);
+    console.warn('[Splash] process.cwd():', process.cwd());
   }
 } catch (error) {
   console.error('[Splash] Failed to load version from package.json:', error);
