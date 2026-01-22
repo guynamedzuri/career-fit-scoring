@@ -95,6 +95,7 @@ nsis:
   oneClick: false  # 기본 installer: 설치 옵션을 물어봄
   perMachine: false  # 사용자별 설치
   allowToChangeInstallationDirectory: true  # 설치 경로 변경 가능
+  artifactName: "${productName} Installer ${version}.${ext}"  # Installer 파일명 구분
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: 이력서 적합도 평가 시스템

@@ -79,6 +79,7 @@ nsis:
   oneClick: true  # Patcher: 자동 설치 (기존 설치가 있을 때 사용)
   perMachine: false  # 사용자별 설치
   allowToChangeInstallationDirectory: false  # One-click일 때는 변경 불가
+  artifactName: "${productName} Patcher ${version}.${ext}"  # Patcher 파일명 구분
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: 이력서 적합도 평가 시스템
