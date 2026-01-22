@@ -809,27 +809,32 @@ function createWindow() {
   // 메뉴바 완전히 제거
   mainWindow.setMenuBarVisibility(false);
   
-  // 프로덕션 환경에서 개발자 도구 비활성화
+  // 개발자 도구: 개발/프로덕션 모두 F12로 열기 허용 (개발 단계)
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    // F12로 개발자 도구 열기/닫기
+    if (input.key === 'F12') {
+      if (mainWindow) {
+        if (mainWindow.webContents.isDevToolsOpened()) {
+          mainWindow.webContents.closeDevTools();
+        } else {
+          mainWindow.webContents.openDevTools();
+        }
+      }
+      event.preventDefault();
+    }
+  });
+  
   if (!isDev) {
-    // 개발자 도구가 열리려고 하면 즉시 닫기
+    // 프로덕션 환경에서도 개발자 도구는 F12로 열 수 있음 (개발 단계)
+    // 추후 프로덕션 배포 시 아래 주석을 해제하여 보안 강화 가능
+    /*
     mainWindow.webContents.on('devtools-opened', () => {
       console.warn('[Security] DevTools opened in production, closing...');
       if (mainWindow) {
         mainWindow.webContents.closeDevTools();
       }
     });
-    
-    // 키보드 단축키로 개발자 도구 열기 시도 차단 (프로덕션만)
-    mainWindow.webContents.on('before-input-event', (event, input) => {
-      // F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U 등 차단
-      if (
-        input.key === 'F12' ||
-        (input.control && input.shift && (input.key === 'I' || input.key === 'J')) ||
-        (input.control && input.key === 'U')
-      ) {
-        event.preventDefault();
-      }
-    });
+    */
   } else {
     // 개발 환경: F12로 개발자 도구 열기 허용
     mainWindow.webContents.on('before-input-event', (event, input) => {
@@ -864,10 +869,24 @@ function createWindow() {
     // 메인 윈도우가 표시될 준비가 되면 표시하고 신호 전송
     mainWindow.once('ready-to-show', () => {
       console.log('[Main] Window ready-to-show event fired');
+      writeLog('[Main] Window ready-to-show event fired', 'info');
       if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();
       }
+    });
+    
+    // 페이지 로드 완료 이벤트
+    mainWindow.webContents.on('did-finish-load', () => {
+      console.log('[Main] Page finished loading');
+      writeLog('[Main] Page finished loading', 'info');
+    });
+    
+    // 페이지 로드 실패 이벤트
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+      const errorMsg = `[Main] Failed to load page: ${errorCode} - ${errorDescription} (${validatedURL})`;
+      console.error(errorMsg);
+      writeLog(errorMsg, 'error');
     });
     
     // HTTP 서버가 이미 시작되어 있으므로, 스플래시 프로세스가 자동으로 감지함
