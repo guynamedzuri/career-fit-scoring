@@ -26,17 +26,24 @@ function App() {
 
   // 앱이 마운트되면 메인 프로세스에 준비 완료 신호 전송
   useEffect(() => {
+    console.log('[App] useEffect for app ready signal executed');
     const notifyReady = async () => {
+      console.log('[App] notifyReady function called');
       try {
+        console.log('[App] Checking electron object:', (window as any).electron);
         if ((window as any).electron?.notifyAppReady) {
+          console.log('[App] Calling notifyAppReady...');
           await (window as any).electron.notifyAppReady();
           console.log('[App] App ready signal sent to main process');
+        } else {
+          console.error('[App] electron.notifyAppReady is not available');
         }
       } catch (error) {
         console.error('[App] Failed to send app ready signal:', error);
       }
     };
     // 약간의 지연을 두어 React가 완전히 렌더링될 시간을 줌
+    console.log('[App] Setting timeout for notifyReady...');
     const timer = setTimeout(notifyReady, 500);
     return () => clearTimeout(timer);
   }, []);
