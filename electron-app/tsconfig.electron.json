@@ -4,6 +4,7 @@
     "module": "CommonJS",
     "lib": ["ES2020", "DOM"],
     "declaration": false,
+    "rootDir": "./electron",
     "outDir": "./electron",
     "strict": true,
     "esModuleInterop": true,
