@@ -13,6 +13,7 @@
     "moduleResolution": "node",
     "noEmit": false
   },
-  "include": ["electron/*.ts", "../src/**/*.ts"],
+  "include": ["electron/**/*.ts", "../src/**/*.ts"],
+  "exclude": ["electron/electron-app/**", "node_modules", "dist"]
   "exclude": ["node_modules", "dist"]
 }
