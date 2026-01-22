@@ -831,13 +831,21 @@ function createWindow() {
     const viteUrl = 'http://localhost:5173';
     console.log('Loading Vite dev server:', viteUrl);
     
-    // 페이지가 로드되면 창 표시
+    // 페이지가 로드되면 창 표시 및 스플래시 닫기
     mainWindow.webContents.once('did-finish-load', () => {
       console.log('Page loaded successfully');
       if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();
       }
+      
+      // 스플래시 닫기 (약간의 지연을 두어 부드럽게 전환)
+      setTimeout(() => {
+        if (splashWindow) {
+          splashWindow.close();
+          splashWindow = null;
+        }
+      }, 300);
     });
     
     mainWindow.loadURL(viteUrl);
@@ -860,8 +868,25 @@ function createWindow() {
     // 프로덕션: 빌드된 파일 로드
     const indexPath = path.join(__dirname, '../dist/index.html');
     console.log('Loading production file:', indexPath);
+    
+    // 페이지가 로드되면 창 표시 및 스플래시 닫기
+    mainWindow.webContents.once('did-finish-load', () => {
+      console.log('Page loaded successfully');
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+      
+      // 스플래시 닫기 (약간의 지연을 두어 부드럽게 전환)
+      setTimeout(() => {
+        if (splashWindow) {
+          splashWindow.close();
+          splashWindow = null;
+        }
+      }, 300);
+    });
+    
     mainWindow.loadFile(indexPath);
-    mainWindow.show();
   }
 
   mainWindow.on('closed', () => {
@@ -890,29 +915,8 @@ app.whenReady().then(async () => {
     // 메인 윈도우 생성
     createWindow();
     
-    // 메인 윈도우가 완전히 로드될 때까지 스플래시 유지
-    if (mainWindow) {
-      mainWindow.webContents.once('did-finish-load', () => {
-        // 메인 윈도우 표시
-        if (mainWindow) {
-          mainWindow.show();
-        }
-        
-        // 스플래시 닫기 (약간의 지연을 두어 부드럽게 전환)
-        setTimeout(() => {
-          if (splashWindow) {
-            splashWindow.close();
-            splashWindow = null;
-          }
-        }, 300);
-      });
-    } else {
-      // 메인 윈도우 생성 실패 시에도 스플래시 닫기
-      if (splashWindow) {
-        splashWindow.close();
-        splashWindow = null;
-      }
-    }
+    // 메인 윈도우는 createWindow() 내부에서 did-finish-load 이벤트로 처리됨
+    // (개발/프로덕션 환경 모두에서 스플래시 닫기 로직이 did-finish-load에서 처리됨)
   } catch (error) {
     console.error('[Init] Initialization error:', error);
     // 에러가 발생해도 메인 윈도우는 표시
