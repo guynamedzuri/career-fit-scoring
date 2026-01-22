@@ -873,20 +873,24 @@ function createWindow() {
     // DOM이 준비되고 페이지 로드가 완료된 후 신호 전송
     mainWindow.webContents.once('dom-ready', () => {
       console.log('[Main] DOM ready event fired');
+      console.log('[Main] DOM ready event handler executed, setting timeout...');
       // DOM이 준비된 후 약간의 지연을 두어 React 앱이 렌더링될 시간을 줌
       setTimeout(() => {
         console.log('[Main] DOM ready timeout fired, calling sendReadySignal');
         sendReadySignal();
       }, 1000);
+      console.log('[Main] setTimeout scheduled for dom-ready');
     });
     
     mainWindow.webContents.once('did-finish-load', () => {
       console.log('Page loaded successfully');
+      console.log('[Main] did-finish-load event handler executed, setting timeout...');
       // did-finish-load도 확인하되, dom-ready가 먼저 처리되도록 함
       setTimeout(() => {
         console.log('[Main] did-finish-load timeout fired, calling sendReadySignal');
         sendReadySignal();
       }, 500);
+      console.log('[Main] setTimeout scheduled for did-finish-load');
     });
     
     mainWindow.loadURL(viteUrl);
@@ -953,20 +957,24 @@ function createWindow() {
     // DOM이 준비되고 페이지 로드가 완료된 후 신호 전송
     mainWindow.webContents.once('dom-ready', () => {
       console.log('[Main] DOM ready event fired');
+      console.log('[Main] DOM ready event handler executed, setting timeout...');
       // DOM이 준비된 후 약간의 지연을 두어 React 앱이 렌더링될 시간을 줌
       setTimeout(() => {
         console.log('[Main] DOM ready timeout fired, calling sendReadySignal');
         sendReadySignal();
       }, 1000);
+      console.log('[Main] setTimeout scheduled for dom-ready');
     });
     
     mainWindow.webContents.once('did-finish-load', () => {
       console.log('Page loaded successfully');
+      console.log('[Main] did-finish-load event handler executed, setting timeout...');
       // did-finish-load도 확인하되, dom-ready가 먼저 처리되도록 함
       setTimeout(() => {
         console.log('[Main] did-finish-load timeout fired, calling sendReadySignal');
         sendReadySignal();
       }, 500);
+      console.log('[Main] setTimeout scheduled for did-finish-load');
     });
     
     mainWindow.loadFile(indexPath);
