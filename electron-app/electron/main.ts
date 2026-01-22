@@ -839,7 +839,17 @@ function createWindow() {
         mainWindow.focus();
       }
       
-      // 스플래시 닫기 (약간의 지연을 두어 부드럽게 전환)
+      // 별도 스플래시 프로세스에 메인 프로세스 준비 신호 전달
+      const os = require('os');
+      const signalFile = path.join(os.tmpdir(), 'career-fit-scoring-main-ready');
+      try {
+        fs.writeFileSync(signalFile, 'ready', 'utf-8');
+        console.log('[Main] Signal file created at:', signalFile);
+      } catch (e) {
+        console.error('[Main] Failed to create signal file:', e);
+      }
+      
+      // 메인 프로세스의 스플래시 닫기 (약간의 지연을 두어 부드럽게 전환)
       setTimeout(() => {
         if (splashWindow) {
           splashWindow.close();
