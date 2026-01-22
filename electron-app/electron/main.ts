@@ -1052,13 +1052,13 @@ app.on('window-all-closed', () => {
 // 수동 업데이트 체크 IPC 핸들러
 // React 앱이 준비되었을 때 호출되는 IPC 핸들러
 let appReadySignalSent = false;
-ipcMain.handle('app-ready', async () => {
+const sendAppReadySignal = () => {
   if (appReadySignalSent) {
     console.log('[Main] App ready signal already sent, skipping...');
     return;
   }
   appReadySignalSent = true;
-  console.log('[Main] App ready signal received from React app');
+  console.log('[Main] Sending app ready signal to splash screen');
   
   // sendReadySignal 함수 호출 (개발/프로덕션 모드 모두에서 사용)
   if (mainWindow) {
@@ -1084,6 +1084,11 @@ ipcMain.handle('app-ready', async () => {
       }
     }, 300);
   }
+};
+
+ipcMain.handle('app-ready', async () => {
+  console.log('[Main] App ready signal received from React app');
+  sendAppReadySignal();
 });
 
 ipcMain.handle('check-for-updates', async () => {
