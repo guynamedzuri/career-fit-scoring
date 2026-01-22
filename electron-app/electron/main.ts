@@ -833,8 +833,12 @@ function createWindow() {
     
     let signalSent = false;
     const sendReadySignal = () => {
-      if (signalSent) return;
+      if (signalSent) {
+        console.log('[Main] Signal already sent, skipping...');
+        return;
+      }
       signalSent = true;
+      console.log('[Main] Sending ready signal...');
       
       if (mainWindow) {
         mainWindow.show();
@@ -847,6 +851,12 @@ function createWindow() {
       try {
         fs.writeFileSync(signalFile, 'ready', 'utf-8');
         console.log('[Main] Signal file created at:', signalFile);
+        // 파일이 실제로 생성되었는지 확인
+        if (fs.existsSync(signalFile)) {
+          console.log('[Main] Signal file verified to exist');
+        } else {
+          console.error('[Main] Signal file was not created!');
+        }
       } catch (e) {
         console.error('[Main] Failed to create signal file:', e);
       }
@@ -862,8 +872,10 @@ function createWindow() {
     
     // DOM이 준비되고 페이지 로드가 완료된 후 신호 전송
     mainWindow.webContents.once('dom-ready', () => {
+      console.log('[Main] DOM ready event fired');
       // DOM이 준비된 후 약간의 지연을 두어 React 앱이 렌더링될 시간을 줌
       setTimeout(() => {
+        console.log('[Main] DOM ready timeout fired, calling sendReadySignal');
         sendReadySignal();
       }, 1000);
     });
@@ -872,6 +884,7 @@ function createWindow() {
       console.log('Page loaded successfully');
       // did-finish-load도 확인하되, dom-ready가 먼저 처리되도록 함
       setTimeout(() => {
+        console.log('[Main] did-finish-load timeout fired, calling sendReadySignal');
         sendReadySignal();
       }, 500);
     });
