@@ -913,19 +913,67 @@ function createWindow() {
     });
   } else {
     // 프로덕션: 빌드된 파일 로드
+    // __dirname은 빌드 후 electron/main.js 위치를 가리킴
+    // dist 폴더는 electron-app/dist에 있음
     const indexPath = path.join(__dirname, '../dist/index.html');
     console.log('Loading production file:', indexPath);
+    writeLog(`[Main] Loading production file: ${indexPath}`, 'info');
+    writeLog(`[Main] __dirname: ${__dirname}`, 'info');
+    writeLog(`[Main] File exists: ${fs.existsSync(indexPath)}`, 'info');
     
-    // 메인 윈도우 로드 시작
-    mainWindow.loadFile(indexPath);
+    // 파일 존재 확인
+    if (!fs.existsSync(indexPath)) {
+      const errorMsg = `[Main] Production index.html not found at: ${indexPath}`;
+      console.error(errorMsg);
+      writeLog(errorMsg, 'error');
+      
+      // 대체 경로 시도
+      const altPath = path.join(process.resourcesPath, 'app', 'dist', 'index.html');
+      writeLog(`[Main] Trying alternative path: ${altPath}`, 'info');
+      if (fs.existsSync(altPath)) {
+        console.log('Loading from alternative path:', altPath);
+        mainWindow.loadFile(altPath);
+      } else {
+        writeLog(`[Main] Alternative path also not found`, 'error');
+        // 에러 페이지 표시
+        mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+          <html>
+            <head><title>Error</title></head>
+            <body style="font-family: Arial; padding: 20px;">
+              <h1>파일을 찾을 수 없습니다</h1>
+              <p>예상 경로: ${indexPath}</p>
+              <p>대체 경로: ${altPath}</p>
+              <p>__dirname: ${__dirname}</p>
+              <p>resourcesPath: ${process.resourcesPath}</p>
+            </body>
+          </html>
+        `)}`);
+      }
+    } else {
+      mainWindow.loadFile(indexPath);
+    }
     
     // 메인 윈도우가 표시될 준비가 되면 표시
     mainWindow.once('ready-to-show', () => {
       console.log('[Main] Window ready-to-show event fired');
+      writeLog('[Main] Window ready-to-show event fired', 'info');
       if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();
       }
+    });
+    
+    // 페이지 로드 완료 이벤트
+    mainWindow.webContents.on('did-finish-load', () => {
+      console.log('[Main] Page finished loading');
+      writeLog('[Main] Page finished loading', 'info');
+    });
+    
+    // 페이지 로드 실패 이벤트
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+      const errorMsg = `[Main] Failed to load page: ${errorCode} - ${errorDescription} (${validatedURL})`;
+      console.error(errorMsg);
+      writeLog(errorMsg, 'error');
     });
     
     // HTTP 서버가 이미 시작되어 있으므로, 스플래시 프로세스가 자동으로 감지함
