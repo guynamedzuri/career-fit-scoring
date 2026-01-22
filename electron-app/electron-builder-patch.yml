@@ -26,10 +26,10 @@ files:
   - package.json
   - "../.env"
   # icon.ico와 favicon.ico는 extraResources로 루트에 복사 (files는 resources/app에 감)
-  # 모든 node_modules 포함 후 career-fit-scoring만 제외
+  # 모든 node_modules 포함
   - "node_modules/**/*"
-  # career-fit-scoring만 명시적으로 제외 (용량 문제 해결)
-  - "!node_modules/career-fit-scoring/**/*"
+  # career-fit-scoring 패키지 포함 (필수)
+  - "../src/**/*.js"
   # 개발 도구 설정 파일만 제외
   - "!**/.vscode/**/*"
   - "!**/.idea/**/*"

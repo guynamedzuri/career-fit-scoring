@@ -4,8 +4,32 @@ import * as fs from 'fs';
 import * as http from 'http';
 import * as https from 'https';
 import * as net from 'net';
-// career-fit-scoring 패키지에서 함수 import (상대 경로로 직접 import)
-import { extractTablesFromDocx, mapResumeDataToApplicationData } from '../../src/index';
+// career-fit-scoring 패키지에서 함수 import
+// 빌드 시에는 컴파일된 파일을 사용하므로 career-fit-scoring 패키지로 import
+let extractTablesFromDocx: any;
+let mapResumeDataToApplicationData: any;
+
+// 동적 import로 처리 (개발/프로덕션 환경 모두 지원)
+async function loadCareerFitScoring() {
+  try {
+    // 먼저 패키지로 시도 (프로덕션 빌드)
+    const module = require('career-fit-scoring');
+    extractTablesFromDocx = module.extractTablesFromDocx;
+    mapResumeDataToApplicationData = module.mapResumeDataToApplicationData;
+    writeLog('[Main] Loaded career-fit-scoring from package', 'info');
+  } catch (e: any) {
+    try {
+      // 패키지 실패 시 상대 경로로 시도 (개발 모드)
+      const module = require('../../src/index');
+      extractTablesFromDocx = module.extractTablesFromDocx;
+      mapResumeDataToApplicationData = module.mapResumeDataToApplicationData;
+      writeLog('[Main] Loaded career-fit-scoring from relative path', 'info');
+    } catch (e2: any) {
+      writeLog(`[Main] Failed to load career-fit-scoring: ${e2.message || e2}`, 'error');
+      throw e2;
+    }
+  }
+}
 
 // electron-updater는 동적 import로 처리 (타입 에러 방지)
 let autoUpdater: any = null;
@@ -973,13 +997,29 @@ function startSplashServer(): number {
 
 app.whenReady().then(async () => {
   console.log('[Main] ===== app.whenReady() executed =====');
+  writeLog('[Main] ===== app.whenReady() executed =====', 'info');
   // 애플리케이션 메뉴 제거 (File, Edit, View, Window 등)
   Menu.setApplicationMenu(null);
   
   // 스플래시 서버 시작 (메인 프로세스가 시작되자마자)
   console.log('[Main] Calling startSplashServer()...');
+  writeLog('[Main] Calling startSplashServer()...', 'info');
   startSplashServer();
   console.log('[Main] startSplashServer() call completed');
+  writeLog('[Main] startSplashServer() call completed', 'info');
+  
+  try {
+    // career-fit-scoring 모듈 로드
+    await loadCareerFitScoring();
+    writeLog('[Main] career-fit-scoring module loaded', 'info');
+  } catch (error: any) {
+    const errorMsg = `[Main] Failed to load career-fit-scoring: ${error?.message || error}`;
+    console.error(errorMsg);
+    writeLog(errorMsg, 'error');
+    if (error?.stack) {
+      writeLog(`[Main] Stack trace: ${error.stack}`, 'error');
+    }
+  }
   
   // 스플래시가 아직 없으면 생성 (이미 위에서 생성했을 수도 있음)
   if (!splashWindow) {
