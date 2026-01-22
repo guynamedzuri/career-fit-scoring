@@ -1036,8 +1036,13 @@ app.whenReady().then(async () => {
     
     // 메인 윈도우 생성
     createWindow();
-  } catch (error) {
-    console.error('[Init] Initialization error:', error);
+  } catch (error: any) {
+    const errorMsg = `[Init] Initialization error: ${error?.message || error}`;
+    console.error(errorMsg);
+    writeLog(errorMsg, 'error');
+    if (error?.stack) {
+      writeLog(`[Init] Stack trace: ${error.stack}`, 'error');
+    }
     // 에러가 발생해도 메인 윈도우는 표시
     createWindow();
     if (mainWindow) {
@@ -1059,6 +1064,25 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+// 에러 핸들러 추가 (모든 에러를 로그 파일에 기록)
+process.on('uncaughtException', (error: Error) => {
+  const errorMsg = `[Main] Uncaught Exception: ${error.message}`;
+  console.error(errorMsg);
+  writeLog(errorMsg, 'error');
+  if (error.stack) {
+    writeLog(`[Main] Stack trace: ${error.stack}`, 'error');
+  }
+});
+
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  const errorMsg = `[Main] Unhandled Rejection: ${reason?.message || reason}`;
+  console.error(errorMsg);
+  writeLog(errorMsg, 'error');
+  if (reason?.stack) {
+    writeLog(`[Main] Stack trace: ${reason.stack}`, 'error');
   }
 });
 
