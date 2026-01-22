@@ -735,7 +735,7 @@ function createSplashWindow() {
   <div class="logo">이력서 AI 분석</div>
   <div class="message">준비 중...</div>
   <div class="spinner"></div>
-  <div class="version">Version ${process.env.VITE_APP_VERSION || '1.0.78'}</div>
+  <div class="version">Version ${app.getVersion()}</div>
 </body>
 </html>
   `;
