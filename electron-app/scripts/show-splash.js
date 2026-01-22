@@ -9,6 +9,11 @@ const fs = require('fs');
 const os = require('os');
 const http = require('http');
 
+// package.json에서 버전 읽기
+const packageJsonPath = path.join(__dirname, '..', 'package.json');
+const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+const appVersion = packageJson.version;
+
 let splashWindow = null;
 
 // 앱이 준비되면 스플래시 표시
@@ -71,7 +76,7 @@ app.whenReady().then(() => {
   <div class="logo">이력서 AI 분석</div>
   <div class="message">준비 중...</div>
   <div class="spinner"></div>
-  <div class="version">Version 1.1.0</div>
+  <div class="version">Version ${appVersion}</div>
 </body>
 </html>
   `;
