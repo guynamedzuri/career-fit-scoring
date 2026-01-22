@@ -846,45 +846,18 @@ function createWindow() {
       }
     });
     
-    // 간단한 방법: 메인 윈도우 생성 후 일정 시간 후 신호 전송
-    let signalSent = false;
-    const sendReadySignal = () => {
-      if (signalSent) {
-        return;
-      }
-      signalSent = true;
-      console.log('[Main] Sending ready signal to splash screen...');
-      
-      // 별도 스플래시 프로세스에 메인 프로세스 준비 신호 전달
-      const os = require('os');
-      const signalFile = path.join(os.tmpdir(), 'career-fit-scoring-main-ready');
-      try {
-        fs.writeFileSync(signalFile, 'ready', 'utf-8');
-        console.log('[Main] Signal file created at:', signalFile);
-        console.log('[Main] Signal file exists:', fs.existsSync(signalFile));
-      } catch (e) {
-        console.error('[Main] Failed to create signal file:', e);
-      }
-      
-      // 메인 프로세스의 스플래시 닫기
-      setTimeout(() => {
-        if (splashWindow) {
-          splashWindow.close();
-          splashWindow = null;
-        }
-      }, 300);
-    };
-    
-    // 메인 윈도우 생성 후 3초 후 신호 전송 (안전장치)
+    // HTTP 서버가 이미 시작되어 있으므로, 스플래시 프로세스가 자동으로 감지함
+    // 메인 프로세스의 스플래시 닫기
     setTimeout(() => {
-      console.log('[Main] Timeout reached (3 seconds), sending signal...');
-      sendReadySignal();
-    }, 3000);
+      if (splashWindow) {
+        splashWindow.close();
+        splashWindow = null;
+      }
+    }, 500);
     
     // Vite 서버가 준비될 때까지 대기
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
       console.error('Failed to load:', errorCode, errorDescription);
-      signalSent = false; // 재시도 시 신호 플래그 리셋
       if (errorCode === -106 && mainWindow) {
         // ERR_INTERNET_DISCONNECTED 또는 연결 실패
         console.log('Waiting for Vite server to start...');
@@ -900,45 +873,6 @@ function createWindow() {
     const indexPath = path.join(__dirname, '../dist/index.html');
     console.log('Loading production file:', indexPath);
     
-    let signalSent = false;
-    const sendReadySignal = () => {
-      if (signalSent) {
-        console.log('[Main] Signal already sent, skipping...');
-        return;
-      }
-      signalSent = true;
-      console.log('[Main] Sending ready signal...');
-      
-      if (mainWindow) {
-        mainWindow.show();
-        mainWindow.focus();
-      }
-      
-      // 별도 스플래시 프로세스에 메인 프로세스 준비 신호 전달
-      const os = require('os');
-      const signalFile = path.join(os.tmpdir(), 'career-fit-scoring-main-ready');
-      try {
-        fs.writeFileSync(signalFile, 'ready', 'utf-8');
-        console.log('[Main] Signal file created at:', signalFile);
-        // 파일이 실제로 생성되었는지 확인
-        if (fs.existsSync(signalFile)) {
-          console.log('[Main] Signal file verified to exist');
-        } else {
-          console.error('[Main] Signal file was not created!');
-        }
-      } catch (e) {
-        console.error('[Main] Failed to create signal file:', e);
-      }
-      
-      // 메인 프로세스의 스플래시 닫기 (약간의 지연을 두어 부드럽게 전환)
-      setTimeout(() => {
-        if (splashWindow) {
-          splashWindow.close();
-          splashWindow = null;
-        }
-      }, 300);
-    };
-    
     // 메인 윈도우 로드 시작
     mainWindow.loadFile(indexPath);
     
@@ -951,40 +885,14 @@ function createWindow() {
       }
     });
     
-    // 간단한 방법: 메인 윈도우 생성 후 일정 시간 후 신호 전송
-    let signalSent = false;
-    const sendReadySignal = () => {
-      if (signalSent) {
-        return;
-      }
-      signalSent = true;
-      console.log('[Main] Sending ready signal to splash screen...');
-      
-      // 별도 스플래시 프로세스에 메인 프로세스 준비 신호 전달
-      const os = require('os');
-      const signalFile = path.join(os.tmpdir(), 'career-fit-scoring-main-ready');
-      try {
-        fs.writeFileSync(signalFile, 'ready', 'utf-8');
-        console.log('[Main] Signal file created at:', signalFile);
-        console.log('[Main] Signal file exists:', fs.existsSync(signalFile));
-      } catch (e) {
-        console.error('[Main] Failed to create signal file:', e);
-      }
-      
-      // 메인 프로세스의 스플래시 닫기
-      setTimeout(() => {
-        if (splashWindow) {
-          splashWindow.close();
-          splashWindow = null;
-        }
-      }, 300);
-    };
-    
-    // 메인 윈도우 생성 후 3초 후 신호 전송 (안전장치)
+    // HTTP 서버가 이미 시작되어 있으므로, 스플래시 프로세스가 자동으로 감지함
+    // 메인 프로세스의 스플래시 닫기
     setTimeout(() => {
-      console.log('[Main] Timeout reached (3 seconds), sending signal...');
-      sendReadySignal();
-    }, 3000);
+      if (splashWindow) {
+        splashWindow.close();
+        splashWindow = null;
+      }
+    }, 500);
   }
 
   mainWindow.on('closed', () => {
