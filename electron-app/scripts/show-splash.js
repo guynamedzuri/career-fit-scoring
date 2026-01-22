@@ -114,11 +114,16 @@ const checkInterval = setInterval(() => {
   // 포트 번호 파일 확인
   if (fs.existsSync(portFile)) {
     try {
-      const port = parseInt(fs.readFileSync(portFile, 'utf-8').trim(), 10);
+      const portContent = fs.readFileSync(portFile, 'utf-8').trim();
+      console.log(`[Splash] Port file found, content: "${portContent}"`);
+      const port = parseInt(portContent, 10);
+      console.log(`[Splash] Parsed port: ${port} (isNaN: ${isNaN(port)}, > 0: ${port > 0})`);
       
-      if (port > 0) {
+      if (port > 0 && !isNaN(port)) {
+        console.log(`[Splash] Attempting HTTP request to http://127.0.0.1:${port}/ready`);
         // HTTP 요청으로 메인 프로세스 준비 여부 확인
         const req = http.get(`http://127.0.0.1:${port}/ready`, (res) => {
+          console.log(`[Splash] HTTP response received: status ${res.statusCode}`);
           if (res.statusCode === 200) {
             signalDetected = true;
             console.log('[Splash] Main process ready signal received via HTTP');
@@ -142,24 +147,29 @@ const checkInterval = setInterval(() => {
         req.on('error', (err) => {
           // 서버가 아직 준비되지 않음 (정상)
           if (checkCount % 10 === 0) {
-            console.log(`[Splash] Still waiting for main process server... (checked ${checkCount} times)`);
+            console.log(`[Splash] HTTP request error (server not ready yet): ${err.message} (checked ${checkCount} times)`);
           }
         });
         
         req.setTimeout(1000, () => {
+          console.log(`[Splash] HTTP request timeout after 1 second`);
           req.destroy();
         });
+      } else {
+        if (checkCount % 10 === 0) {
+          console.log(`[Splash] Invalid port number: ${port} (checked ${checkCount} times)`);
+        }
       }
     } catch (e) {
-      // 포트 파일 읽기 실패 (정상 - 아직 생성되지 않음)
+      // 포트 파일 읽기 실패
       if (checkCount % 10 === 0) {
-        console.log(`[Splash] Still waiting for port file... (checked ${checkCount} times)`);
+        console.log(`[Splash] Error reading port file: ${e.message} (checked ${checkCount} times)`);
       }
     }
   } else {
     // 포트 파일이 아직 없음
     if (checkCount % 10 === 0) {
-      console.log(`[Splash] Still waiting for port file... (checked ${checkCount} times)`);
+      console.log(`[Splash] Port file does not exist: ${portFile} (checked ${checkCount} times)`);
     }
   }
 }, 500);

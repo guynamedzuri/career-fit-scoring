@@ -913,10 +913,13 @@ if (app.isReady()) {
 // 스플래시 프로세스와 통신하기 위한 HTTP 서버 시작
 function startSplashServer(): number {
   if (splashServer) {
-    return (splashServer.address() as net.AddressInfo)?.port || 0;
+    const existingPort = (splashServer.address() as net.AddressInfo)?.port || 0;
+    console.log(`[Main] Splash server already running on port ${existingPort}`);
+    return existingPort;
   }
   
   const server = http.createServer((req, res) => {
+    console.log(`[Main] Splash server: received ${req.method} ${req.url}`);
     if (req.url === '/ready' && req.method === 'GET') {
       console.log('[Main] Splash server: ready signal received');
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -929,22 +932,36 @@ function startSplashServer(): number {
   
   // 사용 가능한 포트 자동 할당
   server.listen(0, '127.0.0.1', () => {
-    const port = (server.address() as net.AddressInfo)?.port || 0;
+    const address = server.address();
+    console.log(`[Main] Splash server listen callback, address:`, address);
+    const port = (address as net.AddressInfo)?.port || 0;
     console.log(`[Main] Splash server started on port ${port}`);
+    
+    if (port === 0) {
+      console.error('[Main] ERROR: Port is 0, server may not have started correctly');
+      return;
+    }
     
     // 포트 번호를 파일에 저장 (스플래시 프로세스가 읽을 수 있도록)
     const os = require('os');
     const portFile = path.join(os.tmpdir(), 'career-fit-scoring-splash-port');
     try {
       fs.writeFileSync(portFile, port.toString(), 'utf-8');
-      console.log(`[Main] Port number saved to: ${portFile}`);
+      console.log(`[Main] Port number (${port}) saved to: ${portFile}`);
+      console.log(`[Main] Port file exists: ${fs.existsSync(portFile)}`);
+      console.log(`[Main] Port file content: "${fs.readFileSync(portFile, 'utf-8')}"`);
     } catch (e) {
       console.error('[Main] Failed to save port number:', e);
     }
   });
   
+  server.on('error', (err) => {
+    console.error('[Main] Splash server error:', err);
+  });
+  
   splashServer = server;
-  return (server.address() as net.AddressInfo)?.port || 0;
+  // listen이 비동기이므로 즉시 포트를 반환할 수 없음
+  return 0;
 }
 
 app.whenReady().then(async () => {
