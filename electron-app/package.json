@@ -13,7 +13,7 @@
     "dev:build-and-start": "node ../scripts/setup-python-env.js && npm run build:career-fit-scoring && npm run build:electron:dev && concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
     "dev:electron": "wait-on http://localhost:5173 -t 30000 && electron .",
-    "build:electron:dev": "tsc -p tsconfig.electron.json && node -e \"const fs=require('fs'); const path=require('path'); if(fs.existsSync('electron/electron-app/electron/main.js')){fs.copyFileSync('electron/electron-app/electron/main.js','electron/main.js');fs.copyFileSync('electron/electron-app/electron/preload.js','electron/preload.js');console.log('Copied compiled files to electron/');}\"",
+    "build:electron:dev": "tsc -p tsconfig.electron.json && node -e \"const fs=require('fs'); const path=require('path'); if(fs.existsSync('electron/electron-app/electron/main.js')){fs.copyFileSync('electron/electron-app/electron/main.js','electron/main.js');fs.copyFileSync('electron/electron-app/electron/preload.js','electron/preload.js');console.log('Copied compiled files to electron/');} if(fs.existsSync('electron/electron-app')){const {execSync}=require('child_process');execSync(process.platform==='win32'?'rmdir /s /q electron\\\\electron-app':'rm -rf electron/electron-app',{stdio:'inherit'});console.log('Cleaned up electron/electron-app/');}\"",
     "build:career-fit-scoring": "cd .. && npx tsc && node scripts/copy-dist-to-src.js && cd electron-app",
     "build": "npm install && npm run build:all && electron-builder",
     "build:all": "npm run build:electron:dev && vite build",

@@ -12,3 +12,5 @@ electron/**/*.js
 electron/**/*.js.map
 # 소스 파일이 아닌 빌드 산출물
 electron/src/
+# TypeScript 컴파일 중간 디렉토리
+electron/electron-app/
