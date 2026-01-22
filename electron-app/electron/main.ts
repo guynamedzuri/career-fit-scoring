@@ -834,16 +834,10 @@ function createWindow() {
     let signalSent = false;
     const sendReadySignal = () => {
       if (signalSent) {
-        console.log('[Main] Signal already sent, skipping...');
         return;
       }
       signalSent = true;
-      console.log('[Main] Sending ready signal...');
-      
-      if (mainWindow) {
-        mainWindow.show();
-        mainWindow.focus();
-      }
+      console.log('[Main] Sending ready signal to splash screen...');
       
       // 별도 스플래시 프로세스에 메인 프로세스 준비 신호 전달
       const os = require('os');
@@ -851,17 +845,11 @@ function createWindow() {
       try {
         fs.writeFileSync(signalFile, 'ready', 'utf-8');
         console.log('[Main] Signal file created at:', signalFile);
-        // 파일이 실제로 생성되었는지 확인
-        if (fs.existsSync(signalFile)) {
-          console.log('[Main] Signal file verified to exist');
-        } else {
-          console.error('[Main] Signal file was not created!');
-        }
       } catch (e) {
         console.error('[Main] Failed to create signal file:', e);
       }
       
-      // 메인 프로세스의 스플래시 닫기 (약간의 지연을 두어 부드럽게 전환)
+      // 메인 프로세스의 스플래시 닫기
       setTimeout(() => {
         if (splashWindow) {
           splashWindow.close();
@@ -870,27 +858,17 @@ function createWindow() {
       }, 300);
     };
     
-    // DOM이 준비되고 페이지 로드가 완료된 후 신호 전송
-    mainWindow.webContents.once('dom-ready', () => {
-      console.log('[Main] ===== DOM ready event fired =====');
-      console.log('[Main] DOM ready event handler executed, setting timeout...');
-      // DOM이 준비된 후 약간의 지연을 두어 React 앱이 렌더링될 시간을 줌
-      setTimeout(() => {
-        console.log('[Main] DOM ready timeout fired (2 seconds), calling sendReadySignal');
-        sendReadySignal();
-      }, 2000);
-      console.log('[Main] setTimeout scheduled for dom-ready (2 seconds)');
-    });
-    
-    // 추가 안전장치: did-finish-load 이벤트도 사용
-    mainWindow.webContents.once('did-finish-load', () => {
-      console.log('[Main] ===== did-finish-load event fired =====');
-      // did-finish-load는 dom-ready보다 늦게 발생하므로, 더 짧은 지연 사용
-      setTimeout(() => {
-        console.log('[Main] did-finish-load timeout fired (1 second), calling sendReadySignal');
-        sendReadySignal();
-      }, 1000);
-      console.log('[Main] setTimeout scheduled for did-finish-load (1 second)');
+    // 메인 윈도우가 실제로 표시될 준비가 되었을 때 신호 전송
+    mainWindow.once('ready-to-show', () => {
+      console.log('[Main] Window ready-to-show event fired');
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+        // 윈도우가 표시된 후 약간의 지연을 두고 신호 전송
+        setTimeout(() => {
+          sendReadySignal();
+        }, 500);
+      }
     });
     
     mainWindow.loadURL(viteUrl);
