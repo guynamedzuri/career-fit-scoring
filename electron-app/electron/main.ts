@@ -912,12 +912,14 @@ if (app.isReady()) {
 
 // 스플래시 프로세스와 통신하기 위한 HTTP 서버 시작
 function startSplashServer(): number {
+  console.log('[Main] ===== startSplashServer() called =====');
   if (splashServer) {
     const existingPort = (splashServer.address() as net.AddressInfo)?.port || 0;
     console.log(`[Main] Splash server already running on port ${existingPort}`);
     return existingPort;
   }
   
+  console.log('[Main] Creating new HTTP server for splash communication...');
   const server = http.createServer((req, res) => {
     console.log(`[Main] Splash server: received ${req.method} ${req.url}`);
     if (req.url === '/ready' && req.method === 'GET') {
@@ -965,11 +967,14 @@ function startSplashServer(): number {
 }
 
 app.whenReady().then(async () => {
+  console.log('[Main] ===== app.whenReady() executed =====');
   // 애플리케이션 메뉴 제거 (File, Edit, View, Window 등)
   Menu.setApplicationMenu(null);
   
   // 스플래시 서버 시작 (메인 프로세스가 시작되자마자)
+  console.log('[Main] Calling startSplashServer()...');
   startSplashServer();
+  console.log('[Main] startSplashServer() call completed');
   
   // 스플래시가 아직 없으면 생성 (이미 위에서 생성했을 수도 있음)
   if (!splashWindow) {
