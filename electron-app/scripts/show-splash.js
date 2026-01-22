@@ -113,9 +113,16 @@ console.log('[Splash] Waiting for main process signal at:', signalFile);
 
 // 메인 프로세스 준비 신호 확인 (500ms마다 체크)
 let signalDetected = false;
+let checkCount = 0;
 const checkInterval = setInterval(() => {
   if (signalDetected) {
     return; // 이미 처리됨
+  }
+  
+  checkCount++;
+  if (checkCount % 10 === 0) {
+    // 5초마다 한 번씩 로그 출력 (디버깅용)
+    console.log(`[Splash] Still waiting for signal... (checked ${checkCount} times, file exists: ${fs.existsSync(signalFile)})`);
   }
   
   if (fs.existsSync(signalFile)) {
