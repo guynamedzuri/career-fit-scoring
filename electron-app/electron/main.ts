@@ -908,6 +908,15 @@ app.whenReady().then(async () => {
   // 애플리케이션 메뉴 제거 (File, Edit, View, Window 등)
   Menu.setApplicationMenu(null);
   
+  // 별도 스플래시 프로세스에 메인 프로세스 준비 신호 전달
+  const os = require('os');
+  const signalFile = path.join(os.tmpdir(), 'career-fit-scoring-main-ready');
+  try {
+    fs.writeFileSync(signalFile, 'ready', 'utf-8');
+  } catch (e) {
+    // 무시
+  }
+  
   // 스플래시가 아직 없으면 생성 (이미 위에서 생성했을 수도 있음)
   if (!splashWindow) {
     createSplashWindow();

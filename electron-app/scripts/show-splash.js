@@ -5,6 +5,8 @@
 
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 
 let splashWindow = null;
 

@@ -8,8 +8,9 @@
     "email": ""
   },
   "scripts": {
-    "dev": "node scripts/show-splash.js && node ../scripts/setup-python-env.js && npm run build:career-fit-scoring && npm run build:electron:dev && concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev": "concurrently -k \"npm run dev:splash\" \"npm run dev:build-and-start\"",
     "dev:splash": "node scripts/show-splash.js",
+    "dev:build-and-start": "node ../scripts/setup-python-env.js && npm run build:career-fit-scoring && npm run build:electron:dev && concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
     "dev:vite": "vite",
     "dev:electron": "wait-on http://localhost:5173 -t 30000 && electron .",
     "build:electron:dev": "tsc -p tsconfig.electron.json",
