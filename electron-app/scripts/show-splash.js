@@ -136,10 +136,12 @@ const checkInterval = setInterval(() => {
             
             clearInterval(checkInterval);
             
-            // 스플래시 프로세스 종료
+            // 스플래시 창만 닫고 프로세스는 유지
+            // (concurrently -k가 다른 프로세스를 종료시키지 않도록)
             setTimeout(() => {
-              console.log('[Splash] Exiting splash process...');
-              app.quit();
+              console.log('[Splash] Splash window closed, keeping process alive...');
+              // 창은 이미 닫혔으므로 프로세스만 유지
+              // app.quit()을 호출하지 않음
             }, 500);
           }
         });
@@ -194,4 +196,19 @@ setTimeout(() => {
 
 app.on('window-all-closed', () => {
   // 모든 창이 닫혀도 앱은 유지 (메인 프로세스가 시작될 때까지)
+  // macOS가 아닌 경우에도 앱을 종료하지 않음
+  // (스플래시는 별도 프로세스이므로 메인 앱에 영향을 주지 않음)
+});
+
+// 프로세스가 종료되지 않도록 유지
+// (메인 앱이 실행 중일 때 스플래시 프로세스가 종료되어도
+//  concurrently가 다른 프로세스를 종료시키지 않도록)
+process.on('SIGTERM', () => {
+  console.log('[Splash] Received SIGTERM, but keeping process alive...');
+  // SIGTERM을 무시하고 프로세스 유지
+});
+
+process.on('SIGINT', () => {
+  console.log('[Splash] Received SIGINT, exiting gracefully...');
+  app.quit();
 });
