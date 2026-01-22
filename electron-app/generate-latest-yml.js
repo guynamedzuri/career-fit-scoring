@@ -19,9 +19,14 @@ const version = packageJson.version;
 // 명령줄 인자로 파일 이름 지정 가능
 const customFileName = process.argv[2];
 
-// 설치 파일 찾기
+// 설치 파일 찾기 (Patcher 우선, 없으면 Setup)
 const files = fs.readdirSync(distInstallerPath);
-let exeFile = files.find(f => f.endsWith('.exe') && f.includes('Setup'));
+let exeFile = files.find(f => f.endsWith('.exe') && f.includes('Patcher'));
+
+// Patcher가 없으면 Setup 파일 찾기
+if (!exeFile) {
+  exeFile = files.find(f => f.endsWith('.exe') && f.includes('Setup'));
+}
 
 if (!exeFile) {
   console.error('설치 파일(.exe)을 찾을 수 없습니다.');
@@ -42,17 +47,17 @@ const sha512 = hashSum.digest('hex');
 
 // GitHub Release에 업로드할 파일 이름 결정
 // 1. 명령줄 인자가 있으면 사용
-// 2. 없으면 버전 기반으로 생성: Setup.{version}.exe
+// 2. 없으면 로컬 파일명 사용 (Patcher 또는 Setup)
 let releaseFileName = customFileName;
 if (!releaseFileName) {
-  // 버전 기반 파일 이름 생성 (예: Setup.1.0.2.exe)
-  releaseFileName = `Setup.${version}.exe`;
+  // 로컬 파일명을 그대로 사용 (Patcher 또는 Setup)
+  releaseFileName = exeFile;
   console.log(`\n⚠️  파일 이름이 지정되지 않았습니다.`);
   console.log(`   로컬 파일: ${exeFile}`);
   console.log(`   Release 파일 이름: ${releaseFileName}`);
   console.log(`   GitHub Release에 업로드할 때 이 이름을 사용하세요!`);
   console.log(`   또는 다음 명령으로 파일 이름을 지정할 수 있습니다:`);
-  console.log(`   npm run generate-latest Setup.${version}.exe\n`);
+  console.log(`   npm run generate-latest ${releaseFileName}\n`);
 }
 
 // latest.yml 생성
