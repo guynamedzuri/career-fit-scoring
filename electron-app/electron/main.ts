@@ -831,6 +831,20 @@ function createWindow() {
     const viteUrl = 'http://localhost:5173';
     console.log('Loading Vite dev server:', viteUrl);
     
+    // 메인 윈도우 로드 시작
+    mainWindow.loadURL(viteUrl);
+    mainWindow.webContents.openDevTools();
+    
+    // 메인 윈도우가 표시될 준비가 되면 표시하고 신호 전송
+    mainWindow.once('ready-to-show', () => {
+      console.log('[Main] Window ready-to-show event fired');
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+    
+    // 간단한 방법: 메인 윈도우 생성 후 일정 시간 후 신호 전송
     let signalSent = false;
     const sendReadySignal = () => {
       if (signalSent) {
@@ -845,6 +859,7 @@ function createWindow() {
       try {
         fs.writeFileSync(signalFile, 'ready', 'utf-8');
         console.log('[Main] Signal file created at:', signalFile);
+        console.log('[Main] Signal file exists:', fs.existsSync(signalFile));
       } catch (e) {
         console.error('[Main] Failed to create signal file:', e);
       }
@@ -858,21 +873,11 @@ function createWindow() {
       }, 300);
     };
     
-    // 메인 윈도우가 실제로 표시될 준비가 되었을 때 신호 전송
-    mainWindow.once('ready-to-show', () => {
-      console.log('[Main] Window ready-to-show event fired');
-      if (mainWindow) {
-        mainWindow.show();
-        mainWindow.focus();
-        // 윈도우가 표시된 후 약간의 지연을 두고 신호 전송
-        setTimeout(() => {
-          sendReadySignal();
-        }, 500);
-      }
-    });
-    
-    mainWindow.loadURL(viteUrl);
-    mainWindow.webContents.openDevTools();
+    // 메인 윈도우 생성 후 3초 후 신호 전송 (안전장치)
+    setTimeout(() => {
+      console.log('[Main] Timeout reached (3 seconds), sending signal...');
+      sendReadySignal();
+    }, 3000);
     
     // Vite 서버가 준비될 때까지 대기
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
