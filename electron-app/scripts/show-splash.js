@@ -10,9 +10,20 @@ const os = require('os');
 const http = require('http');
 
 // package.json에서 버전 읽기
+// __dirname은 scripts/ 디렉토리를 가리키므로 상위 디렉토리의 package.json을 읽음
 const packageJsonPath = path.join(__dirname, '..', 'package.json');
-const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-const appVersion = packageJson.version;
+let appVersion = '1.0.0'; // 기본값
+try {
+  if (fs.existsSync(packageJsonPath)) {
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+    appVersion = packageJson.version || appVersion;
+    console.log('[Splash] Loaded version from package.json:', appVersion);
+  } else {
+    console.warn('[Splash] package.json not found at:', packageJsonPath);
+  }
+} catch (error) {
+  console.error('[Splash] Failed to load version from package.json:', error);
+}
 
 let splashWindow = null;
 
