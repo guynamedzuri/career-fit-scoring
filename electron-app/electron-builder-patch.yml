@@ -17,9 +17,6 @@ publish:
 
 directories:
   output: dist-installer
-  # buildResources: icon.ico 파일이 있는 디렉토리
-  # build 디렉토리에 icon.ico가 있으므로 build로 설정
-  # 또는 electron-app/icon.ico를 build/icon.ico로 복사
   buildResources: build
 
 files:
@@ -68,20 +65,7 @@ win:
       arch:
         - x64
   requestedExecutionLevel: asInvoker
-  # 실행 파일(.exe) 아이콘 설정
-  # 이 설정이 실제 앱 실행 파일의 아이콘을 결정함
-  # buildResources 디렉토리(build) 기준 상대 경로
-  # 문서: https://www.electron.build/configuration/win
-  # "needs to be placed in the buildResources directory (defaults to build)"
-  # 현재 buildResources: build 이므로 build/icon.ico를 사용
-  # 참고: win.icon은 실행 파일 아이콘, nsis.installerIcon은 설치 프로그램 아이콘
-  # win.icon은 buildResources 기준이므로 build/icon.ico가 아니라 icon.ico
-  # buildResources: build 이므로 build/icon.ico는 build/build/icon.ico를 찾게 됨
   icon: icon.ico
-  # 디버깅: 아이콘 파일 존재 여부 확인을 위해 로그 추가 필요
-  # 아이콘 파일을 앱 루트에 복사하기 위한 설정
-  # asar: false일 때 files에 포함된 파일은 resources/app에 가므로
-  # extraResources를 사용하여 루트에 복사
   extraResources:
     - from: icon.ico
       to: .
@@ -92,9 +76,9 @@ win:
   signingHashAlgorithms: []
 
 nsis:
-  oneClick: false  # 기본 installer: 설치 옵션을 물어봄
+  oneClick: true  # Patcher: 자동 설치 (기존 설치가 있을 때 사용)
   perMachine: false  # 사용자별 설치
-  allowToChangeInstallationDirectory: true  # 설치 경로 변경 가능
+  allowToChangeInstallationDirectory: false  # One-click일 때는 변경 불가
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: 이력서 적합도 평가 시스템
@@ -102,12 +86,9 @@ nsis:
   installerIcon: icon.ico
   uninstallerIcon: icon.ico
   installerHeaderIcon: icon.ico
-  # shortcutIcon은 NSIS에서 지원되지 않음 - installer.nsh 스크립트로 처리
   deleteAppDataOnUninstall: false
   # 조용한 업데이트를 위한 설정
   runAfterFinish: false  # 설치 후 자동 실행 방지 (electron-updater가 처리)
-  # NSIS 스크립트 커스터마이징 (현재 비활성화)
-  # include: build/installer.nsh  # 바로가기 아이콘은 실행 파일 아이콘을 자동으로 사용
 
 mac:
   target:
@@ -116,7 +97,6 @@ mac:
         - x64
         - arm64
   category: public.app.business
-  # macOS 아이콘 설정
   icon: icon.icns
 
 linux:
@@ -125,5 +105,4 @@ linux:
       arch:
         - x64
   category: Utility
-  # Linux 아이콘 설정
   icon: icon.png
