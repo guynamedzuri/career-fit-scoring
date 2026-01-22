@@ -894,12 +894,24 @@ function createWindow() {
   });
 }
 
+// 앱이 준비되기 전에 스플래시를 먼저 표시
+// app.whenReady() 전에 스플래시를 띄우면 더 빠르게 사용자에게 피드백 제공
+if (app.isReady()) {
+  createSplashWindow();
+} else {
+  app.once('ready', () => {
+    createSplashWindow();
+  });
+}
+
 app.whenReady().then(async () => {
   // 애플리케이션 메뉴 제거 (File, Edit, View, Window 등)
   Menu.setApplicationMenu(null);
   
-  // 스플래시 스크린 먼저 표시
-  createSplashWindow();
+  // 스플래시가 아직 없으면 생성 (이미 위에서 생성했을 수도 있음)
+  if (!splashWindow) {
+    createSplashWindow();
+  }
   
   // 초기화 작업 (비동기로 진행)
   try {
