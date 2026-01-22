@@ -10,6 +10,7 @@ import { extractTablesFromDocx, mapResumeDataToApplicationData } from '../../src
 let autoUpdater: any = null;
 
 let mainWindow: BrowserWindow | null = null;
+let splashWindow: BrowserWindow | null = null;
 
 /**
  * 로그 파일에 기록 (프로덕션 빌드에서 디버깅용)
@@ -329,7 +330,7 @@ function loadElectronUpdater(): any {
 /**
  * 자동 업데이트 설정 및 체크
  */
-function setupAutoUpdater() {
+async function setupAutoUpdater() {
   // electron-updater 로드 시도
   if (!autoUpdater) {
     const updaterModule = loadElectronUpdater();
@@ -615,6 +616,111 @@ function findProjectRoot(): string | null {
   return null;
 }
 
+function createSplashWindow() {
+  // 스플래시 스크린 생성
+  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+  
+  // 아이콘 경로 설정
+  let iconPath: string | undefined;
+  if (app.isPackaged) {
+    const appPath = app.getAppPath();
+    if (appPath.includes('resources/app')) {
+      iconPath = path.join(path.dirname(path.dirname(appPath)), 'icon.ico');
+    } else {
+      iconPath = path.join(path.dirname(appPath), 'icon.ico');
+    }
+    if (!fs.existsSync(iconPath)) {
+      iconPath = path.join(process.resourcesPath || path.dirname(appPath), 'icon.ico');
+    }
+  } else {
+    iconPath = path.join(__dirname, '..', 'icon.ico');
+  }
+  
+  splashWindow = new BrowserWindow({
+    width: 400,
+    height: 300,
+    frame: false, // 프레임 없음
+    alwaysOnTop: true,
+    transparent: true,
+    resizable: false,
+    icon: iconPath,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+  
+  // 스플래시 HTML 로드
+  const splashHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+    }
+    .logo {
+      font-size: 48px;
+      font-weight: bold;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    .message {
+      font-size: 18px;
+      margin-bottom: 30px;
+      opacity: 0.9;
+    }
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .version {
+      position: absolute;
+      bottom: 20px;
+      font-size: 12px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">이력서 AI 분석</div>
+  <div class="message">준비 중...</div>
+  <div class="spinner"></div>
+  <div class="version">Version ${process.env.VITE_APP_VERSION || '1.0.78'}</div>
+</body>
+</html>
+  `;
+  
+  splashWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(splashHTML)}`);
+  splashWindow.show();
+  
+  // 중앙에 배치
+  splashWindow.center();
+}
+
 function createWindow() {
   // 개발 환경에서는 Vite 개발 서버, 프로덕션에서는 빌드된 파일
   const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -763,14 +869,41 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // 애플리케이션 메뉴 제거 (File, Edit, View, Window 등)
   Menu.setApplicationMenu(null);
   
-  // 자동 업데이트 설정
-  setupAutoUpdater();
+  // 스플래시 스크린 먼저 표시
+  createSplashWindow();
   
-  createWindow();
+  // 초기화 작업 (비동기로 진행)
+  try {
+    // 자동 업데이트 설정
+    await setupAutoUpdater();
+    
+    // 가상환경 체크 등 초기화 작업이 있다면 여기서 수행
+    // (현재는 별도 초기화 작업이 없지만, 필요시 추가 가능)
+    
+    // 약간의 지연을 두어 스플래시가 보이도록 함
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // 메인 윈도우 생성
+    createWindow();
+    
+    // 스플래시 닫기
+    if (splashWindow) {
+      splashWindow.close();
+      splashWindow = null;
+    }
+  } catch (error) {
+    console.error('[Init] Initialization error:', error);
+    // 에러가 발생해도 메인 윈도우는 표시
+    createWindow();
+    if (splashWindow) {
+      splashWindow.close();
+      splashWindow = null;
+    }
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
