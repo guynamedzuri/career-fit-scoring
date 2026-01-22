@@ -24,6 +24,23 @@ function App() {
   const [executedSnapshot, setExecutedSnapshot] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
 
+  // 앱이 마운트되면 메인 프로세스에 준비 완료 신호 전송
+  useEffect(() => {
+    const notifyReady = async () => {
+      try {
+        if ((window as any).electron?.notifyAppReady) {
+          await (window as any).electron.notifyAppReady();
+          console.log('[App] App ready signal sent to main process');
+        }
+      } catch (error) {
+        console.error('[App] Failed to send app ready signal:', error);
+      }
+    };
+    // 약간의 지연을 두어 React가 완전히 렌더링될 시간을 줌
+    const timer = setTimeout(notifyReady, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   const handleExecute = () => {
     // JobConfigForm의 검증 함수 호출
     if ((window as any).__handleJobConfigExecute) {

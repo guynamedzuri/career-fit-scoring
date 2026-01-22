@@ -1050,6 +1050,42 @@ app.on('window-all-closed', () => {
 
 // 폴더 선택 IPC 핸들러
 // 수동 업데이트 체크 IPC 핸들러
+// React 앱이 준비되었을 때 호출되는 IPC 핸들러
+let appReadySignalSent = false;
+ipcMain.handle('app-ready', async () => {
+  if (appReadySignalSent) {
+    console.log('[Main] App ready signal already sent, skipping...');
+    return;
+  }
+  appReadySignalSent = true;
+  console.log('[Main] App ready signal received from React app');
+  
+  // sendReadySignal 함수 호출 (개발/프로덕션 모드 모두에서 사용)
+  if (mainWindow) {
+    const os = require('os');
+    const signalFile = path.join(os.tmpdir(), 'career-fit-scoring-main-ready');
+    try {
+      fs.writeFileSync(signalFile, 'ready', 'utf-8');
+      console.log('[Main] Signal file created at:', signalFile);
+      if (fs.existsSync(signalFile)) {
+        console.log('[Main] Signal file verified to exist');
+      } else {
+        console.error('[Main] Signal file was not created!');
+      }
+    } catch (e) {
+      console.error('[Main] Failed to create signal file:', e);
+    }
+    
+    // 메인 프로세스의 스플래시 닫기
+    setTimeout(() => {
+      if (splashWindow) {
+        splashWindow.close();
+        splashWindow = null;
+      }
+    }, 300);
+  }
+});
+
 ipcMain.handle('check-for-updates', async () => {
   try {
     const msg = '[AutoUpdater] Manual update check requested';
