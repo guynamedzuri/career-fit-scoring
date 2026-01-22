@@ -883,7 +883,7 @@ function createWindow() {
     });
     
     mainWindow.webContents.once('did-finish-load', () => {
-      console.log('Page loaded successfully');
+      console.log('[Main] ===== did-finish-load event fired =====');
       console.log('[Main] did-finish-load event handler executed, setting timeout...');
       // did-finish-load도 확인하되, dom-ready가 먼저 처리되도록 함
       setTimeout(() => {
