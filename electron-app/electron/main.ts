@@ -956,9 +956,9 @@ function startSplashServer(): number {
       console.log(`[Main] Port file exists: ${fs.existsSync(portFile)}`);
       const savedContent = fs.readFileSync(portFile, 'utf-8');
       console.log(`[Main] Port file content: "${savedContent}"`);
-    } catch (e) {
+    } catch (e: any) {
       console.error('[Main] Failed to save port number:', e);
-      console.error('[Main] Error details:', e.message, e.stack);
+      console.error('[Main] Error details:', e?.message, e?.stack);
     }
   });
   
