@@ -890,15 +890,36 @@ app.whenReady().then(async () => {
     // 메인 윈도우 생성
     createWindow();
     
-    // 스플래시 닫기
-    if (splashWindow) {
-      splashWindow.close();
-      splashWindow = null;
+    // 메인 윈도우가 완전히 로드될 때까지 스플래시 유지
+    if (mainWindow) {
+      mainWindow.webContents.once('did-finish-load', () => {
+        // 메인 윈도우 표시
+        if (mainWindow) {
+          mainWindow.show();
+        }
+        
+        // 스플래시 닫기 (약간의 지연을 두어 부드럽게 전환)
+        setTimeout(() => {
+          if (splashWindow) {
+            splashWindow.close();
+            splashWindow = null;
+          }
+        }, 300);
+      });
+    } else {
+      // 메인 윈도우 생성 실패 시에도 스플래시 닫기
+      if (splashWindow) {
+        splashWindow.close();
+        splashWindow = null;
+      }
     }
   } catch (error) {
     console.error('[Init] Initialization error:', error);
     // 에러가 발생해도 메인 윈도우는 표시
     createWindow();
+    if (mainWindow) {
+      mainWindow.show();
+    }
     if (splashWindow) {
       splashWindow.close();
       splashWindow = null;
