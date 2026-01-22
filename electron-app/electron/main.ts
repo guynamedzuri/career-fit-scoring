@@ -831,8 +831,11 @@ function createWindow() {
     const viteUrl = 'http://localhost:5173';
     console.log('Loading Vite dev server:', viteUrl);
     
-    // 페이지가 로드되면 창 표시 및 스플래시 닫기
-    mainWindow.webContents.once('did-finish-load', () => {
+    let signalSent = false;
+    const sendReadySignal = () => {
+      if (signalSent) return;
+      signalSent = true;
+      
       console.log('Page loaded successfully');
       if (mainWindow) {
         mainWindow.show();
@@ -856,6 +859,23 @@ function createWindow() {
           splashWindow = null;
         }
       }, 300);
+    };
+    
+    // DOM이 준비되고 페이지 로드가 완료된 후 신호 전송
+    mainWindow.webContents.once('dom-ready', () => {
+      console.log('DOM ready');
+      // DOM이 준비된 후 약간의 지연을 두어 React 앱이 렌더링될 시간을 줌
+      setTimeout(() => {
+        sendReadySignal();
+      }, 1000);
+    });
+    
+    mainWindow.webContents.once('did-finish-load', () => {
+      console.log('Page load finished');
+      // did-finish-load도 확인하되, dom-ready가 먼저 처리되도록 함
+      setTimeout(() => {
+        sendReadySignal();
+      }, 500);
     });
     
     mainWindow.loadURL(viteUrl);
@@ -864,6 +884,7 @@ function createWindow() {
     // Vite 서버가 준비될 때까지 대기
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
       console.error('Failed to load:', errorCode, errorDescription);
+      signalSent = false; // 재시도 시 신호 플래그 리셋
       if (errorCode === -106 && mainWindow) {
         // ERR_INTERNET_DISCONNECTED 또는 연결 실패
         console.log('Waiting for Vite server to start...');
@@ -879,21 +900,51 @@ function createWindow() {
     const indexPath = path.join(__dirname, '../dist/index.html');
     console.log('Loading production file:', indexPath);
     
-    // 페이지가 로드되면 창 표시 및 스플래시 닫기
-    mainWindow.webContents.once('did-finish-load', () => {
+    let signalSent = false;
+    const sendReadySignal = () => {
+      if (signalSent) return;
+      signalSent = true;
+      
       console.log('Page loaded successfully');
       if (mainWindow) {
         mainWindow.show();
         mainWindow.focus();
       }
       
-      // 스플래시 닫기 (약간의 지연을 두어 부드럽게 전환)
+      // 별도 스플래시 프로세스에 메인 프로세스 준비 신호 전달
+      const os = require('os');
+      const signalFile = path.join(os.tmpdir(), 'career-fit-scoring-main-ready');
+      try {
+        fs.writeFileSync(signalFile, 'ready', 'utf-8');
+        console.log('[Main] Signal file created at:', signalFile);
+      } catch (e) {
+        console.error('[Main] Failed to create signal file:', e);
+      }
+      
+      // 메인 프로세스의 스플래시 닫기 (약간의 지연을 두어 부드럽게 전환)
       setTimeout(() => {
         if (splashWindow) {
           splashWindow.close();
           splashWindow = null;
         }
       }, 300);
+    };
+    
+    // DOM이 준비되고 페이지 로드가 완료된 후 신호 전송
+    mainWindow.webContents.once('dom-ready', () => {
+      console.log('DOM ready');
+      // DOM이 준비된 후 약간의 지연을 두어 React 앱이 렌더링될 시간을 줌
+      setTimeout(() => {
+        sendReadySignal();
+      }, 1000);
+    });
+    
+    mainWindow.webContents.once('did-finish-load', () => {
+      console.log('Page load finished');
+      // did-finish-load도 확인하되, dom-ready가 먼저 처리되도록 함
+      setTimeout(() => {
+        sendReadySignal();
+      }, 500);
     });
     
     mainWindow.loadFile(indexPath);
