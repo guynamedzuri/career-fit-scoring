@@ -872,25 +872,25 @@ function createWindow() {
     
     // DOM이 준비되고 페이지 로드가 완료된 후 신호 전송
     mainWindow.webContents.once('dom-ready', () => {
-      console.log('[Main] DOM ready event fired');
+      console.log('[Main] ===== DOM ready event fired =====');
       console.log('[Main] DOM ready event handler executed, setting timeout...');
       // DOM이 준비된 후 약간의 지연을 두어 React 앱이 렌더링될 시간을 줌
       setTimeout(() => {
-        console.log('[Main] DOM ready timeout fired, calling sendReadySignal');
+        console.log('[Main] DOM ready timeout fired (2 seconds), calling sendReadySignal');
         sendReadySignal();
-      }, 1000);
-      console.log('[Main] setTimeout scheduled for dom-ready');
+      }, 2000);
+      console.log('[Main] setTimeout scheduled for dom-ready (2 seconds)');
     });
     
+    // 추가 안전장치: did-finish-load 이벤트도 사용
     mainWindow.webContents.once('did-finish-load', () => {
       console.log('[Main] ===== did-finish-load event fired =====');
-      console.log('[Main] did-finish-load event handler executed, setting timeout...');
-      // did-finish-load도 확인하되, dom-ready가 먼저 처리되도록 함
+      // did-finish-load는 dom-ready보다 늦게 발생하므로, 더 짧은 지연 사용
       setTimeout(() => {
-        console.log('[Main] did-finish-load timeout fired, calling sendReadySignal');
+        console.log('[Main] did-finish-load timeout fired (1 second), calling sendReadySignal');
         sendReadySignal();
-      }, 500);
-      console.log('[Main] setTimeout scheduled for did-finish-load');
+      }, 1000);
+      console.log('[Main] setTimeout scheduled for did-finish-load (1 second)');
     });
     
     mainWindow.loadURL(viteUrl);
