@@ -908,20 +908,12 @@ app.whenReady().then(async () => {
   // 애플리케이션 메뉴 제거 (File, Edit, View, Window 등)
   Menu.setApplicationMenu(null);
   
-  // 별도 스플래시 프로세스에 메인 프로세스 준비 신호 전달
-  const os = require('os');
-  const signalFile = path.join(os.tmpdir(), 'career-fit-scoring-main-ready');
-  try {
-    fs.writeFileSync(signalFile, 'ready', 'utf-8');
-    console.log('[Main] Signal file created at:', signalFile);
-  } catch (e) {
-    console.error('[Main] Failed to create signal file:', e);
-  }
-  
   // 스플래시가 아직 없으면 생성 (이미 위에서 생성했을 수도 있음)
   if (!splashWindow) {
     createSplashWindow();
   }
+  
+  // 신호 파일은 메인 윈도우가 로드 완료된 후에 생성 (did-finish-load에서 처리)
   
   // 초기화 작업 (비동기로 진행)
   try {

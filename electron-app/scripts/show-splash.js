@@ -96,17 +96,60 @@ app.whenReady().then(() => {
   // (메인 프로세스의 스플래시가 표시될 때)
 });
 
+// 메인 프로세스가 시작되면 이 스플래시를 닫기 위해
+// 파일 기반 신호를 확인
+const signalFile = path.join(os.tmpdir(), 'career-fit-scoring-main-ready');
+
+// 신호 파일이 이미 있으면 삭제 (이전 실행의 잔여물)
+if (fs.existsSync(signalFile)) {
+  try {
+    fs.unlinkSync(signalFile);
+  } catch (e) {
+    // 무시
+  }
+}
+
+console.log('[Splash] Waiting for main process signal at:', signalFile);
+
+// 메인 프로세스 준비 신호 확인 (500ms마다 체크)
+const checkInterval = setInterval(() => {
+  if (fs.existsSync(signalFile)) {
+    console.log('[Splash] Main process ready signal detected, closing splash...');
+    // 메인 프로세스가 준비되었음을 알림
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.close();
+    }
+    clearInterval(checkInterval);
+    // 신호 파일 삭제
+    try {
+      fs.unlinkSync(signalFile);
+    } catch (e) {
+      // 무시
+    }
+    // 앱 종료
+    setTimeout(() => {
+      app.quit();
+    }, 500);
+  }
+}, 500);
+
+// 최대 60초 후 자동 종료 (안전장치)
+setTimeout(() => {
+  console.log('[Splash] Timeout reached, closing splash...');
+  clearInterval(checkInterval);
+  if (splashWindow && !splashWindow.isDestroyed()) {
+    splashWindow.close();
+  }
+  try {
+    if (fs.existsSync(signalFile)) {
+      fs.unlinkSync(signalFile);
+    }
+  } catch (e) {
+    // 무시
+  }
+  app.quit();
+}, 60000);
+
 app.on('window-all-closed', () => {
   // 모든 창이 닫혀도 앱은 유지 (메인 프로세스가 시작될 때까지)
-  // 하지만 메인 프로세스가 시작되면 이 프로세스는 종료되어야 함
-  // IPC나 파일 기반 신호를 사용할 수 있지만, 일단은 유지
 });
-
-// 메인 프로세스가 시작되면 이 스플래시를 닫도록 신호를 받을 수 있음
-// 간단하게는 일정 시간 후 자동 종료 (메인 프로세스의 스플래시가 표시될 때까지)
-setTimeout(() => {
-  if (splashWindow && !splashWindow.isDestroyed()) {
-    // 메인 프로세스가 시작되었을 것으로 가정하고 닫기
-    // 실제로는 IPC나 파일 기반 신호를 사용하는 것이 더 정확함
-  }
-}, 10000); // 10초 후 자동 종료 (메인 프로세스가 시작되었을 것으로 가정)
