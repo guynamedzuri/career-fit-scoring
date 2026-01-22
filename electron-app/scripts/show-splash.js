@@ -7,6 +7,7 @@ const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const http = require('http');
 
 let splashWindow = null;
 
@@ -96,20 +97,9 @@ app.whenReady().then(() => {
   // (메인 프로세스의 스플래시가 표시될 때)
 });
 
-// 메인 프로세스가 시작되면 이 스플래시를 닫기 위해
-// 파일 기반 신호를 확인
-const signalFile = path.join(os.tmpdir(), 'career-fit-scoring-main-ready');
-
-// 신호 파일이 이미 있으면 삭제 (이전 실행의 잔여물)
-if (fs.existsSync(signalFile)) {
-  try {
-    fs.unlinkSync(signalFile);
-  } catch (e) {
-    // 무시
-  }
-}
-
-console.log('[Splash] Waiting for main process signal at:', signalFile);
+// 메인 프로세스와 통신하기 위한 HTTP 클라이언트
+const portFile = path.join(os.tmpdir(), 'career-fit-scoring-splash-port');
+console.log('[Splash] Waiting for main process server...');
 
 // 메인 프로세스 준비 신호 확인 (500ms마다 체크)
 let signalDetected = false;
@@ -120,35 +110,57 @@ const checkInterval = setInterval(() => {
   }
   
   checkCount++;
-  if (checkCount % 10 === 0) {
-    // 5초마다 한 번씩 로그 출력 (디버깅용)
-    console.log(`[Splash] Still waiting for signal... (checked ${checkCount} times, file exists: ${fs.existsSync(signalFile)})`);
-  }
   
-  if (fs.existsSync(signalFile)) {
-    signalDetected = true;
-    console.log('[Splash] Main process ready signal detected, closing splash...');
-    
-    // 메인 프로세스가 준비되었음을 알림
-    if (splashWindow && !splashWindow.isDestroyed()) {
-      splashWindow.close();
-      splashWindow = null;
-    }
-    
-    clearInterval(checkInterval);
-    
-    // 신호 파일 삭제
+  // 포트 번호 파일 확인
+  if (fs.existsSync(portFile)) {
     try {
-      fs.unlinkSync(signalFile);
+      const port = parseInt(fs.readFileSync(portFile, 'utf-8').trim(), 10);
+      
+      if (port > 0) {
+        // HTTP 요청으로 메인 프로세스 준비 여부 확인
+        const req = http.get(`http://127.0.0.1:${port}/ready`, (res) => {
+          if (res.statusCode === 200) {
+            signalDetected = true;
+            console.log('[Splash] Main process ready signal received via HTTP');
+            
+            // 메인 프로세스가 준비되었음을 알림
+            if (splashWindow && !splashWindow.isDestroyed()) {
+              splashWindow.close();
+              splashWindow = null;
+            }
+            
+            clearInterval(checkInterval);
+            
+            // 스플래시 프로세스 종료
+            setTimeout(() => {
+              console.log('[Splash] Exiting splash process...');
+              app.quit();
+            }, 500);
+          }
+        });
+        
+        req.on('error', (err) => {
+          // 서버가 아직 준비되지 않음 (정상)
+          if (checkCount % 10 === 0) {
+            console.log(`[Splash] Still waiting for main process server... (checked ${checkCount} times)`);
+          }
+        });
+        
+        req.setTimeout(1000, () => {
+          req.destroy();
+        });
+      }
     } catch (e) {
-      // 무시
+      // 포트 파일 읽기 실패 (정상 - 아직 생성되지 않음)
+      if (checkCount % 10 === 0) {
+        console.log(`[Splash] Still waiting for port file... (checked ${checkCount} times)`);
+      }
     }
-    
-    // 스플래시 프로세스 종료 (별도 프로세스이므로 메인 앱에 영향 없음)
-    setTimeout(() => {
-      console.log('[Splash] Exiting splash process...');
-      app.quit();
-    }, 500);
+  } else {
+    // 포트 파일이 아직 없음
+    if (checkCount % 10 === 0) {
+      console.log(`[Splash] Still waiting for port file... (checked ${checkCount} times)`);
+    }
   }
 }, 500);
 

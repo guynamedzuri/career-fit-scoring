@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as http from 'http';
 import * as https from 'https';
+import * as net from 'net';
 // career-fit-scoring 패키지에서 함수 import (상대 경로로 직접 import)
 import { extractTablesFromDocx, mapResumeDataToApplicationData } from '../../src/index';
 
@@ -11,6 +12,7 @@ let autoUpdater: any = null;
 
 let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
+let splashServer: http.Server | null = null;
 
 /**
  * 로그 파일에 기록 (프로덕션 빌드에서 디버깅용)
@@ -1000,33 +1002,65 @@ if (app.isReady()) {
   });
 }
 
+// 스플래시 프로세스와 통신하기 위한 HTTP 서버 시작
+function startSplashServer(): number {
+  if (splashServer) {
+    return (splashServer.address() as net.AddressInfo)?.port || 0;
+  }
+  
+  const server = http.createServer((req, res) => {
+    if (req.url === '/ready' && req.method === 'GET') {
+      console.log('[Main] Splash server: ready signal received');
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ready' }));
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  });
+  
+  // 사용 가능한 포트 자동 할당
+  server.listen(0, '127.0.0.1', () => {
+    const port = (server.address() as net.AddressInfo)?.port || 0;
+    console.log(`[Main] Splash server started on port ${port}`);
+    
+    // 포트 번호를 파일에 저장 (스플래시 프로세스가 읽을 수 있도록)
+    const os = require('os');
+    const portFile = path.join(os.tmpdir(), 'career-fit-scoring-splash-port');
+    try {
+      fs.writeFileSync(portFile, port.toString(), 'utf-8');
+      console.log(`[Main] Port number saved to: ${portFile}`);
+    } catch (e) {
+      console.error('[Main] Failed to save port number:', e);
+    }
+  });
+  
+  splashServer = server;
+  return (server.address() as net.AddressInfo)?.port || 0;
+}
+
 app.whenReady().then(async () => {
   // 애플리케이션 메뉴 제거 (File, Edit, View, Window 등)
   Menu.setApplicationMenu(null);
+  
+  // 스플래시 서버 시작 (메인 프로세스가 시작되자마자)
+  startSplashServer();
   
   // 스플래시가 아직 없으면 생성 (이미 위에서 생성했을 수도 있음)
   if (!splashWindow) {
     createSplashWindow();
   }
   
-  // 신호 파일은 메인 윈도우가 로드 완료된 후에 생성 (did-finish-load에서 처리)
-  
   // 초기화 작업 (비동기로 진행)
   try {
     // 자동 업데이트 설정
     await setupAutoUpdater();
-    
-    // 가상환경 체크 등 초기화 작업이 있다면 여기서 수행
-    // (현재는 별도 초기화 작업이 없지만, 필요시 추가 가능)
     
     // 약간의 지연을 두어 스플래시가 보이도록 함
     await new Promise(resolve => setTimeout(resolve, 500));
     
     // 메인 윈도우 생성
     createWindow();
-    
-    // 메인 윈도우는 createWindow() 내부에서 did-finish-load 이벤트로 처리됨
-    // (개발/프로덕션 환경 모두에서 스플래시 닫기 로직이 did-finish-load에서 처리됨)
   } catch (error) {
     console.error('[Init] Initialization error:', error);
     // 에러가 발생해도 메인 윈도우는 표시
