@@ -24,6 +24,11 @@ function App() {
   const [executedSnapshot, setExecutedSnapshot] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [aiProgress, setAiProgress] = useState<{ current: number; total: number; currentFile: string; estimatedTimeRemainingMs?: number } | null>(null);
+  
+  // 디버깅: aiProgress 변경 추적
+  useEffect(() => {
+    console.log('[App] aiProgress updated:', aiProgress);
+  }, [aiProgress]);
 
   // 앱이 마운트되면 메인 프로세스에 준비 완료 신호 전송
   useEffect(() => {

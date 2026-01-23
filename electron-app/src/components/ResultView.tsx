@@ -713,9 +713,13 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       isAiAnalysisRunning.current = true;
       setAiProcessing(true);
       const initialProgress = { current: 0, total: needsAnalysis.length, currentFile: '', estimatedTimeRemainingMs: undefined };
+      console.log('[AI Analysis] Setting initial progress:', initialProgress);
       setAiProgress(initialProgress);
       if (onProgressChange) {
+        console.log('[AI Analysis] Calling onProgressChange with:', initialProgress);
         onProgressChange(initialProgress);
+      } else {
+        console.warn('[AI Analysis] onProgressChange is not available!');
       }
       if (onProcessingChange) {
         onProcessingChange(true);
