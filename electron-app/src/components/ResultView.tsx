@@ -698,49 +698,93 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         onProcessingChange(true);
       }
       try {
-        const aiPromises = needsAnalysis.map(async (result) => {
-          console.log(`[AI Analysis] Processing ${result.fileName}...`);
-          try {
-            if (!result.applicationData) {
-              console.warn(`[AI Analysis] No applicationData for ${result.fileName}`);
-              return {
-                filePath: result.filePath,
-                aiGrade: undefined,
-                aiReport: undefined,
-                aiChecked: true, // 에러가 발생해도 aiChecked를 true로 설정하여 무한루프 방지
-                error: '이력서 데이터가 없습니다',
-              };
-            }
+        // 레이트 리미트 방지를 위해 순차 처리 (각 요청 사이에 딜레이)
+        const aiResults = [];
+        const REQUEST_DELAY = 2000; // 기본 2초 딜레이 (요청 간 간격)
+        const MAX_RETRIES = 3; // 최대 재시도 횟수
+        
+        for (let i = 0; i < needsAnalysis.length; i++) {
+          const result = needsAnalysis[i];
+          console.log(`[AI Analysis] Processing ${result.fileName}... (${i + 1}/${needsAnalysis.length})`);
+          
+          let retryCount = 0;
+          let success = false;
+          
+          while (retryCount < MAX_RETRIES && !success) {
+            try {
+              if (!result.applicationData) {
+                console.warn(`[AI Analysis] No applicationData for ${result.fileName}`);
+                aiResults.push({
+                  filePath: result.filePath,
+                  aiGrade: undefined,
+                  aiReport: undefined,
+                  aiChecked: true,
+                  error: '이력서 데이터가 없습니다',
+                });
+                success = true;
+                break;
+              }
 
-            const response = await window.electron!.aiCheckResume({
-              applicationData: result.applicationData,
-              userPrompt: userPrompt,
-              fileName: result.fileName,
-            });
+              const response = await window.electron!.aiCheckResume({
+                applicationData: result.applicationData,
+                userPrompt: userPrompt,
+                fileName: result.fileName,
+              });
 
-            if (response.success && response.grade && response.report) {
-              return {
-                filePath: result.filePath,
-                aiGrade: response.grade,
-                aiReport: response.report,
-                aiChecked: true,
-              };
-            } else {
-              throw new Error(response.error || 'AI 분석 실패');
+              if (response.success && response.grade && response.report) {
+                aiResults.push({
+                  filePath: result.filePath,
+                  aiGrade: response.grade,
+                  aiReport: response.report,
+                  aiChecked: true,
+                });
+                success = true;
+              } else {
+                throw new Error(response.error || 'AI 분석 실패');
+              }
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'AI 분석 실패';
+              
+              // 레이트 리미트 에러인 경우 재시도
+              if (errorMessage.startsWith('RATE_LIMIT:')) {
+                const retryAfter = parseInt(errorMessage.split(':')[1], 10) || 10;
+                retryCount++;
+                
+                if (retryCount < MAX_RETRIES) {
+                  console.log(`[AI Analysis] Rate limit reached for ${result.fileName}, waiting ${retryAfter} seconds before retry (${retryCount}/${MAX_RETRIES})...`);
+                  await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+                  continue; // 재시도
+                } else {
+                  console.error(`[AI Analysis] Max retries reached for ${result.fileName}`);
+                  aiResults.push({
+                    filePath: result.filePath,
+                    aiGrade: undefined,
+                    aiReport: undefined,
+                    aiChecked: true,
+                    error: `레이트 리미트: ${MAX_RETRIES}회 재시도 후 실패`,
+                  });
+                  success = true; // 재시도 포기
+                }
+              } else {
+                // 다른 에러는 재시도하지 않음
+                console.error(`[AI Analysis] Error for ${result.filePath}:`, error);
+                aiResults.push({
+                  filePath: result.filePath,
+                  aiGrade: undefined,
+                  aiReport: undefined,
+                  aiChecked: true,
+                  error: errorMessage,
+                });
+                success = true;
+              }
             }
-          } catch (error) {
-            console.error(`[AI Analysis] Error for ${result.filePath}:`, error);
-            return {
-              filePath: result.filePath,
-              aiGrade: undefined,
-              aiReport: undefined,
-              aiChecked: true, // 에러가 발생해도 aiChecked를 true로 설정하여 무한루프 방지
-              error: error instanceof Error ? error.message : 'AI 분석 실패',
-            };
           }
-        });
-
-        const aiResults = await Promise.all(aiPromises);
+          
+          // 다음 요청 전 딜레이 (마지막 항목이 아니면)
+          if (i < needsAnalysis.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
+          }
+        }
 
       // 결과를 results에 반영
       setResults(prevResults =>

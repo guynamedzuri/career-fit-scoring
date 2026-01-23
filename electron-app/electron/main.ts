@@ -2145,6 +2145,27 @@ ${resumeText}
     if (!response.ok) {
       const errorData = await response.text();
       console.error('[AI Check] API Error:', response.status, errorData);
+      
+      // 429 Rate Limit 에러 처리
+      if (response.status === 429) {
+        let retryAfter = 10; // 기본 10초
+        try {
+          const errorJson = JSON.parse(errorData);
+          if (errorJson.error?.message) {
+            // "Please retry after 8 seconds" 같은 메시지에서 숫자 추출
+            const retryMatch = errorJson.error.message.match(/after (\d+) seconds?/i);
+            if (retryMatch) {
+              retryAfter = parseInt(retryMatch[1], 10) + 2; // 여유를 위해 2초 추가
+            }
+          }
+        } catch (e) {
+          // JSON 파싱 실패 시 기본값 사용
+        }
+        
+        writeLog(`[AI Check] Rate limit reached, retrying after ${retryAfter} seconds...`, 'warn');
+        throw new Error(`RATE_LIMIT:${retryAfter}`); // 특별한 에러 형식으로 전달
+      }
+      
       throw new Error(`AI API 호출 실패: ${response.status}`);
     }
 
