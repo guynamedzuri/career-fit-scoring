@@ -413,14 +413,6 @@
   font-weight: 500;
 }
 
-.cell-score {
-  width: 90px;
-  flex-shrink: 0;
-  text-align: center;
-  justify-content: center;
-  font-weight: 600;
-  color: #072761;
-}
 
 .cell-ai-grade {
   width: 80px;
@@ -633,8 +625,7 @@
 }
 
 .candidate-row .cell-career,
-.candidate-row .cell-education,
-.candidate-row .cell-score {
+.candidate-row .cell-education {
   font-size: 0.875rem;
   color: #374151;
 }
@@ -662,10 +653,6 @@
   color: #6b7280;
 }
 
-.candidate-row .cell-score {
-  font-weight: 600;
-  color: #072761;
-}
 
 .candidate-error {
   font-size: 0.75rem;
