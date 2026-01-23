@@ -25,9 +25,11 @@ interface LoadingSpinnerProps {
 }
 
 export default function LoadingSpinner({ message = '처리 중...', fullScreen = false, progress }: LoadingSpinnerProps) {
+  console.log('[LoadingSpinner] progress prop:', progress);
   const progressPercent = progress && progress.total > 0 
     ? ((progress.current + 1) / progress.total) * 100 
     : 0;
+  console.log('[LoadingSpinner] progressPercent:', progressPercent, 'total:', progress?.total);
 
   return (
     <div className={`loading-spinner-overlay ${fullScreen ? 'fullscreen' : ''}`}>
