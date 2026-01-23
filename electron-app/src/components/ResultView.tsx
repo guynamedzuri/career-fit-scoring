@@ -107,7 +107,7 @@ interface ResultViewProps {
 type SortField = 'name' | 'age' | 'lastCompany' | 'residence' | 'totalScore' | 'aiGrade' | 'status';
 type SortOrder = 'asc' | 'desc';
 
-export default function ResultView({ selectedFiles, userPrompt, selectedFolder, onBack, onProcessingChange, jobMetadata }: ResultViewProps) {
+export default function ResultView({ selectedFiles, userPrompt, selectedFolder, onBack, onProcessingChange, onProgressChange, jobMetadata }: ResultViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('totalScore');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
