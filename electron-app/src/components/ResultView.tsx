@@ -135,7 +135,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
   }>('');
   const [currentAiReportParsed, setCurrentAiReportParsed] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
-  const [aiProgress, setAiProgress] = useState({ current: 0, total: 0, currentFile: '' });
+  const [aiProgress, setAiProgress] = useState<{ current: number; total: number; currentFile: string; estimatedTimeRemainingMs?: number }>({ current: 0, total: 0, currentFile: '', estimatedTimeRemainingMs: undefined });
   const [filters, setFilters] = useState({
     minAge: '',
     maxAge: '',
