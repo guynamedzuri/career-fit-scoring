@@ -712,7 +712,11 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       console.log(`[AI Analysis] Starting analysis for ${needsAnalysis.length} files:`, needsAnalysis.map(r => r.fileName));
       isAiAnalysisRunning.current = true;
       setAiProcessing(true);
-      setAiProgress({ current: 0, total: needsAnalysis.length, currentFile: '', estimatedTimeRemainingMs: undefined });
+      const initialProgress = { current: 0, total: needsAnalysis.length, currentFile: '', estimatedTimeRemainingMs: undefined };
+      setAiProgress(initialProgress);
+      if (onProgressChange) {
+        onProgressChange(initialProgress);
+      }
       if (onProcessingChange) {
         onProcessingChange(true);
       }
@@ -901,6 +905,9 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         setAiProgress(emptyProgress);
         if (onProgressChange) {
           onProgressChange(emptyProgress);
+        }
+        if (onProcessingChange) {
+          onProcessingChange(false);
         }
         if (onProcessingChange) {
           onProcessingChange(false);
