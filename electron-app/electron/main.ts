@@ -776,7 +776,7 @@ function createWindow() {
   
   // 개발 환경과 프로덕션 환경에 따라 다른 창 설정
   const windowOptions: Electron.BrowserWindowConstructorOptions = {
-    width: 1000,
+    width: 1400,
     height: 700,
     show: false, // 준비될 때까지 숨김
     autoHideMenuBar: true, // 메뉴바 자동 숨김

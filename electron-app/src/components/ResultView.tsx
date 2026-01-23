@@ -2,6 +2,56 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Search, ChevronUp, ChevronDown, Download, Info, AlertCircle, CheckCircle2, Filter } from 'lucide-react';
 import '../styles/result-view.css';
 
+// career-fit-scoring 모듈에서 점수 계산 함수 import
+let calculateAllScores: any = null;
+try {
+  const scoringModule = require('career-fit-scoring');
+  calculateAllScores = scoringModule.calculateAllScores;
+} catch (e) {
+  console.warn('[ResultView] Failed to load calculateAllScores from career-fit-scoring:', e);
+}
+
+// 평가 항목 점수 계산 함수들
+function getCareerFitGrade(careerScore: number | undefined, hasCareer: boolean): '◎' | '○' | 'X' | '-' {
+  if (!hasCareer || careerScore === undefined) return '-';
+  if (careerScore >= 15) return '◎';
+  if (careerScore >= 8) return '○';
+  return 'X';
+}
+
+function getRequiredQualificationGrade(
+  requiredQualifications: string | undefined,
+  applicationData: any,
+  userPrompt: any
+): '◎' | 'X' | '-' {
+  if (!requiredQualifications || !requiredQualifications.trim()) return '-';
+  // TODO: 실제 필수사항 만족 여부 계산 로직 구현 필요
+  // 임시로 항상 ◎ 반환 (나중에 실제 로직으로 교체)
+  return '◎';
+}
+
+function getPreferredQualificationGrade(
+  preferredQualifications: string | undefined,
+  applicationData: any,
+  userPrompt: any
+): '◎' | '○' | 'X' | '-' {
+  if (!preferredQualifications || !preferredQualifications.trim()) return '-';
+  // TODO: 실제 우대사항 만족 여부 계산 로직 구현 필요
+  // 임시로 항상 ○ 반환 (나중에 실제 로직으로 교체)
+  return '○';
+}
+
+function getCertificationGrade(
+  certificationScore: number | undefined,
+  requiredCertifications: string[] | undefined
+): '◎' | '○' | 'X' | '-' {
+  if (!requiredCertifications || requiredCertifications.length === 0) return '-';
+  if (certificationScore === undefined) return '-';
+  if (certificationScore >= 8) return '◎';
+  if (certificationScore >= 5) return '○';
+  return 'X';
+}
+
 // 생년월일로부터 만나이 계산 함수
 function calculateAgeFromBirthDate(birthDate: string | undefined): number | undefined {
   if (!birthDate) return undefined;
@@ -1102,20 +1152,24 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
             거주지 <SortIcon field="residence" />
           </div>
         </div>
-        <div className="table-cell cell-score">
-            <div 
-              className={`sortable ${sortField === 'totalScore' ? 'active' : ''}`}
-              onClick={() => handleSort('totalScore')}
-            >
-              총점수 <SortIcon field="totalScore" />
-            </div>
-          </div>
+        <div className="table-cell cell-career-fit">
+          <div>경력 적합도</div>
+        </div>
+        <div className="table-cell cell-required-qual">
+          <div>필수사항 만족여부</div>
+        </div>
+        <div className="table-cell cell-preferred-qual">
+          <div>우대사항 만족여부</div>
+        </div>
+        <div className="table-cell cell-certification">
+          <div>자격증 만족여부</div>
+        </div>
           <div className="table-cell cell-ai-grade">
             <div 
               className={`sortable ${sortField === 'aiGrade' ? 'active' : ''}`}
               onClick={() => handleSort('aiGrade')}
             >
-              AI 평가 <SortIcon field="aiGrade" />
+              종합등급 <SortIcon field="aiGrade" />
             </div>
           </div>
           <div className="table-cell cell-detail">
@@ -1188,12 +1242,55 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                   <span className="residence-value">{result.residence}</span>
                 ) : '-'}
               </div>
-              <div className="table-cell cell-score">
-                {result.status === 'completed' ? (
-                  <span className="score-value">{result.totalScore.toFixed(1)}</span>
-                ) : (
-                  <span className="score-placeholder">-</span>
-                )}
+              <div className="table-cell cell-career-fit">
+                {result.status === 'completed' && result.applicationData ? (() => {
+                  const hasCareer = result.applicationData.careerCompanyName1 || false;
+                  let careerScore: number | undefined = undefined;
+                  
+                  if (calculateAllScores && jobMetadata) {
+                    const scores = calculateAllScores(result.applicationData, jobMetadata);
+                    careerScore = scores?.careerScore;
+                  }
+                  
+                  const grade = getCareerFitGrade(careerScore, hasCareer);
+                  return <span className={`evaluation-grade grade-${grade}`}>{grade}</span>;
+                })() : '-'}
+              </div>
+              <div className="table-cell cell-required-qual">
+                {result.status === 'completed' && result.applicationData ? (() => {
+                  const grade = getRequiredQualificationGrade(
+                    userPrompt?.requiredQualifications,
+                    result.applicationData,
+                    userPrompt
+                  );
+                  return <span className={`evaluation-grade grade-${grade}`}>{grade}</span>;
+                })() : '-'}
+              </div>
+              <div className="table-cell cell-preferred-qual">
+                {result.status === 'completed' && result.applicationData ? (() => {
+                  const grade = getPreferredQualificationGrade(
+                    userPrompt?.preferredQualifications,
+                    result.applicationData,
+                    userPrompt
+                  );
+                  return <span className={`evaluation-grade grade-${grade}`}>{grade}</span>;
+                })() : '-'}
+              </div>
+              <div className="table-cell cell-certification">
+                {result.status === 'completed' && result.applicationData ? (() => {
+                  let certificationScore: number | undefined = undefined;
+                  
+                  if (calculateAllScores && jobMetadata) {
+                    const scores = calculateAllScores(result.applicationData, jobMetadata);
+                    certificationScore = scores?.certificationScore;
+                  }
+                  
+                  const grade = getCertificationGrade(
+                    certificationScore,
+                    userPrompt?.requiredCertifications
+                  );
+                  return <span className={`evaluation-grade grade-${grade}`}>{grade}</span>;
+                })() : '-'}
               </div>
               <div className="table-cell cell-ai-grade">
                 {result.aiChecked && result.aiGrade ? (
