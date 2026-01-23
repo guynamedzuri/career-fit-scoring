@@ -2080,11 +2080,16 @@ ipcMain.handle('ai-check-resume', async (event, data: {
 - 최하: ${userPrompt.gradeCriteria?.최하 || '기본 조건을 만족하지 못하는 경우'}
 
 응답 형식:
-1. 등급: [최상/상/중/하/최하 중 하나]
-2. 평가 요약: [한 문장으로 요약]
-3. 주요 강점: [3-5개 항목]
-4. 주요 약점: [3-5개 항목]
-5. 종합 의견: [2-3문단으로 상세 분석]`;
+반드시 다음 JSON 형식으로만 응답해야 합니다. 다른 텍스트나 설명은 포함하지 마세요:
+{
+  "grade": "최상|상|중|하|최하 중 하나",
+  "summary": "한 문장으로 요약한 평가",
+  "strengths": ["강점1", "강점2", "강점3", "강점4", "강점5"],
+  "weaknesses": ["약점1", "약점2", "약점3", "약점4", "약점5"],
+  "opinion": "2-3문단으로 작성한 종합 의견"
+}
+
+중요: 반드시 유효한 JSON 형식으로만 응답하고, JSON 외의 다른 텍스트는 포함하지 마세요.`;
 
     let userPromptText = `업무 내용:
 ${userPrompt.jobDescription || '업무 내용이 없습니다.'}
@@ -2178,16 +2183,74 @@ ${resumeText}
     };
     const aiContent = responseData.choices?.[0]?.message?.content || '';
 
-    // 등급 추출 (A, B, C, D)
-    const gradeMatch = aiContent.match(/등급:\s*([A-D])/i) || aiContent.match(/\[([A-D])\]/i);
-    const grade = gradeMatch ? gradeMatch[1].toUpperCase() : 'C';
+    // JSON 파싱 시도
+    let parsedReport: {
+      grade: string;
+      summary: string;
+      strengths: string[];
+      weaknesses: string[];
+      opinion: string;
+    } | null = null;
+    
+    let grade = 'C'; // 기본값
+    let reportText = aiContent; // 파싱 실패 시 원본 텍스트 사용
+
+    try {
+      // JSON 코드 블록 제거 (```json ... ``` 형식)
+      let jsonText = aiContent.trim();
+      if (jsonText.startsWith('```')) {
+        const lines = jsonText.split('\n');
+        const startIndex = lines[0].includes('json') ? 1 : 0;
+        const endIndex = lines[lines.length - 1].trim() === '```' ? lines.length - 1 : lines.length;
+        jsonText = lines.slice(startIndex, endIndex).join('\n').trim();
+      }
+      
+      parsedReport = JSON.parse(jsonText);
+      
+      // 등급 매핑 (최상/상/중/하/최하 -> A/B/C/D/E)
+      const gradeMap: { [key: string]: string } = {
+        '최상': 'A',
+        '상': 'B',
+        '중': 'C',
+        '하': 'D',
+        '최하': 'E'
+      };
+      
+      grade = gradeMap[parsedReport.grade] || 'C';
+      
+      console.log('[AI Check] Successfully parsed JSON for:', data.fileName, 'Grade:', grade);
+    } catch (parseError: any) {
+      console.warn('[AI Check] Failed to parse JSON, falling back to text parsing:', parseError.message);
+      console.warn('[AI Check] Raw content:', aiContent.substring(0, 500));
+      
+      // JSON 파싱 실패 시 기존 방식으로 등급 추출
+      const gradeMatch = aiContent.match(/등급[:\s]*([A-D최상중하])/i) || 
+                        aiContent.match(/["']grade["']:\s*["']([A-D최상중하])/i) ||
+                        aiContent.match(/\[([A-D])\]/i);
+      
+      if (gradeMatch) {
+        const matchedGrade = gradeMatch[1].toUpperCase();
+        const gradeMap: { [key: string]: string } = {
+          '최상': 'A',
+          '상': 'B',
+          '중': 'C',
+          '하': 'D',
+          '최하': 'E'
+        };
+        grade = gradeMap[matchedGrade] || (matchedGrade.match(/[A-D]/) ? matchedGrade : 'C');
+      }
+      
+      // 파싱 실패 시 원본 텍스트를 report로 사용
+      reportText = aiContent;
+    }
 
     console.log('[AI Check] Success for:', data.fileName, 'Grade:', grade);
 
     return {
       success: true,
       grade,
-      report: aiContent,
+      report: parsedReport || reportText, // 파싱된 객체 또는 원본 텍스트
+      reportParsed: parsedReport !== null, // 파싱 성공 여부
     };
   } catch (error) {
     console.error('[AI Check] Error:', error);

@@ -1242,6 +1242,153 @@
 
 /* AI 보고서 모달 */
 .ai-report-modal {
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.ai-report-content {
+  padding: 1.5rem;
+}
+
+.ai-report-structured {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ai-report-grade {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 0.5rem;
+  color: white;
+}
+
+.ai-report-grade-label {
+  font-size: 1rem;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.ai-report-grade-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 0.25rem;
+  backdrop-filter: blur(10px);
+}
+
+.ai-report-grade-value.grade-최상,
+.ai-report-grade-value.grade-A {
+  background: rgba(34, 197, 94, 0.3);
+}
+
+.ai-report-grade-value.grade-상,
+.ai-report-grade-value.grade-B {
+  background: rgba(59, 130, 246, 0.3);
+}
+
+.ai-report-grade-value.grade-중,
+.ai-report-grade-value.grade-C {
+  background: rgba(251, 191, 36, 0.3);
+}
+
+.ai-report-grade-value.grade-하,
+.ai-report-grade-value.grade-D {
+  background: rgba(249, 115, 22, 0.3);
+}
+
+.ai-report-grade-value.grade-최하,
+.ai-report-grade-value.grade-E {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.ai-report-section {
+  background: #f9fafb;
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  border-left: 4px solid #667eea;
+}
+
+.ai-report-section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 0.75rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ai-report-section-title::before {
+  content: '';
+  width: 4px;
+  height: 1.1rem;
+  background: #667eea;
+  border-radius: 2px;
+}
+
+.ai-report-summary {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #374151;
+  margin: 0;
+  padding: 0.75rem;
+  background: white;
+  border-radius: 0.25rem;
+}
+
+.ai-report-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ai-report-list li {
+  padding: 0.75rem;
+  background: white;
+  border-radius: 0.25rem;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #374151;
+  position: relative;
+  padding-left: 2rem;
+}
+
+.ai-report-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0.75rem;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.ai-report-strengths li::before {
+  color: #10b981;
+}
+
+.ai-report-weaknesses li::before {
+  color: #ef4444;
+}
+
+.ai-report-opinion {
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #374151;
+  padding: 1rem;
+  background: white;
+  border-radius: 0.25rem;
+  white-space: pre-wrap;
+}
+
+.ai-report-modal {
   background: #fff;
   border-radius: 0.5rem;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);

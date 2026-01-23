@@ -73,7 +73,14 @@ interface ScoringResult {
   searchableText?: string; // 검색 가능한 전체 텍스트 (이름, 회사, 자격증 등 모든 정보)
   // AI 검사 결과
   aiGrade?: string; // AI 평가 등급 (예: 'A', 'B', 'C', 'D')
-  aiReport?: string; // AI 분석 결과 보고서
+  aiReport?: string | { // AI 분석 결과 보고서 (JSON 파싱된 객체 또는 원본 텍스트)
+    grade: string;
+    summary: string;
+    strengths: string[];
+    weaknesses: string[];
+    opinion: string;
+  };
+  aiReportParsed?: boolean; // AI 보고서가 JSON으로 파싱되었는지 여부
   aiChecked?: boolean; // AI 검사 완료 여부
 }
 
@@ -119,7 +126,14 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showAiReportModal, setShowAiReportModal] = useState(false);
-  const [currentAiReport, setCurrentAiReport] = useState<string>('');
+  const [currentAiReport, setCurrentAiReport] = useState<string | {
+    grade: string;
+    summary: string;
+    strengths: string[];
+    weaknesses: string[];
+    opinion: string;
+  }>('');
+  const [currentAiReportParsed, setCurrentAiReportParsed] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [aiProgress, setAiProgress] = useState({ current: 0, total: 0, currentFile: '' });
   const [filters, setFilters] = useState({
@@ -177,6 +191,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               applicationData: cachedData.applicationData,
               aiGrade: cachedData.aiGrade,
               aiReport: cachedData.aiReport,
+              aiReportParsed: cachedData.aiReportParsed || false,
               // aiChecked가 true이지만 aiGrade나 aiReport가 없으면 재분석 필요
               aiChecked: cachedData.aiChecked && cachedData.aiGrade && cachedData.aiReport ? true : false,
               searchableText: cachedData.searchableText || file.name,
@@ -605,6 +620,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           applicationData: result.applicationData,
           aiGrade: result.aiGrade,
           aiReport: result.aiReport,
+          aiReportParsed: result.aiReportParsed,
           aiChecked: result.aiChecked,
           candidateStatus: result.candidateStatus,
           searchableText: result.searchableText,
@@ -768,6 +784,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                   filePath: result.filePath,
                   aiGrade: response.grade,
                   aiReport: response.report,
+                  aiReportParsed: (response as any).reportParsed || false,
                   aiChecked: true,
                 });
                 success = true;
@@ -834,6 +851,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               ...result,
               aiGrade: aiResult.aiGrade,
               aiReport: aiResult.aiReport,
+              aiReportParsed: aiResult.aiReportParsed,
               aiChecked: aiResult.aiChecked,
             };
             return updated;
@@ -861,6 +879,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                 applicationData: result?.applicationData,
                 aiGrade: r.aiGrade,
                 aiReport: r.aiReport,
+                aiReportParsed: r.aiReportParsed,
                 aiChecked: r.aiChecked,
                 candidateStatus: result?.candidateStatus,
                 searchableText: result?.searchableText,
@@ -901,8 +920,15 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
   }, [results, userPrompt, selectedFiles, selectedFolder, onProcessingChange]);
 
   // AI 보고서 모달 열기
-  const handleOpenAiReport = (report: string) => {
+  const handleOpenAiReport = (report: string | {
+    grade: string;
+    summary: string;
+    strengths: string[];
+    weaknesses: string[];
+    opinion: string;
+  }, parsed: boolean = false) => {
     setCurrentAiReport(report);
+    setCurrentAiReportParsed(parsed);
     setShowAiReportModal(true);
   };
 
@@ -1458,7 +1484,46 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               </button>
             </div>
             <div className="ai-report-content">
-              <pre className="ai-report-text">{currentAiReport}</pre>
+              {currentAiReportParsed && typeof currentAiReport === 'object' ? (
+                <div className="ai-report-structured">
+                  <div className="ai-report-grade">
+                    <span className="ai-report-grade-label">등급</span>
+                    <span className={`ai-report-grade-value grade-${currentAiReport.grade}`}>
+                      {currentAiReport.grade}
+                    </span>
+                  </div>
+                  
+                  <div className="ai-report-section">
+                    <h4 className="ai-report-section-title">평가 요약</h4>
+                    <p className="ai-report-summary">{currentAiReport.summary}</p>
+                  </div>
+                  
+                  <div className="ai-report-section">
+                    <h4 className="ai-report-section-title">주요 강점</h4>
+                    <ul className="ai-report-list ai-report-strengths">
+                      {currentAiReport.strengths.map((strength, index) => (
+                        <li key={index}>{strength}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  
+                  <div className="ai-report-section">
+                    <h4 className="ai-report-section-title">주요 약점</h4>
+                    <ul className="ai-report-list ai-report-weaknesses">
+                      {currentAiReport.weaknesses.map((weakness, index) => (
+                        <li key={index}>{weakness}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  
+                  <div className="ai-report-section">
+                    <h4 className="ai-report-section-title">종합 의견</h4>
+                    <div className="ai-report-opinion">{currentAiReport.opinion}</div>
+                  </div>
+                </div>
+              ) : (
+                <pre className="ai-report-text">{typeof currentAiReport === 'string' ? currentAiReport : JSON.stringify(currentAiReport, null, 2)}</pre>
+              )}
             </div>
           </div>
         </div>
