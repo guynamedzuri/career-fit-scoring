@@ -23,6 +23,7 @@ function App() {
   // "실행하기"를 누른 시점의 설정 스냅샷 (뒤로가기 시 이 값으로 복원)
   const [executedSnapshot, setExecutedSnapshot] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [aiProgress, setAiProgress] = useState<{ current: number; total: number; currentFile: string } | null>(null);
 
   // 앱이 마운트되면 메인 프로세스에 준비 완료 신호 전송
   useEffect(() => {
@@ -124,10 +125,11 @@ function App() {
             selectedFolder={selectedFolder}
             onBack={handleBackToConfig}
             onProcessingChange={setIsProcessing}
+            onProgressChange={setAiProgress}
             jobMetadata={jobMetadata}
           />
         </div>
-        {isProcessing && <LoadingSpinner message="이력서 분석 중..." fullScreen />}
+        {isProcessing && <LoadingSpinner message="이력서 분석 중..." fullScreen progress={aiProgress || undefined} />}
       </div>
     );
   }

@@ -708,7 +708,11 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         for (let i = 0; i < needsAnalysis.length; i++) {
           const result = needsAnalysis[i];
           console.log(`[AI Analysis] Processing ${result.fileName}... (${i + 1}/${needsAnalysis.length})`);
-          setAiProgress({ current: i, total: needsAnalysis.length, currentFile: result.fileName });
+          const progress = { current: i, total: needsAnalysis.length, currentFile: result.fileName };
+          setAiProgress(progress);
+          if (onProgressChange) {
+            onProgressChange(progress);
+          }
           
           let retryCount = 0;
           let success = false;
@@ -842,7 +846,11 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       } finally {
         isAiAnalysisRunning.current = false;
         setAiProcessing(false);
-        setAiProgress({ current: 0, total: 0, currentFile: '' });
+        const emptyProgress = { current: 0, total: 0, currentFile: '' };
+        setAiProgress(emptyProgress);
+        if (onProgressChange) {
+          onProgressChange(emptyProgress);
+        }
         if (onProcessingChange) {
           onProcessingChange(false);
         }
@@ -1048,27 +1056,6 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
             <div>AI Comment</div>
           </div>
         </div>
-
-        {/* AI 분석 프로그레스 바 */}
-        {aiProcessing && aiProgress.total > 0 && (
-          <div className="ai-progress-container">
-            <div className="ai-progress-header">
-              <span className="ai-progress-title">AI 분석 진행 중...</span>
-              <span className="ai-progress-count">{aiProgress.current + 1} / {aiProgress.total}</span>
-            </div>
-            <div className="ai-progress-bar-wrapper">
-              <div 
-                className="ai-progress-bar" 
-                style={{ width: `${((aiProgress.current + 1) / aiProgress.total) * 100}%` }}
-              />
-            </div>
-            {aiProgress.currentFile && (
-              <div className="ai-progress-file">
-                현재 처리 중: {aiProgress.currentFile}
-              </div>
-            )}
-          </div>
-        )}
 
         {/* 결과 리스트 */}
         <div className="candidate-list">
