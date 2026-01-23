@@ -101,7 +101,7 @@ interface ResultViewProps {
   selectedFolder: string; // 캐시를 위해 폴더 경로 필요
   onBack: () => void;
   onProcessingChange?: (processing: boolean) => void;
-  onProgressChange?: (progress: { current: number; total: number; currentFile: string }) => void;
+  onProgressChange?: (progress: { current: number; total: number; currentFile: string; estimatedTimeRemainingMs?: number }) => void;
   jobMetadata?: any; // App.tsx에서 전달하는 jobMetadata
 }
 
@@ -696,7 +696,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       console.log(`[AI Analysis] Starting analysis for ${needsAnalysis.length} files:`, needsAnalysis.map(r => r.fileName));
       isAiAnalysisRunning.current = true;
       setAiProcessing(true);
-      setAiProgress({ current: 0, total: needsAnalysis.length, currentFile: '' });
+      setAiProgress({ current: 0, total: needsAnalysis.length, currentFile: '', estimatedTimeRemainingMs: undefined });
       if (onProcessingChange) {
         onProcessingChange(true);
       }
@@ -706,10 +706,34 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         const REQUEST_DELAY = 2000; // 기본 2초 딜레이 (요청 간 간격)
         const MAX_RETRIES = 3; // 최대 재시도 횟수
         
+        // 각 세션별 처리 시간 추적
+        const sessionTimes: number[] = []; // 각 세션별 소요 시간 (밀리초)
+        
         for (let i = 0; i < needsAnalysis.length; i++) {
           const result = needsAnalysis[i];
+          const sessionStartTime = Date.now(); // 세션 시작 시간
+          
           console.log(`[AI Analysis] Processing ${result.fileName}... (${i + 1}/${needsAnalysis.length})`);
-          const progress = { current: i, total: needsAnalysis.length, currentFile: result.fileName };
+          
+          // 평균 처리 시간 계산
+          const avgTimeMs = sessionTimes.length > 0 
+            ? sessionTimes.reduce((sum, time) => sum + time, 0) / sessionTimes.length 
+            : 0;
+          
+          // 남은 파일 수 계산
+          const remainingFiles = needsAnalysis.length - i;
+          
+          // 예상 완료 시간 계산 (밀리초)
+          const estimatedTimeRemainingMs = avgTimeMs > 0 
+            ? avgTimeMs * remainingFiles + (REQUEST_DELAY * (remainingFiles - 1)) // 마지막 파일은 딜레이 없음
+            : 0;
+          
+          const progress = { 
+            current: i, 
+            total: needsAnalysis.length, 
+            currentFile: result.fileName,
+            estimatedTimeRemainingMs: estimatedTimeRemainingMs > 0 ? estimatedTimeRemainingMs : undefined
+          };
           setAiProgress(progress);
           if (onProgressChange) {
             onProgressChange(progress);
@@ -788,6 +812,13 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
             }
           }
           
+          // 세션 종료 시간 기록
+          const sessionEndTime = Date.now();
+          const sessionDuration = sessionEndTime - sessionStartTime;
+          sessionTimes.push(sessionDuration);
+          
+          console.log(`[AI Analysis] Session ${i + 1} completed in ${(sessionDuration / 1000).toFixed(2)}s`);
+          
           // 다음 요청 전 딜레이 (마지막 항목이 아니면)
           if (i < needsAnalysis.length - 1) {
             await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
@@ -847,7 +878,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       } finally {
         isAiAnalysisRunning.current = false;
         setAiProcessing(false);
-        const emptyProgress = { current: 0, total: 0, currentFile: '' };
+        const emptyProgress = { current: 0, total: 0, currentFile: '', estimatedTimeRemainingMs: undefined };
         setAiProgress(emptyProgress);
         if (onProgressChange) {
           onProgressChange(emptyProgress);

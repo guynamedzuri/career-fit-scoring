@@ -148,4 +148,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin-bottom: 0.25rem;
+}
+
+.loading-progress-eta {
+  font-size: 0.75rem;
+  color: #1383ff;
+  text-align: center;
+  font-weight: 500;
+  margin-top: 0.25rem;
 }

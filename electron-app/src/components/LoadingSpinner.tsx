@@ -1,5 +1,18 @@
 import '../styles/loading-spinner.css';
 
+// 예상 시간 포맷팅 함수
+function formatEstimatedTime(ms: number): string {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  
+  if (minutes > 0) {
+    return `${minutes}분 ${seconds}초`;
+  } else {
+    return `${seconds}초`;
+  }
+}
+
 interface LoadingSpinnerProps {
   message?: string;
   fullScreen?: boolean;
@@ -7,6 +20,7 @@ interface LoadingSpinnerProps {
     current: number;
     total: number;
     currentFile?: string;
+    estimatedTimeRemainingMs?: number;
   };
 }
 
@@ -43,6 +57,11 @@ export default function LoadingSpinner({ message = '처리 중...', fullScreen =
             {progress.currentFile && (
               <div className="loading-progress-file">
                 {progress.currentFile}
+              </div>
+            )}
+            {progress.estimatedTimeRemainingMs !== undefined && progress.estimatedTimeRemainingMs > 0 && (
+              <div className="loading-progress-eta">
+                예상 완료 시간: {formatEstimatedTime(progress.estimatedTimeRemainingMs)}
               </div>
             )}
           </div>
