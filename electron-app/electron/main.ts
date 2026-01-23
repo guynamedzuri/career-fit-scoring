@@ -1897,6 +1897,18 @@ ipcMain.handle('read-official-certificates', async () => {
 // 이력서 처리 IPC 핸들러
 ipcMain.handle('process-resume', async (event, filePath: string) => {
   try {
+    // career-fit-scoring 모듈이 로드되지 않았으면 로드
+    if (!extractTablesFromDocx || !mapResumeDataToApplicationData) {
+      writeLog('[Process Resume] Loading career-fit-scoring module...', 'info');
+      await loadCareerFitScoring();
+    }
+    
+    if (!extractTablesFromDocx) {
+      const errorMsg = '[Process Resume] extractTablesFromDocx is not available';
+      writeLog(errorMsg, 'error');
+      throw new Error(errorMsg);
+    }
+    
     // DOCX 파일에서 테이블 추출
     const tables = await extractTablesFromDocx(filePath);
     
