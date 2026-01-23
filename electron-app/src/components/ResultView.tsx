@@ -101,6 +101,7 @@ interface ResultViewProps {
   selectedFolder: string; // 캐시를 위해 폴더 경로 필요
   onBack: () => void;
   onProcessingChange?: (processing: boolean) => void;
+  onProgressChange?: (progress: { current: number; total: number; currentFile: string }) => void;
   jobMetadata?: any; // App.tsx에서 전달하는 jobMetadata
 }
 
