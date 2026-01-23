@@ -1211,7 +1211,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                   onClick={(e) => {
                     e.stopPropagation();
                     if (result.aiChecked && result.aiReport) {
-                      handleOpenAiReport(result.aiReport);
+                      handleOpenAiReport(result.aiReport, result.aiReportParsed || false);
                     }
                   }}
                   disabled={!result.aiChecked || !result.aiReport}
