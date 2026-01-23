@@ -2207,16 +2207,22 @@ ${resumeText}
       
       parsedReport = JSON.parse(jsonText);
       
-      // 등급 매핑 (최상/상/중/하/최하 -> A/B/C/D/E)
-      const gradeMap: { [key: string]: string } = {
-        '최상': 'A',
-        '상': 'B',
-        '중': 'C',
-        '하': 'D',
-        '최하': 'E'
-      };
-      
-      grade = gradeMap[parsedReport.grade] || 'C';
+      // parsedReport가 null이 아니고 유효한 객체인지 확인
+      if (parsedReport && typeof parsedReport === 'object' && 'grade' in parsedReport) {
+        // 등급 매핑 (최상/상/중/하/최하 -> A/B/C/D/E)
+        const gradeMap: { [key: string]: string } = {
+          '최상': 'A',
+          '상': 'B',
+          '중': 'C',
+          '하': 'D',
+          '최하': 'E'
+        };
+        
+        grade = gradeMap[parsedReport.grade] || 'C';
+      } else {
+        // 파싱은 성공했지만 형식이 맞지 않음
+        parsedReport = null;
+      }
       
       console.log('[AI Check] Successfully parsed JSON for:', data.fileName, 'Grade:', grade);
     } catch (parseError: any) {
