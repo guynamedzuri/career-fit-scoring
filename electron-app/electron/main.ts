@@ -2337,6 +2337,30 @@ function formatResumeDataForAI(applicationData: any): string {
     text += `대학원:\n${gradSchools.join('\n')}\n\n`;
   }
 
+  // 자기소개서
+  const selfIntroductions: string[] = [];
+  for (let i = 1; i <= 4; i++) {
+    const selfIntro = applicationData[`selfIntroduction${i}`];
+    if (selfIntro && selfIntro.trim()) {
+      selfIntroductions.push(`[자기소개서 ${i}]\n${selfIntro.trim()}`);
+    }
+  }
+  if (selfIntroductions.length > 0) {
+    text += `자기소개서:\n${selfIntroductions.join('\n\n')}\n\n`;
+  }
+
+  // 경력기술서 상세
+  const careerDetails: string[] = [];
+  for (let i = 1; i <= 4; i++) {
+    const careerDetail = applicationData[`careerDetail${i}`];
+    if (careerDetail && careerDetail.trim()) {
+      careerDetails.push(`[경력기술서 ${i}]\n${careerDetail.trim()}`);
+    }
+  }
+  if (careerDetails.length > 0) {
+    text += `경력기술서:\n${careerDetails.join('\n\n')}\n\n`;
+  }
+
     return text || '이력서 정보가 없습니다.';
 }
 
