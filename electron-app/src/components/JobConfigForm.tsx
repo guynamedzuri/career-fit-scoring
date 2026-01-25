@@ -109,6 +109,9 @@ export default function JobConfigForm({
   
   // 슬라이더 드래그 중인지 추적하는 ref
   const isDraggingRef = useRef(false);
+  
+  // loadedData 로드 중인지 추적하는 ref (가중치 자동 조정 방지)
+  const isLoadingDataRef = useRef(false);
 
   // 폴더 선택
   const handleSelectFolder = async () => {
@@ -258,13 +261,37 @@ export default function JobConfigForm({
   // 불러온 데이터 적용
   useEffect(() => {
     if (loadedData?.userPrompt) {
+      isLoadingDataRef.current = true; // 로드 시작 플래그 설정
+      
       const prompt = loadedData.userPrompt;
+      
+      // 활성화 상태를 먼저 업데이트 (가중치 자동 조정이 올바른 상태를 참조하도록)
+      const trimmedRequired = (prompt.requiredQualifications || '').trim();
+      const trimmedPreferred = (prompt.preferredQualifications || '').trim();
+      const hasCerts = (prompt.requiredCertifications || []).length > 0;
+      
+      prevActiveStateRef.current = {
+        requirements: trimmedRequired.length > 0,
+        preferred: trimmedPreferred.length > 0,
+        certifications: hasCerts,
+      };
+      
+      // 모든 필드를 설정
       setJobDescription(prompt.jobDescription || '');
       setRequiredQualifications(prompt.requiredQualifications || '');
       setPreferredQualifications(prompt.preferredQualifications || '');
       setRequiredCertifications(prompt.requiredCertifications || []);
       setGradeCriteria(prompt.gradeCriteria || { 최상: '', 상: '', 중: '', 하: '', 최하: '' });
-      setScoringWeights(prompt.scoringWeights || { career: 1, requirements: 1, preferred: 1, certifications: 1 });
+      
+      // 가중치는 마지막에 설정하고, 약간의 지연 후 플래그 해제
+      // 이렇게 하면 다른 필드들의 setState가 완료된 후 가중치가 설정됨
+      setTimeout(() => {
+        setScoringWeights(prompt.scoringWeights || { career: 1, requirements: 1, preferred: 1, certifications: 1 });
+        // 모든 상태 업데이트가 완료된 후 플래그 해제
+        setTimeout(() => {
+          isLoadingDataRef.current = false;
+        }, 100);
+      }, 0);
     }
     if (loadedData?.selectedFolder) {
       setSelectedFolder(loadedData.selectedFolder);
@@ -276,8 +303,8 @@ export default function JobConfigForm({
 
   // 가중치 계산 및 자동 조정 (합은 항상 100)
   useEffect(() => {
-    // 슬라이더 드래그 중에는 자동 조정하지 않음
-    if (isDraggingRef.current) {
+    // 슬라이더 드래그 중이거나 loadedData 로드 중에는 자동 조정하지 않음
+    if (isDraggingRef.current || isLoadingDataRef.current) {
       return;
     }
     
