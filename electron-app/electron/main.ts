@@ -2093,7 +2093,6 @@ ipcMain.handle('ai-check-resume', async (event, data: {
     "preferredQual": "◎|○|X|- 중 하나 (우대사항 만족여부: ◎=매우 만족, ○=만족, X=불만족, -=평가 불가)",
     "certification": "◎|○|X|- 중 하나 (자격증 만족여부: ◎=매우 만족, ○=만족, X=불만족, -=평가 불가)"
   }
-  }
 }
 
 중요: 반드시 유효한 JSON 형식으로만 응답하고, JSON 외의 다른 텍스트는 포함하지 마세요.`;
