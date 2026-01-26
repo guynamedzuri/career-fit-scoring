@@ -816,7 +816,7 @@
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s;
-  margin-top: 0.5rem;
+  flex-shrink: 0;
 }
 
 .detail-open-file-btn:hover {
@@ -885,8 +885,19 @@
   gap: 0.75rem;
   margin-bottom: 0.75rem;
   padding: 0.75rem;
-  background: #f9fafb;
   border-radius: 0.375rem;
+}
+
+.detail-file-item {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-file-name {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
 }
 
 .detail-item:last-child {
