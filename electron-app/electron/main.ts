@@ -25,8 +25,19 @@ async function loadCareerFitScoring() {
       mapResumeDataToApplicationData = module.mapResumeDataToApplicationData;
       writeLog('[Main] Loaded career-fit-scoring from relative path', 'info');
     } catch (e2: any) {
-      writeLog(`[Main] Failed to load career-fit-scoring: ${e2.message || e2}`, 'error');
-      throw e2;
+      try {
+        // 빌드된 앱에서 src 경로로 시도 (프로덕션 빌드에서 src가 포함된 경우)
+        const path = require('path');
+        const srcPath = path.join(__dirname, '../../src/index');
+        const module = require(srcPath);
+        extractTablesFromDocx = module.extractTablesFromDocx;
+        mapResumeDataToApplicationData = module.mapResumeDataToApplicationData;
+        writeLog('[Main] Loaded career-fit-scoring from src path', 'info');
+      } catch (e3: any) {
+        writeLog(`[Main] Failed to load career-fit-scoring: ${e3.message || e3}`, 'error');
+        writeLog(`[Main] Require stack: ${e3.stack || 'N/A'}`, 'error');
+        throw e3;
+      }
     }
   }
 }

@@ -33,6 +33,8 @@ files:
   - "node_modules/**/*"
   # career-fit-scoring 패키지 포함 (필수)
   - "../src/**/*.js"
+  # career-fit-scoring 패키지의 빌드된 파일들 명시적 포함
+  - "../node_modules/career-fit-scoring/**/*"
   # 개발 도구 설정 파일만 제외
   - "!**/.vscode/**/*"
   - "!**/.idea/**/*"
@@ -95,7 +97,7 @@ nsis:
   oneClick: false  # 기본 installer: 설치 옵션을 물어봄
   perMachine: false  # 사용자별 설치
   allowToChangeInstallationDirectory: true  # 설치 경로 변경 가능
-  artifactName: "${productName} Installer ${version}.${ext}"  # Installer 파일명 구분
+  artifactName: "CareerFitScoring-Installer-${version}.${ext}"  # Installer 파일명 구분 (영문으로 변경)
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: 이력서 적합도 평가 시스템

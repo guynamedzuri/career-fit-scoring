@@ -1,146 +1,145 @@
-# Career Fit Scoring Algorithm
+# Career Fit Scoring System
 
-커리어넷 API를 활용한 지원자 적합도 점수 산출 알고리즘 모듈입니다.
+커리어넷 API와 AI를 활용한 지원자 적합도 평가 시스템입니다. DOCX 형식의 이력서 파일들을 자동으로 분석하여 채용 공고와의 적합도를 점수화하고 AI 기반 평가를 제공합니다.
 
 ## 프로젝트 개요
 
-이 모듈은 **Electron 기반 데스크톱 애플리케이션**에서 사용하기 위해 개발되었습니다. 로컬 폴더에 저장된 DOCX 형식의 이력서 파일들을 분석하여, 채용 공고와의 적합도를 알고리즘 기반으로 점수화합니다.
+이 프로젝트는 **Electron 기반 데스크톱 애플리케이션**으로, 로컬 폴더에 저장된 이력서 파일들을 일괄 분석하여 지원자 평가를 지원합니다. 알고리즘 기반 점수 계산과 Azure OpenAI를 활용한 AI 분석을 결합하여 종합적인 평가를 제공합니다.
 
 ### 주요 특징
 
 - **로컬 파일 기반**: 인터넷 연결 없이도 작동 가능 (API 호출 제외)
-- **DOCX 파싱**: Microsoft Word 이력서 파일 직접 분석
+- **DOCX 파싱**: Microsoft Word 이력서 파일 직접 분석 및 데이터 추출
 - **알고리즘 기반 평가**: AI 비용 절감을 위한 순수 알고리즘 점수 산출
+- **AI 기반 평가**: Azure OpenAI를 활용한 경력 적합도 및 요구사항 만족도 평가
 - **커리어넷 API 연동**: 직종, 학과, 자격증 데이터 활용
+- **Q-Net API 연동**: 국가자격증 검색 및 검증
+- **자동 업데이트**: electron-updater를 통한 자동 업데이트 지원
 - **유연한 데이터 매핑**: 다양한 이력서 형식에 대응 가능한 구조
 
-## 주요 기능
+## 시스템 구성
 
-- **자격증 점수 계산** (10점 만점): 필수/관련 자격증 매칭 및 개수 평가
-- **경력 점수 계산** (20점 만점): 직종 일치도 및 경력 기간 평가
-- **학력 점수 계산** (20점 만점): 학력 수준, 관련 학과, 학점 평가
+### 1. Core Module (`career-fit-scoring`)
+점수 계산 알고리즘 및 API 연동 모듈
+
+- **자격증 점수 계산** (10점 만점)
+- **경력 점수 계산** (20점 만점)
+- **학력 점수 계산** (20점 만점)
 - **총점 계산**: 가중 평균을 통한 최종 적합도 점수 산출
 - **커리어넷 API 연동**: 직종 검색, 학과 검색, 직종 상세 정보 조회
 - **Q-Net API 연동**: 국가자격증 검색
-- **서버 사이드 지원**: Node.js 환경에서도 사용 가능
 
-## 설치
+### 2. Electron Application (`electron-app`)
+데스크톱 애플리케이션
+
+- **이력서 파일 파싱**: DOCX 파일에서 구조화된 데이터 추출
+- **채용 공고 설정**: 직종, 필수/우대 사항, 자격증, 점수 가중치 설정
+- **배치 처리**: 여러 이력서 파일을 한 번에 분석
+- **AI 분석**: Azure OpenAI를 통한 경력 적합도 및 요구사항 만족도 평가
+- **결과 시각화**: 테이블 형태의 결과 표시 및 정렬/필터링 기능
+- **상세 정보**: 각 지원자의 상세 정보 및 AI 평가 리포트 확인
+
+## 설치 및 실행
+
+### 사전 요구사항
+
+- Node.js 18 이상
+- Python 3.x (DOCX 파싱용)
+- Windows/macOS/Linux
+
+### 설치
 
 ```bash
+# 1. 루트 모듈 빌드
 npm install
 npm run build
+
+# 2. Electron 앱 의존성 설치
+cd electron-app
+npm install
 ```
 
-## 사용법
+### 개발 모드 실행
 
-### 기본 사용
-
-```typescript
-import { calculateAllScores } from 'career-fit-scoring';
-
-// DOCX 파일에서 파싱한 이력서 데이터
-const applicationData = {
-  birthDate: '1990-01-01',
-  certificateName1: '정보처리기사',
-  certificateName2: 'SQLD',
-  careerStartDate1: '2020-01-01',
-  careerEndDate1: '2024-12-31',
-  careerJobType1: '소프트웨어 개발자', // 자유 입력 (나중에 매핑)
-  careerEmploymentStatus1: '퇴사',
-  universityDegreeType1: '학사',
-  universityGraduationType1: '졸업',
-  universityMajor1_1: '컴퓨터공학과',
-  universityGPA1: '3.8',
-  universityGPAMax1: '4.5',
-};
-
-// 채용 공고 메타데이터
-const jobMetadata = {
-  jobdicSeq: '12345',
-  jobAptdCode: 'A001',
-  requiredCertifications: ['정보처리기사'],
-  relatedCertifications: ['SQLD', 'OCP', 'AWS'],
-  relatedMajors: [
-    { majorNm: '컴퓨터공학과', majorSeq: '255' }
-  ],
-  scoringWeights: {
-    certification: 1,
-    career: 2,
-    education: 1
-  }
-};
-
-const scores = calculateAllScores(applicationData, { aiMetadata: jobMetadata });
-console.log(scores);
-// {
-//   certificationScore: 8,
-//   careerScore: 15,
-//   educationScore: 12,
-//   totalScore: 45.5
-// }
+```bash
+cd electron-app
+npm run dev
 ```
 
-## 데이터 매핑
+이 명령은:
+1. Python 가상환경 설정 및 의존성 확인
+2. Core 모듈 빌드
+3. Electron 메인 프로세스 파일 빌드
+4. Vite 개발 서버 시작 (`http://localhost:5173`)
+5. 스플래시 스크린 표시
+6. Electron 앱 실행
 
-### 현재 상태
+### 프로덕션 빌드
 
-이 모듈은 **점수 계산 알고리즘**에 집중되어 있으며, 이력서 파싱 및 데이터 매핑은 **추후 구현 예정**입니다.
+#### Windows
 
-### 계획된 기능
+```bash
+cd electron-app
 
-1. **DOCX 파싱**: `mammoth` 또는 `docx` 라이브러리를 사용하여 이력서 파일에서 텍스트 추출
-2. **자유 형식 경력 분석**: 
-   - 자연어 처리(NLP)를 통한 경력 정보 추출
-   - 커리어넷 API를 활용한 직종 자동 매칭
-   - 사용자 확인/수정 기능 제공
-3. **데이터 정규화**: 다양한 형식의 이력서를 표준 형식으로 변환
+# Installer 빌드
+npm run build:win:installer
 
-### 데이터 구조
+# Patcher 빌드 (자동 업데이트용)
+npm run build:win:patcher
 
-이력서에서 추출해야 하는 주요 정보:
-
-```typescript
-interface ResumeData {
-  // 기본 정보
-  birthDate?: string;
-  name?: string;
-  email?: string;
-  phone?: string;
-  
-  // 자격증 (최대 10개)
-  certificateName1?: string;
-  // ... certificateName10
-  
-  // 경력 (최대 5개)
-  // 주의: 자유 형식 입력이므로 매핑 필요
-  careerStartDate1?: string;
-  careerEndDate1?: string;
-  careerJobType1?: string; // 자유 입력 → 커리어넷 API로 매핑 필요
-  careerJobTypeCode1?: string; // 매핑 후 자동 설정
-  careerJobTypeAptdCode1?: string; // 매핑 후 자동 설정
-  careerEmploymentStatus1?: string;
-  careerCompanyName1?: string;
-  // ... careerStartDate5 ~ careerCompanyName5
-  
-  // 학력
-  highSchoolName?: string;
-  highSchoolGraduationType?: string;
-  universityName1?: string;
-  universityDegreeType1?: string;
-  universityGraduationType1?: string;
-  universityMajor1_1?: string;
-  universityMajorSeq1_1?: string;
-  universityMajorNm1_1?: string;
-  universityGPA1?: string;
-  universityGPAMax1?: string;
-  // ... (최대 5개)
-  
-  // 대학원
-  graduateSchoolName1?: string;
-  graduateSchoolDegreeType1?: string;
-  // ... (최대 5개)
-}
+# 둘 다 빌드
+npm run build:win:both
 ```
+
+#### macOS / Linux
+
+```bash
+cd electron-app
+
+# macOS
+npm run build:mac
+
+# Linux
+npm run build:linux
+```
+
+## 주요 기능
+
+### 1. 채용 공고 설정 (Job Config)
+
+- **직종 선택**: 커리어넷 API를 통한 직종 검색 및 선택
+- **업무 내용 입력**: 상세 업무 내용 및 요구사항 작성
+- **필수/우대 사항 설정**: 필수 요구사항 및 우대 사항 입력
+- **필수 자격증 추가**: 자격증 검색 및 필수 자격증 설정
+- **점수 가중치 설정**: 자격증/경력/학력/우대사항 점수 비중 조정
+- **설정 저장/불러오기**: 채용 공고 설정을 JSON 파일로 저장 및 불러오기
+
+### 2. 이력서 분석
+
+- **폴더 선택**: DOCX 이력서 파일들이 있는 폴더 선택
+- **자동 파싱**: 이력서 파일에서 기본 정보, 경력, 학력, 자격증 등 추출
+- **알고리즘 점수 계산**: 추출된 데이터를 기반으로 적합도 점수 산출
+- **AI 분석**: Azure OpenAI를 통한 경력 적합도 및 요구사항 만족도 평가
+- **진행 상황 표시**: 파싱 및 AI 분석 진행 상황을 프로그레스 바로 표시
+
+### 3. 결과 확인
+
+- **테이블 뷰**: 모든 지원자의 점수 및 평가 결과를 테이블로 표시
+- **정렬 기능**: 이름, 나이, 거주지, 경력 적합도, 필수/우대사항 만족여부, 자격증 만족여부 등으로 정렬
+- **필터링**: 거주지, 상태(대기/검토/불합격)로 필터링
+- **상세 정보**: 각 지원자의 상세 정보 확인
+  - 기본 정보 (이름, 나이, 주소, 직전 회사 등)
+  - 추출된 데이터 (자격증, 경력, 학력, 자기소개서, 경력기술서 등)
+  - AI 평가 리포트 (등급, 요약, 강점, 약점, 의견, 세부 평가)
+- **파일 열기**: 원본 DOCX 파일 직접 열기
+
+### 4. AI 평가 항목
+
+- **경력 적합도**: A, B, C, D, E 등급 (A=매우 적합, E=부적합)
+- **필수사항 만족여부**: ◎ (만족), X (불만족)
+- **우대사항 만족여부**: ◎ (매우 만족), ○ (만족), X (불만족)
+- **자격증 만족여부**: ◎ (매우 만족), ○ (만족), X (불만족)
+- **종합 점수**: 가중치 기반 계산 (필수사항 불만족 시 "필수사항 불만족" 표시)
 
 ## 점수 체계
 
@@ -165,40 +164,108 @@ interface ResumeData {
 - **관련 학과 점수** (10점): MAJOR_NM 일치 10점, MAJOR_SEQ만 일치 7점
 - **학점 점수** (5점): 88% 이상 5점, 66% 이상 88% 미만 2점
 
-## API 키 설정
+## 환경 변수 설정
 
-커리어넷 API와 Q-Net API는 기본 키가 포함되어 있지만, 프로덕션 환경에서는 환경 변수로 설정하는 것을 권장합니다.
+프로젝트 루트에 `.env` 파일을 생성하여 API 키를 설정합니다:
 
 ```bash
-# .env
+# Azure OpenAI (AI 분석용)
+AZURE_OPENAI_ENDPOINT=https://your-endpoint.openai.azure.com/
+AZURE_OPENAI_API_KEY=your_api_key
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_OPENAI_API_VERSION=2024-12-01-preview
+
+# 커리어넷 API (선택사항, 기본값 사용 가능)
 CAREERNET_API_KEY=your_api_key
+
+# Q-Net API (선택사항, 기본값 사용 가능)
 QNET_API_KEY=your_api_key
+```
+
+## 기술 스택
+
+### Core Module
+- TypeScript
+- Node.js
+- 커리어넷 API
+- Q-Net API
+
+### Electron Application
+- Electron 28
+- React 18
+- TypeScript
+- Vite
+- Azure OpenAI API
+- Python (DOCX 파싱)
+
+## 프로젝트 구조
+
+```
+career-fit-scoring/
+├── src/                    # Core 모듈 소스 코드
+│   ├── api/                # API 연동 (커리어넷, Q-Net)
+│   ├── docxParser.ts       # DOCX 파싱
+│   ├── resumeMapping.ts    # 이력서 데이터 매핑
+│   └── scoring.ts          # 점수 계산 알고리즘
+├── electron-app/           # Electron 애플리케이션
+│   ├── electron/           # Electron 메인 프로세스
+│   ├── src/                # React 애플리케이션
+│   │   ├── components/     # React 컴포넌트
+│   │   └── styles/         # CSS 스타일
+│   └── scripts/            # 빌드 스크립트
+└── scripts/                 # 유틸리티 스크립트
+```
+
+## 사용 예제
+
+### Core Module 사용
+
+```typescript
+import { calculateAllScores } from 'career-fit-scoring';
+
+const applicationData = {
+  birthDate: '1990-01-01',
+  certificateName1: '정보처리기사',
+  careerStartDate1: '2020-01-01',
+  careerEndDate1: '2024-12-31',
+  careerJobTypeCode1: '12345',
+  universityDegreeType1: '학사',
+  universityMajor1_1: '컴퓨터공학과',
+};
+
+const jobMetadata = {
+  jobdicSeq: '12345',
+  requiredCertifications: ['정보처리기사'],
+  scoringWeights: {
+    certification: 1,
+    career: 2,
+    education: 1
+  }
+};
+
+const scores = calculateAllScores(applicationData, { aiMetadata: jobMetadata });
 ```
 
 ## 개발 로드맵
 
-### Phase 1: 핵심 알고리즘 ✅ (완료)
+### ✅ 완료된 기능
 - [x] 점수 계산 알고리즘 구현
 - [x] 커리어넷 API 연동
 - [x] Q-Net API 연동
-- [x] 서버 사이드 지원
+- [x] DOCX 파일 파싱
+- [x] 이력서 데이터 매핑
+- [x] Electron 앱 기본 구조
+- [x] 채용 공고 설정 UI
+- [x] 이력서 분석 및 결과 표시
+- [x] AI 기반 평가 기능
+- [x] 자동 업데이트 기능
+- [x] 스플래시 스크린
 
-### Phase 2: 이력서 파싱 (진행 예정)
-- [ ] DOCX 파일 파싱 모듈
-- [ ] 텍스트 추출 및 구조화
-- [ ] 기본 정보 추출 (이름, 연락처, 생년월일 등)
-
-### Phase 3: 경력 매핑 (진행 예정)
-- [ ] 자연어 처리 기반 경력 정보 추출
-- [ ] 커리어넷 API를 활용한 직종 자동 매핑
-- [ ] 사용자 확인/수정 UI
-- [ ] 매핑 결과 저장
-
-### Phase 4: Electron 앱 통합 (진행 예정)
-- [ ] Electron 프로젝트 설정
-- [ ] 폴더 선택 및 파일 스캔
-- [ ] 배치 처리 기능
-- [ ] 결과 시각화
+### 🔄 향후 개선 예정
+- [ ] 다양한 이력서 형식 지원 확대
+- [ ] AI 프롬프트 최적화
+- [ ] 성능 최적화
+- [ ] 다국어 지원
 
 ## 라이선스
 
@@ -208,3 +275,5 @@ MIT License - 자유롭게 사용, 수정, 배포 가능합니다.
 
 - [EXAMPLES.md](./EXAMPLES.md) - 상세 사용 예제 및 데이터 구조
 - [CHANGELOG.md](./CHANGELOG.md) - 변경 이력
+- [RESUME_FORM_MAPPING_GUIDE.md](./RESUME_FORM_MAPPING_GUIDE.md) - 이력서 형식 매핑 가이드
+- [electron-app/README.md](./electron-app/README.md) - Electron 앱 상세 문서
