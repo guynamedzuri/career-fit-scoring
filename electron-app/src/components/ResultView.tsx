@@ -130,7 +130,7 @@ interface ResultViewProps {
   jobMetadata?: any; // App.tsx에서 전달하는 jobMetadata
 }
 
-type SortField = 'name' | 'age' | 'lastCompany' | 'residence' | 'totalScore' | 'aiGrade' | 'status';
+type SortField = 'name' | 'age' | 'lastCompany' | 'residence' | 'totalScore' | 'aiGrade' | 'status' | 'careerFit' | 'requiredQual' | 'preferredQual' | 'certification';
 type SortOrder = 'asc' | 'desc';
 
 export default function ResultView({ selectedFiles, userPrompt, selectedFolder, onBack, onProcessingChange, onProgressChange, jobMetadata }: ResultViewProps) {
@@ -560,9 +560,90 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           compareB = b.lastCompany || '';
           break;
         case 'residence':
-          const residenceOrder = { '서울': 1, '수도권': 2, '시흥': 3, '안산': 4, '지방': 5 };
+          // 회사에서 가까운 순: 안산 - 시흥 - 수도권 - 서울 - 지방
+          const residenceOrder = { '안산': 1, '시흥': 2, '수도권': 3, '서울': 4, '지방': 5 };
           compareA = residenceOrder[a.residence as keyof typeof residenceOrder] ?? 6;
           compareB = residenceOrder[b.residence as keyof typeof residenceOrder] ?? 6;
+          break;
+        case 'careerFit':
+          // 경력 적합도: A=1, B=2, C=3, D=4, E=5, 없음=6
+          const careerFitOrder = { 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5 };
+          const careerFitA = a.aiGrade ? (careerFitOrder[a.aiGrade as keyof typeof careerFitOrder] ?? 6) : 6;
+          const careerFitB = b.aiGrade ? (careerFitOrder[b.aiGrade as keyof typeof careerFitOrder] ?? 6) : 6;
+          compareA = careerFitA;
+          compareB = careerFitB;
+          break;
+        case 'requiredQual':
+          // 필수사항 만족여부: ◎=1, ○=2, X=3, -=4
+          const requiredQualOrder = { '◎': 1, '○': 2, 'X': 3, '-': 4 };
+          const requiredQualA = (() => {
+            if (!userPrompt?.requiredQualifications || !userPrompt.requiredQualifications.trim()) {
+              return 4; // 해당사항 없음
+            }
+            if (a.aiChecked && a.aiReport && typeof a.aiReport === 'object' && a.aiReport.evaluations?.requiredQual) {
+              return requiredQualOrder[a.aiReport.evaluations.requiredQual as keyof typeof requiredQualOrder] ?? 4;
+            }
+            return 4; // 없음
+          })();
+          const requiredQualB = (() => {
+            if (!userPrompt?.requiredQualifications || !userPrompt.requiredQualifications.trim()) {
+              return 4; // 해당사항 없음
+            }
+            if (b.aiChecked && b.aiReport && typeof b.aiReport === 'object' && b.aiReport.evaluations?.requiredQual) {
+              return requiredQualOrder[b.aiReport.evaluations.requiredQual as keyof typeof requiredQualOrder] ?? 4;
+            }
+            return 4; // 없음
+          })();
+          compareA = requiredQualA;
+          compareB = requiredQualB;
+          break;
+        case 'preferredQual':
+          // 우대사항 만족여부: ◎=1, ○=2, X=3, -=4
+          const preferredQualOrder = { '◎': 1, '○': 2, 'X': 3, '-': 4 };
+          const preferredQualA = (() => {
+            if (!userPrompt?.preferredQualifications || !userPrompt.preferredQualifications.trim()) {
+              return 4; // 해당사항 없음
+            }
+            if (a.aiChecked && a.aiReport && typeof a.aiReport === 'object' && a.aiReport.evaluations?.preferredQual) {
+              return preferredQualOrder[a.aiReport.evaluations.preferredQual as keyof typeof preferredQualOrder] ?? 4;
+            }
+            return 4; // 없음
+          })();
+          const preferredQualB = (() => {
+            if (!userPrompt?.preferredQualifications || !userPrompt.preferredQualifications.trim()) {
+              return 4; // 해당사항 없음
+            }
+            if (b.aiChecked && b.aiReport && typeof b.aiReport === 'object' && b.aiReport.evaluations?.preferredQual) {
+              return preferredQualOrder[b.aiReport.evaluations.preferredQual as keyof typeof preferredQualOrder] ?? 4;
+            }
+            return 4; // 없음
+          })();
+          compareA = preferredQualA;
+          compareB = preferredQualB;
+          break;
+        case 'certification':
+          // 자격증 만족여부: ◎=1, ○=2, X=3, -=4
+          const certificationOrder = { '◎': 1, '○': 2, 'X': 3, '-': 4 };
+          const certificationA = (() => {
+            if (!userPrompt?.requiredCertifications || userPrompt.requiredCertifications.length === 0) {
+              return 4; // 해당사항 없음
+            }
+            if (a.aiChecked && a.aiReport && typeof a.aiReport === 'object' && a.aiReport.evaluations?.certification) {
+              return certificationOrder[a.aiReport.evaluations.certification as keyof typeof certificationOrder] ?? 4;
+            }
+            return 4; // 없음
+          })();
+          const certificationB = (() => {
+            if (!userPrompt?.requiredCertifications || userPrompt.requiredCertifications.length === 0) {
+              return 4; // 해당사항 없음
+            }
+            if (b.aiChecked && b.aiReport && typeof b.aiReport === 'object' && b.aiReport.evaluations?.certification) {
+              return certificationOrder[b.aiReport.evaluations.certification as keyof typeof certificationOrder] ?? 4;
+            }
+            return 4; // 없음
+          })();
+          compareA = certificationA;
+          compareB = certificationB;
           break;
         case 'aiGrade':
           const gradeOrder = { 'A': 1, 'B': 2, 'C': 3, 'D': 4 };
@@ -606,7 +687,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     });
 
     return filtered;
-  }, [results, searchQuery, sortField, sortOrder, filters]);
+  }, [results, searchQuery, sortField, sortOrder, filters, userPrompt]);
 
   // 정렬 토글
   const handleSort = (field: SortField) => {
@@ -1254,16 +1335,36 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           </div>
         </div>
         <div className="table-cell cell-career-fit">
-          <div>경력 적합도</div>
+          <div 
+            className={`sortable ${sortField === 'careerFit' ? 'active' : ''}`}
+            onClick={() => handleSort('careerFit')}
+          >
+            경력 적합도 <SortIcon field="careerFit" />
+          </div>
         </div>
         <div className="table-cell cell-required-qual">
-          <div>필수사항<br />만족여부</div>
+          <div 
+            className={`sortable ${sortField === 'requiredQual' ? 'active' : ''}`}
+            onClick={() => handleSort('requiredQual')}
+          >
+            필수사항<br />만족여부 <SortIcon field="requiredQual" />
+          </div>
         </div>
         <div className="table-cell cell-preferred-qual">
-          <div>우대사항<br />만족여부</div>
+          <div 
+            className={`sortable ${sortField === 'preferredQual' ? 'active' : ''}`}
+            onClick={() => handleSort('preferredQual')}
+          >
+            우대사항<br />만족여부 <SortIcon field="preferredQual" />
+          </div>
         </div>
         <div className="table-cell cell-certification">
-          <div>자격증<br />만족여부</div>
+          <div 
+            className={`sortable ${sortField === 'certification' ? 'active' : ''}`}
+            onClick={() => handleSort('certification')}
+          >
+            자격증<br />만족여부 <SortIcon field="certification" />
+          </div>
         </div>
           <div className="table-cell cell-ai-grade">
             <div 
