@@ -154,6 +154,25 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
   const [currentAiReportParsed, setCurrentAiReportParsed] = useState(false);
   const [aiProcessing, setAiProcessing] = useState(false);
   const [aiProgress, setAiProgress] = useState<{ current: number; total: number; currentFile: string; estimatedTimeRemainingMs?: number }>({ current: 0, total: 0, currentFile: '', estimatedTimeRemainingMs: undefined });
+  
+  // 전체 진행률 추적 (파싱 + AI 분석)
+  const [overallProgress, setOverallProgress] = useState<{ 
+    parsingCompleted: number; 
+    parsingTotal: number; 
+    aiCompleted: number; 
+    aiTotal: number;
+    currentPhase: 'parsing' | 'ai' | 'none';
+    currentFile: string;
+    estimatedTimeRemainingMs?: number;
+  }>({
+    parsingCompleted: 0,
+    parsingTotal: 0,
+    aiCompleted: 0,
+    aiTotal: 0,
+    currentPhase: 'none',
+    currentFile: '',
+    estimatedTimeRemainingMs: undefined,
+  });
   const [filters, setFilters] = useState({
     minAge: '',
     maxAge: '',
@@ -301,8 +320,141 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       onProcessingChange(true);
     }
     
+    // 파싱 단계 시작 - 전체 진행률 초기화
+    const totalFiles = filePaths.length;
+    setOverallProgress({
+      parsingCompleted: 0,
+      parsingTotal: totalFiles,
+      aiCompleted: 0,
+      aiTotal: 0,
+      currentPhase: 'parsing',
+      currentFile: '',
+    });
+    
+    // 전체 진행률 업데이트 함수
+    const updateOverallProgress = (parsingCompleted: number, currentFile?: string) => {
+      const progress = {
+        parsingCompleted,
+        parsingTotal: totalFiles,
+        aiCompleted: overallProgress.aiCompleted,
+        aiTotal: overallProgress.aiTotal,
+        currentPhase: 'parsing' as const,
+        currentFile: currentFile || '',
+        estimatedTimeRemainingMs: undefined,
+      };
+      setOverallProgress(progress);
+      
+      // 전체 진행률을 progress로 변환 (파싱 50% + AI 50%)
+      const totalSteps = totalFiles * 2; // 파싱 단계 + AI 단계
+      const completedSteps = parsingCompleted + overallProgress.aiCompleted;
+      const totalProgress = {
+        current: completedSteps,
+        total: totalSteps,
+        currentFile: currentFile || '',
+        estimatedTimeRemainingMs: undefined,
+      };
+      
+      if (onProgressChange) {
+        onProgressChange(totalProgress);
+      }
+    };
+    
     try {
-      const processPromises = filePaths.map(async (filePath) => {
+      // 순차 처리로 변경하여 진행률 추적 가능하게 함
+      for (let i = 0; i < filePaths.length; i++) {
+        const filePath = filePaths[i];
+        const file = selectedFiles.find(f => f.path === filePath);
+        if (!file) continue;
+        
+        // 현재 처리 중인 파일 표시
+        updateOverallProgress(i, file.name);
+        
+        // 상태를 processing으로 변경
+        setResults(prevResults =>
+          prevResults.map(r => 
+            r.filePath === filePath ? { ...r, status: 'processing' as const } : r
+          )
+        );
+        
+        try {
+          const result = await window.electron!.processResume(filePath);
+          
+          if (result.success) {
+            // 점수 계산 (나중에 구현)
+            const totalScore = 0; // TODO: 실제 점수 계산
+            
+            // 결과 업데이트
+            setResults(prevResults =>
+              prevResults.map(r => {
+                if (r.filePath === filePath) {
+                  return {
+                    ...r,
+                    status: 'completed' as const,
+                    totalScore,
+                    name: result.name,
+                    age: result.age,
+                    lastCompany: result.lastCompany,
+                    lastSalary: result.lastSalary,
+                    residence: result.residence,
+                    applicationData: result.applicationData,
+                    searchableText: result.searchableText || r.fileName,
+                  };
+                }
+                return r;
+              })
+            );
+            
+            // 캐시에 저장
+            if (window.electron?.saveCache && selectedFolder) {
+              await window.electron.saveCache(selectedFolder, [{
+                filePath,
+                fileName: file.name,
+                data: {
+                  totalScore,
+                  name: result.name,
+                  age: result.age,
+                  lastCompany: result.lastCompany,
+                  lastSalary: result.lastSalary,
+                  residence: result.residence,
+                  applicationData: result.applicationData,
+                  searchableText: result.searchableText || file.name,
+                },
+              }]);
+            }
+          } else {
+            throw new Error(result.error || '처리 실패');
+          }
+        } catch (error: any) {
+          console.error(`[Process] Error processing ${filePath}:`, error);
+          setResults(prevResults =>
+            prevResults.map(r => 
+              r.filePath === filePath 
+                ? { ...r, status: 'error' as const, errorMessage: error.message || '처리 실패' }
+                : r
+            )
+          );
+        }
+        
+        // 파싱 완료 업데이트
+        updateOverallProgress(i + 1);
+      }
+      
+      // 모든 파싱 완료
+      setOverallProgress(prev => ({
+        ...prev,
+        parsingCompleted: totalFiles,
+        currentPhase: 'ai',
+      }));
+      
+      // 모든 파일 처리 완료 후 AI 분석 시작 (결과가 업데이트된 후)
+      // AI 분석은 별도 useEffect에서 자동으로 실행됨
+    } catch (error) {
+      console.error('[Process] Overall error:', error);
+      if (onProcessingChange) {
+        onProcessingChange(false);
+      }
+    }
+  }, [selectedFiles, selectedFolder, onProcessingChange, onProgressChange, overallProgress]);
         const file = selectedFiles.find(f => f.path === filePath);
         if (!file) return null;
         
@@ -730,12 +882,33 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       console.log(`[AI Analysis] Starting analysis for ${needsAnalysis.length} files:`, needsAnalysis.map(r => r.fileName));
       isAiAnalysisRunning.current = true;
       setAiProcessing(true);
+      
+      // 전체 파일 수 기준으로 AI 분석 진행률 초기화
+      const totalFiles = selectedFiles.length;
+      setOverallProgress(prev => ({
+        ...prev,
+        aiCompleted: 0,
+        aiTotal: needsAnalysis.length,
+        currentPhase: 'ai',
+        currentFile: '',
+      }));
+      
       const initialProgress = { current: 0, total: needsAnalysis.length, currentFile: '', estimatedTimeRemainingMs: undefined };
       console.log('[AI Analysis] Setting initial progress:', initialProgress);
       setAiProgress(initialProgress);
+      
+      // 전체 진행률 업데이트 (파싱 완료 + AI 시작)
+      const totalSteps = totalFiles * 2; // 파싱 단계 + AI 단계
+      const initialTotalProgress = {
+        current: totalFiles, // 파싱 완료
+        total: totalSteps,
+        currentFile: '',
+        estimatedTimeRemainingMs: undefined,
+      };
+      
       if (onProgressChange) {
-        console.log('[AI Analysis] Calling onProgressChange with:', initialProgress);
-        onProgressChange(initialProgress);
+        console.log('[AI Analysis] Calling onProgressChange with:', initialTotalProgress);
+        onProgressChange(initialTotalProgress);
       } else {
         console.warn('[AI Analysis] onProgressChange is not available!');
       }
@@ -777,8 +950,28 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
             estimatedTimeRemainingMs: estimatedTimeRemainingMs > 0 ? estimatedTimeRemainingMs : undefined
           };
           setAiProgress(progress);
+          
+          // 전체 진행률 업데이트 (파싱 완료 + AI 진행 중)
+          const totalFiles = selectedFiles.length;
+          const totalSteps = totalFiles * 2; // 파싱 단계 + AI 단계
+          const completedSteps = totalFiles + i; // 파싱 완료 + AI 완료된 파일 수
+          
+          setOverallProgress(prev => ({
+            ...prev,
+            aiCompleted: i,
+            currentFile: result.fileName,
+            estimatedTimeRemainingMs: estimatedTimeRemainingMs > 0 ? estimatedTimeRemainingMs : undefined,
+          }));
+          
+          const totalProgress = {
+            current: completedSteps,
+            total: totalSteps,
+            currentFile: result.fileName,
+            estimatedTimeRemainingMs: estimatedTimeRemainingMs > 0 ? estimatedTimeRemainingMs : undefined,
+          };
+          
           if (onProgressChange) {
-            onProgressChange(progress);
+            onProgressChange(totalProgress);
           }
           
           let retryCount = 0;
@@ -925,6 +1118,18 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         setAiProcessing(false);
         const emptyProgress = { current: 0, total: 0, currentFile: '', estimatedTimeRemainingMs: undefined };
         setAiProgress(emptyProgress);
+        
+        // 전체 진행률 초기화
+        setOverallProgress({
+          parsingCompleted: 0,
+          parsingTotal: 0,
+          aiCompleted: 0,
+          aiTotal: 0,
+          currentPhase: 'none',
+          currentFile: '',
+          estimatedTimeRemainingMs: undefined,
+        });
+        
         if (onProgressChange) {
           onProgressChange(emptyProgress);
         }
