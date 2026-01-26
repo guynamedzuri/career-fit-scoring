@@ -1156,13 +1156,13 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           <div>경력 적합도</div>
         </div>
         <div className="table-cell cell-required-qual">
-          <div>필수사항 만족여부</div>
+          <div>필수사항<br />만족여부</div>
         </div>
         <div className="table-cell cell-preferred-qual">
-          <div>우대사항 만족여부</div>
+          <div>우대사항<br />만족여부</div>
         </div>
         <div className="table-cell cell-certification">
-          <div>자격증 만족여부</div>
+          <div>자격증<br />만족여부</div>
         </div>
           <div className="table-cell cell-ai-grade">
             <div 

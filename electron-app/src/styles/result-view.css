@@ -414,7 +414,13 @@
 }
 
 
-.cell-career-fit,
+.cell-career-fit {
+  width: 100px;
+  flex-shrink: 0;
+  text-align: center;
+  justify-content: center;
+}
+
 .cell-required-qual,
 .cell-preferred-qual,
 .cell-certification {
@@ -422,6 +428,14 @@
   flex-shrink: 0;
   text-align: center;
   justify-content: center;
+  line-height: 1.3;
+}
+
+.cell-required-qual > div,
+.cell-preferred-qual > div,
+.cell-certification > div {
+  white-space: normal;
+  word-break: keep-all;
 }
 
 .cell-ai-grade {
