@@ -58,14 +58,29 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
       const { app } = require('electron');
       if (app && app.getAppPath) {
         const appPath = app.getAppPath();
+        // resources/app/scripts (files에 포함된 경우)
         scriptPaths.push(path.join(appPath, 'scripts', 'extract_resume_form_structure.py'));
+        // resources/scripts (extraResources에 포함된 경우)
         scriptPaths.push(path.join(appPath, '..', 'scripts', 'extract_resume_form_structure.py'));
+        // resources/app/electron/scripts
+        scriptPaths.push(path.join(appPath, 'electron', 'scripts', 'extract_resume_form_structure.py'));
       }
     } catch (e) {
       // electron 모듈이 없으면 무시 (Node.js 환경)
     }
     
-    // 5. 현재 디렉토리 기준
+    // 5. process.resourcesPath 기준 (extraResources 위치)
+    try {
+      const { app } = require('electron');
+      if (app && app.getPath) {
+        const resourcesPath = app.getPath('exe').replace(/[^/\\]+$/, '') + 'resources';
+        scriptPaths.push(path.join(resourcesPath, 'scripts', 'extract_resume_form_structure.py'));
+      }
+    } catch (e) {
+      // electron 모듈이 없으면 무시
+    }
+    
+    // 6. 현재 디렉토리 기준
     scriptPaths.push(path.join(process.cwd(), 'scripts', 'extract_resume_form_structure.py'));
     
     // 첫 번째로 존재하는 경로 사용

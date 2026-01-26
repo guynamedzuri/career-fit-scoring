@@ -89,6 +89,11 @@ win:
   extraResources:
     - from: icon.ico
       to: .
+    # Python 스크립트를 extraResources로 복사 (resources/scripts에 위치)
+    - from: ../scripts
+      to: scripts
+      filter:
+        - "**/*.py"
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
   signAndEditExecutable: false
