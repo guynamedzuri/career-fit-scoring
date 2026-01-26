@@ -1242,7 +1242,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                   <span className="residence-value">{result.residence}</span>
                 ) : '-'}
               </div>
-              <div className="table-cell cell-career-fit">
+              <div className="table-cell cell-career-fit" data-field="career-fit">
                 {result.status === 'completed' && result.applicationData ? (() => {
                   const hasCareer = result.applicationData.careerCompanyName1 || false;
                   let careerScore: number | undefined = undefined;
@@ -1253,30 +1253,30 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                   }
                   
                   const grade = getCareerFitGrade(careerScore, hasCareer);
-                  return <span className={`evaluation-grade grade-${grade}`}>{grade}</span>;
-                })() : '-'}
+                  return <span className={`evaluation-grade grade-${grade}`} data-grade={grade}>{grade}</span>;
+                })() : <span className="evaluation-grade grade--" data-grade="-">-</span>}
               </div>
-              <div className="table-cell cell-required-qual">
+              <div className="table-cell cell-required-qual" data-field="required-qual">
                 {result.status === 'completed' && result.applicationData ? (() => {
                   const grade = getRequiredQualificationGrade(
                     userPrompt?.requiredQualifications,
                     result.applicationData,
                     userPrompt
                   );
-                  return <span className={`evaluation-grade grade-${grade}`}>{grade}</span>;
-                })() : '-'}
+                  return <span className={`evaluation-grade grade-${grade}`} data-grade={grade}>{grade}</span>;
+                })() : <span className="evaluation-grade grade--" data-grade="-">-</span>}
               </div>
-              <div className="table-cell cell-preferred-qual">
+              <div className="table-cell cell-preferred-qual" data-field="preferred-qual">
                 {result.status === 'completed' && result.applicationData ? (() => {
                   const grade = getPreferredQualificationGrade(
                     userPrompt?.preferredQualifications,
                     result.applicationData,
                     userPrompt
                   );
-                  return <span className={`evaluation-grade grade-${grade}`}>{grade}</span>;
-                })() : '-'}
+                  return <span className={`evaluation-grade grade-${grade}`} data-grade={grade}>{grade}</span>;
+                })() : <span className="evaluation-grade grade--" data-grade="-">-</span>}
               </div>
-              <div className="table-cell cell-certification">
+              <div className="table-cell cell-certification" data-field="certification">
                 {result.status === 'completed' && result.applicationData ? (() => {
                   let certificationScore: number | undefined = undefined;
                   
@@ -1289,8 +1289,8 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                     certificationScore,
                     userPrompt?.requiredCertifications
                   );
-                  return <span className={`evaluation-grade grade-${grade}`}>{grade}</span>;
-                })() : '-'}
+                  return <span className={`evaluation-grade grade-${grade}`} data-grade={grade}>{grade}</span>;
+                })() : <span className="evaluation-grade grade--" data-grade="-">-</span>}
               </div>
               <div className="table-cell cell-ai-grade">
                 {result.aiChecked && result.aiGrade ? (
