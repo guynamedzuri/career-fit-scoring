@@ -2281,6 +2281,83 @@ ${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length 
         grade = gradeMap[matchedGrade] || (matchedGrade.match(/[A-D]/) ? matchedGrade : 'C');
       }
       
+      // evaluations 객체 추출 시도 (JSON 파싱 실패해도 evaluations는 추출 가능할 수 있음)
+      try {
+        // evaluations 객체 부분만 찾아서 파싱 시도
+        const evaluationsMatch = aiContent.match(/"evaluations"\s*:\s*\{[^}]*\}/s);
+        if (evaluationsMatch) {
+          const evaluationsJson = `{${evaluationsMatch[0]}}`;
+          const evaluationsOnly = JSON.parse(evaluationsJson);
+          if (evaluationsOnly.evaluations && typeof evaluationsOnly.evaluations === 'object') {
+            // parsedReport가 null이면 기본 구조 생성
+            if (!parsedReport) {
+              parsedReport = {
+                grade: grade,
+                summary: '',
+                strengths: [],
+                weaknesses: [],
+                opinion: '',
+                evaluations: evaluationsOnly.evaluations
+              };
+            } else {
+              parsedReport.evaluations = evaluationsOnly.evaluations;
+            }
+            console.log('[AI Check] Extracted evaluations from partial JSON:', evaluationsOnly.evaluations);
+          }
+        } else {
+          // evaluations 객체를 찾지 못한 경우, 개별 필드를 정규식으로 추출
+          const extractedEvaluations: {
+            careerFit?: string;
+            requiredQual?: string;
+            preferredQual?: string;
+            certification?: string;
+          } = {};
+          
+          // careerFit 추출
+          const careerFitMatch = aiContent.match(/"careerFit"\s*:\s*["']([◎○X-])["']/);
+          if (careerFitMatch) {
+            extractedEvaluations.careerFit = careerFitMatch[1];
+          }
+          
+          // requiredQual 추출
+          const requiredQualMatch = aiContent.match(/"requiredQual"\s*:\s*["']([◎X-])["']/);
+          if (requiredQualMatch) {
+            extractedEvaluations.requiredQual = requiredQualMatch[1];
+          }
+          
+          // preferredQual 추출
+          const preferredQualMatch = aiContent.match(/"preferredQual"\s*:\s*["']([◎○X-])["']/);
+          if (preferredQualMatch) {
+            extractedEvaluations.preferredQual = preferredQualMatch[1];
+          }
+          
+          // certification 추출
+          const certificationMatch = aiContent.match(/"certification"\s*:\s*["']([◎○X-])["']/);
+          if (certificationMatch) {
+            extractedEvaluations.certification = certificationMatch[1];
+          }
+          
+          // 추출한 evaluations가 있으면 추가
+          if (Object.keys(extractedEvaluations).length > 0) {
+            if (!parsedReport) {
+              parsedReport = {
+                grade: grade,
+                summary: '',
+                strengths: [],
+                weaknesses: [],
+                opinion: '',
+                evaluations: extractedEvaluations
+              };
+            } else {
+              parsedReport.evaluations = extractedEvaluations;
+            }
+            console.log('[AI Check] Extracted evaluations using regex:', extractedEvaluations);
+          }
+        }
+      } catch (evalError: any) {
+        console.warn('[AI Check] Failed to extract evaluations from partial JSON:', evalError.message);
+      }
+      
       // 파싱 실패 시 원본 텍스트를 report로 사용
       reportText = aiContent;
     }
