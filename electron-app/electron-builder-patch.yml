@@ -90,8 +90,8 @@ nsis:
   uninstallerIcon: icon.ico
   installerHeaderIcon: icon.ico
   deleteAppDataOnUninstall: false
-  # 조용한 업데이트를 위한 설정
-  runAfterFinish: false  # 설치 후 자동 실행 방지 (electron-updater가 처리)
+  # 업데이트 후 자동 실행 설정
+  runAfterFinish: true  # 설치 후 자동 실행
 
 mac:
   target:

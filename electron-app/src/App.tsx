@@ -25,10 +25,83 @@ function App() {
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [aiProgress, setAiProgress] = useState<{ current: number; total: number; currentFile: string; estimatedTimeRemainingMs?: number } | null>(null);
   
+  // 업데이트 관련 상태
+  const [updateStatus, setUpdateStatus] = useState<{
+    checking: boolean;
+    available: boolean;
+    downloading: boolean;
+    downloaded: boolean;
+    version?: string;
+    progress?: number;
+  }>({
+    checking: false,
+    available: false,
+    downloading: false,
+    downloaded: false,
+  });
+  
   // 디버깅: aiProgress 변경 추적
   useEffect(() => {
     console.log('[App] aiProgress updated:', aiProgress);
   }, [aiProgress]);
+
+  // 업데이트 이벤트 리스너 설정
+  useEffect(() => {
+    const electron = (window as any).electron;
+    if (!electron) return;
+
+    const handleUpdateChecking = () => {
+      setUpdateStatus(prev => ({ ...prev, checking: true }));
+    };
+
+    const handleUpdateAvailable = (info: any) => {
+      setUpdateStatus(prev => ({
+        ...prev,
+        checking: false,
+        available: true,
+        downloading: true,
+        version: info.version,
+      }));
+    };
+
+    const handleUpdateDownloadProgress = (progress: any) => {
+      setUpdateStatus(prev => ({
+        ...prev,
+        progress: Math.round(progress.percent || 0),
+      }));
+    };
+
+    const handleUpdateDownloaded = (info: any) => {
+      setUpdateStatus(prev => ({
+        ...prev,
+        downloading: false,
+        downloaded: true,
+        version: info.version,
+      }));
+    };
+
+    const handleUpdateError = (error: string) => {
+      setUpdateStatus(prev => ({
+        ...prev,
+        checking: false,
+        available: false,
+        downloading: false,
+      }));
+      console.error('[App] Update error:', error);
+    };
+
+    electron.onUpdateChecking?.(handleUpdateChecking);
+    electron.onUpdateAvailable?.(handleUpdateAvailable);
+    electron.onUpdateDownloadProgress?.(handleUpdateDownloadProgress);
+    electron.onUpdateDownloaded?.(handleUpdateDownloaded);
+    electron.onUpdateError?.(handleUpdateError);
+
+    return () => {
+      // cleanup은 ipcRenderer.removeListener를 사용해야 하지만,
+      // contextBridge를 통해 노출된 함수에서는 직접 제거하기 어려움
+      // 대신 컴포넌트 언마운트 시 상태만 초기화
+    };
+  }, []);
 
   // 앱이 마운트되면 메인 프로세스에 준비 완료 신호 전송
   useEffect(() => {
@@ -135,6 +208,30 @@ function App() {
           />
         </div>
         {isProcessing && <LoadingSpinner message="이력서 분석 중..." fullScreen progress={aiProgress || undefined} />}
+        {/* 업데이트 진행도 표시 */}
+        {(updateStatus.checking || updateStatus.available || updateStatus.downloading || updateStatus.downloaded) && (
+          <LoadingSpinner
+            message={
+              updateStatus.checking
+                ? '업데이트 확인 중...'
+                : updateStatus.downloading
+                ? `업데이트 다운로드 중... (${updateStatus.progress || 0}%)`
+                : updateStatus.downloaded
+                ? `업데이트 다운로드 완료! 설치 중...`
+                : '업데이트 준비 중...'
+            }
+            fullScreen
+            progress={
+              updateStatus.downloading && updateStatus.progress !== undefined
+                ? {
+                    current: updateStatus.progress,
+                    total: 100,
+                    currentFile: updateStatus.version ? `버전 ${updateStatus.version}` : undefined,
+                  }
+                : undefined
+            }
+          />
+        )}
       </div>
     );
   }
@@ -198,6 +295,30 @@ function App() {
             setSelectedFiles(data.selectedFiles || []);
             setShowSaveLoadModal(false);
           }}
+        />
+      )}
+      {/* 업데이트 진행도 표시 */}
+      {(updateStatus.checking || updateStatus.available || updateStatus.downloading || updateStatus.downloaded) && (
+        <LoadingSpinner
+          message={
+            updateStatus.checking
+              ? '업데이트 확인 중...'
+              : updateStatus.downloading
+              ? `업데이트 다운로드 중... (${updateStatus.progress || 0}%)`
+              : updateStatus.downloaded
+              ? `업데이트 다운로드 완료! 설치 중...`
+              : '업데이트 준비 중...'
+          }
+          fullScreen
+          progress={
+            updateStatus.downloading && updateStatus.progress !== undefined
+              ? {
+                  current: updateStatus.progress,
+                  total: 100,
+                  currentFile: updateStatus.version ? `버전 ${updateStatus.version}` : undefined,
+                }
+              : undefined
+          }
         />
       )}
     </div>

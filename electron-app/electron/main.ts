@@ -541,14 +541,25 @@ async function setupAutoUpdater() {
       mainWindow.webContents.send('update-downloaded', info);
     }
     
-    // 조용한 자동 업데이트: 사용자에게 알림 없이 즉시 재시작
-    writeLog(`[AutoUpdater] Update downloaded: ${info.version}, restarting silently...`, 'info');
+    // 업데이트 다운로드 완료 알림
+    writeLog(`[AutoUpdater] Update downloaded: ${info.version}, preparing to install...`, 'info');
     
-    // 2초 후 조용히 재시작 (사용자가 작업 중일 가능성 대비)
+    // 사용자에게 설치 시작 알림 (3초 후 자동 설치)
+    if (mainWindow) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: '업데이트 준비 완료',
+        message: `버전 ${info.version} 업데이트가 준비되었습니다.`,
+        detail: '잠시 후 자동으로 설치를 시작합니다...',
+        buttons: ['확인']
+      });
+    }
+    
+    // 3초 후 자동 설치 및 재시작 (runAfterFinish: true로 설정되어 있어서 자동 실행됨)
     setTimeout(() => {
-      writeLog('[AutoUpdater] Performing silent restart with update', 'info');
-      autoUpdater.quitAndInstall(true, false); // silent mode
-    }, 2000);
+      writeLog('[AutoUpdater] Performing automatic install and restart', 'info');
+      autoUpdater.quitAndInstall(false, true); // silent: false (설치 UI 표시), isForceRunAfter: true (설치 후 자동 실행)
+    }, 3000);
   });
 }
 

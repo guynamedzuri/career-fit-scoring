@@ -28,6 +28,12 @@ contextBridge.exposeInMainWorld('electron', {
   onUpdateError: (callback: (error: string) => void) => {
     ipcRenderer.on('update-error', (_, error) => callback(error));
   },
+  onUpdateDownloadProgress: (callback: (progress: any) => void) => {
+    ipcRenderer.on('update-download-progress', (_, progress) => callback(progress));
+  },
+  onUpdateDownloaded: (callback: (info: any) => void) => {
+    ipcRenderer.on('update-downloaded', (_, info) => callback(info));
+  },
   // 스플래시 닫기 신호
   notifyAppReady: () => ipcRenderer.invoke('app-ready'),
   // 파일 열기
