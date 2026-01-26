@@ -1196,6 +1196,21 @@ ipcMain.handle('app-ready', async () => {
   sendAppReadySignal();
 });
 
+// 파일 열기 IPC 핸들러
+ipcMain.handle('open-file', async (event, filePath: string) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      throw new Error(`파일을 찾을 수 없습니다: ${filePath}`);
+    }
+    await shell.openPath(filePath);
+    writeLog(`[Open File] Opened file: ${filePath}`, 'info');
+    return { success: true };
+  } catch (error: any) {
+    writeLog(`[Open File] Error opening file: ${error.message || error}`, 'error');
+    return { success: false, error: error.message || '파일 열기 실패' };
+  }
+});
+
 ipcMain.handle('check-for-updates', async () => {
   try {
     const msg = '[AutoUpdater] Manual update check requested';
