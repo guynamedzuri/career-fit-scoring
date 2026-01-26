@@ -306,8 +306,39 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     loadCachedData();
   }, [selectedFiles, selectedFolder]);
   
+  // 전체 진행률 업데이트 함수
+  const updateOverallProgress = useCallback((parsingCompleted: number, aiCompleted: number, totalFiles: number, currentFile?: string, estimatedTimeRemainingMs?: number) => {
+    setOverallProgress(prev => {
+      const progress = {
+        parsingCompleted,
+        parsingTotal: totalFiles,
+        aiCompleted,
+        aiTotal: prev.aiTotal,
+        currentPhase: parsingCompleted < totalFiles ? 'parsing' as const : 'ai' as const,
+        currentFile: currentFile || '',
+        estimatedTimeRemainingMs,
+      };
+      
+      // 전체 진행률을 progress로 변환 (파싱 50% + AI 50%)
+      const totalSteps = totalFiles * 2; // 파싱 단계 + AI 단계
+      const completedSteps = parsingCompleted + aiCompleted;
+      const totalProgress = {
+        current: completedSteps,
+        total: totalSteps,
+        currentFile: currentFile || '',
+        estimatedTimeRemainingMs,
+      };
+      
+      if (onProgressChange) {
+        onProgressChange(totalProgress);
+      }
+      
+      return progress;
+    });
+  }, [onProgressChange]);
+  
   // 이력서 파일 처리 함수
-  const processResumeFiles = useCallback(async (filePaths: string[]) => {
+  const processResumeFiles = useCallback(async (filePaths: string[]): Promise<void> => {
     if (!window.electron?.processResume) {
       console.error('[Process] processResume not available');
       if (onProcessingChange) {
@@ -322,45 +353,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     
     // 파싱 단계 시작 - 전체 진행률 초기화
     const totalFiles = filePaths.length;
-    setOverallProgress({
-      parsingCompleted: 0,
-      parsingTotal: totalFiles,
-      aiCompleted: 0,
-      aiTotal: 0,
-      currentPhase: 'parsing',
-      currentFile: '',
-    });
-    
-    // 전체 진행률 업데이트 함수
-    const updateOverallProgress = (parsingCompleted: number, currentFile?: string) => {
-      setOverallProgress(prev => {
-        const progress = {
-          parsingCompleted,
-          parsingTotal: totalFiles,
-          aiCompleted: prev.aiCompleted,
-          aiTotal: prev.aiTotal,
-          currentPhase: 'parsing' as const,
-          currentFile: currentFile || '',
-          estimatedTimeRemainingMs: undefined,
-        };
-        
-        // 전체 진행률을 progress로 변환 (파싱 50% + AI 50%)
-        const totalSteps = totalFiles * 2; // 파싱 단계 + AI 단계
-        const completedSteps = parsingCompleted + prev.aiCompleted;
-        const totalProgress = {
-          current: completedSteps,
-          total: totalSteps,
-          currentFile: currentFile || '',
-          estimatedTimeRemainingMs: undefined,
-        };
-        
-        if (onProgressChange) {
-          onProgressChange(totalProgress);
-        }
-        
-        return progress;
-      });
-    };
+    updateOverallProgress(0, 0, totalFiles);
     
     try {
       // 순차 처리로 변경하여 진행률 추적 가능하게 함
@@ -370,7 +363,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         if (!file) continue;
         
         // 현재 처리 중인 파일 표시
-        updateOverallProgress(i, file.name);
+        updateOverallProgress(i, 0, totalFiles, file.name);
         
         // 상태를 processing으로 변경
         setResults(prevResults =>
@@ -439,33 +432,11 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         }
         
         // 파싱 완료 업데이트
-        updateOverallProgress(i + 1);
+        updateOverallProgress(i + 1, 0, totalFiles);
       }
       
       // 모든 파싱 완료
-      setOverallProgress(prev => {
-        const updated = {
-          ...prev,
-          parsingCompleted: totalFiles,
-          currentPhase: 'ai' as const,
-        };
-        
-        // 전체 진행률 업데이트
-        const totalSteps = totalFiles * 2;
-        const completedSteps = totalFiles + prev.aiCompleted;
-        const totalProgress = {
-          current: completedSteps,
-          total: totalSteps,
-          currentFile: '',
-          estimatedTimeRemainingMs: undefined,
-        };
-        
-        if (onProgressChange) {
-          onProgressChange(totalProgress);
-        }
-        
-        return updated;
-      });
+      updateOverallProgress(totalFiles, 0, totalFiles);
       
       // 모든 파일 처리 완료 후 AI 분석 시작 (결과가 업데이트된 후)
       // AI 분석은 별도 useEffect에서 자동으로 실행됨
@@ -475,7 +446,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         onProcessingChange(false);
       }
     }
-  }, [selectedFiles, selectedFolder, onProcessingChange, onProgressChange]);
+  }, [selectedFiles, selectedFolder, onProcessingChange, updateOverallProgress]);
         const file = selectedFiles.find(f => f.path === filePath);
         if (!file) return null;
         
