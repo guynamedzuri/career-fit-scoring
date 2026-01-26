@@ -26,17 +26,19 @@ async function loadCareerFitScoring() {
   // 3. 빌드된 앱에서 여러 경로 시도
   const appPath = app.getAppPath();
   pathsToTry.push(
+    { name: 'app/electron/src', path: path.join(appPath, 'electron', 'src', 'index') },
     { name: 'app/src', path: path.join(appPath, 'src', 'index') },
     { name: 'app/node_modules', path: path.join(appPath, 'node_modules', 'career-fit-scoring') },
     { name: 'app/node_modules/dist', path: path.join(appPath, 'node_modules', 'career-fit-scoring', 'dist', 'index') },
     { name: 'app/node_modules/src', path: path.join(appPath, 'node_modules', 'career-fit-scoring', 'src', 'index') }
   );
   
-  // __dirname 기준 경로도 시도
+  // __dirname 기준 경로도 시도 (__dirname은 resources/app/electron)
   pathsToTry.push(
-    { name: 'dirname/src', path: path.join(__dirname, '../../src/index') },
-    { name: 'dirname/node_modules', path: path.join(__dirname, '../../node_modules/career-fit-scoring') },
-    { name: 'dirname/node_modules/dist', path: path.join(__dirname, '../../node_modules/career-fit-scoring/dist/index') }
+    { name: 'dirname/src', path: path.join(__dirname, 'src', 'index') },
+    { name: 'dirname/../src', path: path.join(__dirname, '../src/index') },
+    { name: 'dirname/node_modules', path: path.join(__dirname, '../node_modules/career-fit-scoring') },
+    { name: 'dirname/node_modules/dist', path: path.join(__dirname, '../node_modules/career-fit-scoring/dist/index') }
   );
   
   for (const attempt of pathsToTry) {
