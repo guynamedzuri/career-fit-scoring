@@ -1443,8 +1443,8 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                       requiredScore = 100;
                     } else if (requiredQual === 'X') {
                       // 필수사항 불만족이면 종합 점수 대신 '필수사항 불만족' 표시
-                      return <span className="ai-grade ai-grade-fail" style={{ color: '#ef4444', fontWeight: '600' }}>
-                        필수사항 불만족
+                      return <span className="ai-grade ai-grade-fail" style={{ color: '#ef4444', fontWeight: '600', whiteSpace: 'pre-line' }}>
+                        필수사항{'\n'}불만족
                       </span>;
                     }
                   }

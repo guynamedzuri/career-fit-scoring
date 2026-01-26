@@ -473,8 +473,68 @@
   color: #991b1b;
 }
 
+.ai-grade.ai-grade-fail {
+  color: #ef4444;
+  font-weight: 600;
+  white-space: pre-line;
+  line-height: 1.4;
+}
+
 .ai-grade-placeholder {
   color: #9ca3af;
+}
+
+/* 경력 적합도 등급별 스타일 */
+.evaluation-grade {
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: inline-block;
+  text-align: center;
+  min-width: 24px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+.evaluation-grade.grade-a {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.evaluation-grade.grade-b {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.evaluation-grade.grade-c {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.evaluation-grade.grade-d {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.evaluation-grade.grade-e {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+.evaluation-grade.grade-- {
+  color: #9ca3af;
+}
+
+/* 필수사항/우대사항/자격증 만족여부 등급 스타일 */
+.evaluation-grade.grade-◎ {
+  color: #10b981;
+}
+
+.evaluation-grade.grade-○ {
+  color: #3b82f6;
+}
+
+.evaluation-grade.grade-X {
+  color: #ef4444;
 }
 
 .cell-detail {
