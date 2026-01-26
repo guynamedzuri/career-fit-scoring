@@ -2285,7 +2285,8 @@ ${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length 
       reportText = aiContent;
     }
 
-    console.log('[AI Check] Success for:', data.fileName, 'Grade:', grade);
+      console.log('[AI Check] Success for:', data.fileName, 'Grade:', grade);
+      console.log('[AI Check] Parsed report evaluations:', parsedReport?.evaluations);
 
     return {
       success: true,

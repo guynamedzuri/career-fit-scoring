@@ -1024,6 +1024,14 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               });
 
               if (response.success && response.grade && response.report) {
+                console.log(`[AI Analysis] Response for ${result.fileName}:`, {
+                  grade: response.grade,
+                  reportParsed: (response as any).reportParsed,
+                  reportType: typeof response.report,
+                  hasEvaluations: typeof response.report === 'object' && (response.report as any).evaluations ? true : false,
+                  evaluations: typeof response.report === 'object' ? (response.report as any).evaluations : null,
+                });
+                
                 aiResults.push({
                   filePath: result.filePath,
                   aiGrade: response.grade,
@@ -1091,6 +1099,14 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         prevResults.map(result => {
           const aiResult = aiResults.find(r => r.filePath === result.filePath);
           if (aiResult) {
+            console.log(`[AI Analysis] Updating result for ${result.fileName}:`, {
+              aiGrade: aiResult.aiGrade,
+              aiReportType: typeof aiResult.aiReport,
+              aiReportParsed: aiResult.aiReportParsed,
+              hasEvaluations: typeof aiResult.aiReport === 'object' && (aiResult.aiReport as any).evaluations ? true : false,
+              evaluations: typeof aiResult.aiReport === 'object' ? (aiResult.aiReport as any).evaluations : null,
+            });
+            
             const updated = {
               ...result,
               aiGrade: aiResult.aiGrade,
