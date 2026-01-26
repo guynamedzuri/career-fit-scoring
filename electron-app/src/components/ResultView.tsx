@@ -1220,31 +1220,49 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                 )}
               </div>
               <div className="table-cell cell-required-qual" data-field="required-qual">
-                {result.aiChecked && result.aiReport && typeof result.aiReport === 'object' && result.aiReport.evaluations?.requiredQual ? (
-                  <span className={`evaluation-grade grade-${result.aiReport.evaluations.requiredQual}`} data-grade={result.aiReport.evaluations.requiredQual}>
-                    {result.aiReport.evaluations.requiredQual}
-                  </span>
-                ) : (
-                  <span className="evaluation-grade grade--" data-grade="-">-</span>
-                )}
+                {(() => {
+                  // 필수요구사항이 없으면 항상 '-'
+                  if (!userPrompt?.requiredQualifications || !userPrompt.requiredQualifications.trim()) {
+                    return <span className="evaluation-grade grade--" data-grade="-">-</span>;
+                  }
+                  // AI 분석 결과가 있으면 표시
+                  if (result.aiChecked && result.aiReport && typeof result.aiReport === 'object' && result.aiReport.evaluations?.requiredQual) {
+                    return <span className={`evaluation-grade grade-${result.aiReport.evaluations.requiredQual}`} data-grade={result.aiReport.evaluations.requiredQual}>
+                      {result.aiReport.evaluations.requiredQual}
+                    </span>;
+                  }
+                  return <span className="evaluation-grade grade--" data-grade="-">-</span>;
+                })()}
               </div>
               <div className="table-cell cell-preferred-qual" data-field="preferred-qual">
-                {result.aiChecked && result.aiReport && typeof result.aiReport === 'object' && result.aiReport.evaluations?.preferredQual ? (
-                  <span className={`evaluation-grade grade-${result.aiReport.evaluations.preferredQual}`} data-grade={result.aiReport.evaluations.preferredQual}>
-                    {result.aiReport.evaluations.preferredQual}
-                  </span>
-                ) : (
-                  <span className="evaluation-grade grade--" data-grade="-">-</span>
-                )}
+                {(() => {
+                  // 우대사항이 없으면 항상 '-'
+                  if (!userPrompt?.preferredQualifications || !userPrompt.preferredQualifications.trim()) {
+                    return <span className="evaluation-grade grade--" data-grade="-">-</span>;
+                  }
+                  // AI 분석 결과가 있으면 표시
+                  if (result.aiChecked && result.aiReport && typeof result.aiReport === 'object' && result.aiReport.evaluations?.preferredQual) {
+                    return <span className={`evaluation-grade grade-${result.aiReport.evaluations.preferredQual}`} data-grade={result.aiReport.evaluations.preferredQual}>
+                      {result.aiReport.evaluations.preferredQual}
+                    </span>;
+                  }
+                  return <span className="evaluation-grade grade--" data-grade="-">-</span>;
+                })()}
               </div>
               <div className="table-cell cell-certification" data-field="certification">
-                {result.aiChecked && result.aiReport && typeof result.aiReport === 'object' && result.aiReport.evaluations?.certification ? (
-                  <span className={`evaluation-grade grade-${result.aiReport.evaluations.certification}`} data-grade={result.aiReport.evaluations.certification}>
-                    {result.aiReport.evaluations.certification}
-                  </span>
-                ) : (
-                  <span className="evaluation-grade grade--" data-grade="-">-</span>
-                )}
+                {(() => {
+                  // 필수자격증이 없으면 항상 '-'
+                  if (!userPrompt?.requiredCertifications || userPrompt.requiredCertifications.length === 0) {
+                    return <span className="evaluation-grade grade--" data-grade="-">-</span>;
+                  }
+                  // AI 분석 결과가 있으면 표시
+                  if (result.aiChecked && result.aiReport && typeof result.aiReport === 'object' && result.aiReport.evaluations?.certification) {
+                    return <span className={`evaluation-grade grade-${result.aiReport.evaluations.certification}`} data-grade={result.aiReport.evaluations.certification}>
+                      {result.aiReport.evaluations.certification}
+                    </span>;
+                  }
+                  return <span className="evaluation-grade grade--" data-grade="-">-</span>;
+                })()}
               </div>
               <div className="table-cell cell-ai-grade">
                 {result.aiChecked && result.aiGrade ? (

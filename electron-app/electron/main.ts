@@ -2089,9 +2089,9 @@ ipcMain.handle('ai-check-resume', async (event, data: {
   "opinion": "2-3문단으로 작성한 종합 의견",
   "evaluations": {
     "careerFit": "◎|○|X|- 중 하나 (경력 적합도: ◎=매우 적합, ○=적합, X=부적합, -=경력 없음)",
-    "requiredQual": "◎|X|- 중 하나 (필수사항 만족여부: ◎=만족, X=불만족, -=평가 불가)",
-    "preferredQual": "◎|○|X|- 중 하나 (우대사항 만족여부: ◎=매우 만족, ○=만족, X=불만족, -=평가 불가)",
-    "certification": "◎|○|X|- 중 하나 (자격증 만족여부: ◎=매우 만족, ○=만족, X=불만족, -=평가 불가)"
+    "requiredQual": "◎|X 중 하나 (필수사항 만족여부: ◎=만족, X=불만족) - 필수 요구사항이 있는 경우에만 평가",
+    "preferredQual": "◎|○|X 중 하나 (우대사항 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 우대 사항이 있는 경우에만 평가",
+    "certification": "◎|○|X 중 하나 (자격증 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 필수 자격증이 있는 경우에만 평가"
   }
 }
 
@@ -2130,9 +2130,11 @@ ${resumeText}
 
 추가로 다음 항목들도 평가해주세요:
 1. 경력 적합도: 이력서의 경력이 업무 내용과 얼마나 적합한지 평가 (◎=매우 적합, ○=적합, X=부적합, -=경력 없음)
-2. 필수사항 만족여부: 필수 요구사항을 모두 만족하는지 평가 (◎=만족, X=불만족, -=평가 불가)
-3. 우대사항 만족여부: 우대 사항을 얼마나 만족하는지 평가 (◎=매우 만족, ○=만족, X=불만족, -=평가 불가)
-4. 자격증 만족여부: 필수 자격증을 보유하고 있는지 평가 (◎=매우 만족, ○=만족, X=불만족, -=평가 불가)`;
+${userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim() ? '2. 필수사항 만족여부: 필수 요구사항을 모두 만족하는지 평가 (◎=만족, X=불만족)' : ''}
+${userPrompt.preferredQualifications && userPrompt.preferredQualifications.trim() ? '3. 우대사항 만족여부: 우대 사항을 얼마나 만족하는지 평가 (◎=매우 만족, ○=만족, X=불만족)' : ''}
+${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length > 0 ? '4. 자격증 만족여부: 필수 자격증을 보유하고 있는지 평가 (◎=매우 만족, ○=만족, X=불만족)' : ''}
+
+중요: evaluations 객체에는 위에서 언급된 항목들만 포함하세요. 예를 들어 필수 요구사항이 없으면 requiredQual 필드를 포함하지 마세요.`;
 
     console.log('[AI Check] Calling Azure OpenAI API for:', data.fileName);
 
