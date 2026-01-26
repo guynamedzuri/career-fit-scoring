@@ -448,12 +448,12 @@ async function setupAutoUpdater() {
     }
   }
 
-  // 업데이트 체크 간격 설정 (기본값: 앱 시작 시 + 5분마다)
-  const msg = '[AutoUpdater] Starting update check...';
+  // 앱 시작 시에만 업데이트 체크
+  const msg = '[AutoUpdater] Starting initial update check...';
   console.log(msg);
   writeLog(msg, 'info');
   
-  // 즉시 업데이트 체크
+  // 앱 시작 시 한 번만 업데이트 체크
   autoUpdater.checkForUpdatesAndNotify().catch((error: any) => {
     const errorMsg = `[AutoUpdater] Initial check failed: ${error.message || error}`;
     console.error(errorMsg);
@@ -462,18 +462,6 @@ async function setupAutoUpdater() {
       dialog.showErrorBox('업데이트 확인 실패', `업데이트를 확인하는 중 오류가 발생했습니다:\n\n${error.message || error}\n\n로그 파일: ${path.join(app.getPath('userData'), 'logs', 'app.log')}`);
     }
   });
-
-  // 업데이트 체크 주기 설정 (5분마다)
-  setInterval(() => {
-    const msg = '[AutoUpdater] Periodic update check...';
-    console.log(msg);
-    writeLog(msg, 'info');
-    autoUpdater.checkForUpdatesAndNotify().catch((error: any) => {
-      const errorMsg = `[AutoUpdater] Periodic check failed: ${error.message || error}`;
-      console.error(errorMsg);
-      writeLog(errorMsg, 'error');
-    });
-  }, 5 * 60 * 1000); // 5분
 
   // 업데이트 이벤트 핸들러
   autoUpdater.on('checking-for-update', () => {
