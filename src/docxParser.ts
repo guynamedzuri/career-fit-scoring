@@ -38,14 +38,47 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
   const fs = require('fs');
   
   try {
-    // Python 스크립트 경로 찾기
+    // Python 스크립트 경로 찾기 (여러 경로 시도)
     const projectRoot = findProjectRoot();
-    const scriptPath = projectRoot 
-      ? path.join(projectRoot, 'scripts', 'extract_resume_form_structure.py')
-      : path.join(__dirname, '..', 'scripts', 'extract_resume_form_structure.py');
+    const scriptPaths: string[] = [];
     
-    if (!fs.existsSync(scriptPath)) {
-      throw new Error(`Python script not found: ${scriptPath}`);
+    // 1. 프로젝트 루트 기준
+    if (projectRoot) {
+      scriptPaths.push(path.join(projectRoot, 'scripts', 'extract_resume_form_structure.py'));
+    }
+    
+    // 2. __dirname 기준 (개발 모드)
+    scriptPaths.push(path.join(__dirname, '..', 'scripts', 'extract_resume_form_structure.py'));
+    
+    // 3. __dirname 기준 (빌드된 앱: resources/app/src -> resources/app/scripts)
+    scriptPaths.push(path.join(__dirname, '..', '..', 'scripts', 'extract_resume_form_structure.py'));
+    
+    // 4. app.getAppPath() 기준 (Electron 앱)
+    try {
+      const { app } = require('electron');
+      if (app && app.getAppPath) {
+        const appPath = app.getAppPath();
+        scriptPaths.push(path.join(appPath, 'scripts', 'extract_resume_form_structure.py'));
+        scriptPaths.push(path.join(appPath, '..', 'scripts', 'extract_resume_form_structure.py'));
+      }
+    } catch (e) {
+      // electron 모듈이 없으면 무시 (Node.js 환경)
+    }
+    
+    // 5. 현재 디렉토리 기준
+    scriptPaths.push(path.join(process.cwd(), 'scripts', 'extract_resume_form_structure.py'));
+    
+    // 첫 번째로 존재하는 경로 사용
+    let scriptPath: string | null = null;
+    for (const candidatePath of scriptPaths) {
+      if (fs.existsSync(candidatePath)) {
+        scriptPath = candidatePath;
+        break;
+      }
+    }
+    
+    if (!scriptPath) {
+      throw new Error(`Python script not found. Tried paths:\n${scriptPaths.join('\n')}`);
     }
     
     // Python 가상환경 활성화 스크립트 경로
