@@ -1546,11 +1546,11 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           <div className="detail-panel-content">
             <div className="detail-section">
               <h4>파일 정보</h4>
-              <div className="detail-item detail-file-item">
-                <div className="detail-file-name">
-                  <span className="detail-label">파일명:</span>
-                  <span className="detail-value">{selectedResult.fileName}</span>
-                </div>
+              <div className="detail-item">
+                <span className="detail-label">파일명:</span>
+                <span className="detail-value">{selectedResult.fileName}</span>
+              </div>
+              <div className="detail-item detail-file-button-container">
                 <button
                   className="detail-open-file-btn"
                   onClick={async () => {
