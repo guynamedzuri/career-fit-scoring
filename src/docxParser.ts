@@ -39,48 +39,47 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
   
   try {
     // Python 스크립트 경로 찾기 (여러 경로 시도)
-    const projectRoot = findProjectRoot();
     const scriptPaths: string[] = [];
     
-    // 1. 프로젝트 루트 기준
+    // Electron 앱인 경우 (빌드된 앱 또는 개발 모드)
+    try {
+      const { app } = require('electron');
+      if (app && app.getAppPath && app.getPath) {
+        const appPath = app.getAppPath(); // resources/app
+        const exePath = app.getPath('exe'); // 실행 파일 경로
+        
+        // 1. extraResources 위치 (resources/scripts) - 가장 우선
+        const resourcesPath = path.dirname(exePath);
+        scriptPaths.push(path.join(resourcesPath, 'resources', 'scripts', 'extract_resume_form_structure.py'));
+        
+        // 2. app.getAppPath() 기준 (resources/app/scripts)
+        scriptPaths.push(path.join(appPath, 'scripts', 'extract_resume_form_structure.py'));
+        
+        // 3. app.getAppPath() 상위 (resources/scripts)
+        scriptPaths.push(path.join(appPath, '..', 'scripts', 'extract_resume_form_structure.py'));
+        
+        // 4. 프로젝트 루트 찾기 (개발 모드)
+        const projectRoot = findProjectRoot();
+        if (projectRoot) {
+          scriptPaths.push(path.join(projectRoot, 'scripts', 'extract_resume_form_structure.py'));
+        }
+      }
+    } catch (e) {
+      // electron 모듈이 없으면 Node.js 환경
+    }
+    
+    // __dirname 기준 (개발 모드 또는 빌드된 앱)
+    scriptPaths.push(path.join(__dirname, '..', 'scripts', 'extract_resume_form_structure.py'));
+    scriptPaths.push(path.join(__dirname, '..', '..', 'scripts', 'extract_resume_form_structure.py'));
+    scriptPaths.push(path.join(__dirname, '..', '..', '..', 'scripts', 'extract_resume_form_structure.py'));
+    
+    // 프로젝트 루트 기준
+    const projectRoot = findProjectRoot();
     if (projectRoot) {
       scriptPaths.push(path.join(projectRoot, 'scripts', 'extract_resume_form_structure.py'));
     }
     
-    // 2. __dirname 기준 (개발 모드)
-    scriptPaths.push(path.join(__dirname, '..', 'scripts', 'extract_resume_form_structure.py'));
-    
-    // 3. __dirname 기준 (빌드된 앱: resources/app/src -> resources/app/scripts)
-    scriptPaths.push(path.join(__dirname, '..', '..', 'scripts', 'extract_resume_form_structure.py'));
-    
-    // 4. app.getAppPath() 기준 (Electron 앱)
-    try {
-      const { app } = require('electron');
-      if (app && app.getAppPath) {
-        const appPath = app.getAppPath();
-        // resources/app/scripts (files에 포함된 경우)
-        scriptPaths.push(path.join(appPath, 'scripts', 'extract_resume_form_structure.py'));
-        // resources/scripts (extraResources에 포함된 경우)
-        scriptPaths.push(path.join(appPath, '..', 'scripts', 'extract_resume_form_structure.py'));
-        // resources/app/electron/scripts
-        scriptPaths.push(path.join(appPath, 'electron', 'scripts', 'extract_resume_form_structure.py'));
-      }
-    } catch (e) {
-      // electron 모듈이 없으면 무시 (Node.js 환경)
-    }
-    
-    // 5. process.resourcesPath 기준 (extraResources 위치)
-    try {
-      const { app } = require('electron');
-      if (app && app.getPath) {
-        const resourcesPath = app.getPath('exe').replace(/[^/\\]+$/, '') + 'resources';
-        scriptPaths.push(path.join(resourcesPath, 'scripts', 'extract_resume_form_structure.py'));
-      }
-    } catch (e) {
-      // electron 모듈이 없으면 무시
-    }
-    
-    // 6. 현재 디렉토리 기준
+    // 현재 작업 디렉토리 기준
     scriptPaths.push(path.join(process.cwd(), 'scripts', 'extract_resume_form_structure.py'));
     
     // 첫 번째로 존재하는 경로 사용
@@ -88,12 +87,15 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
     for (const candidatePath of scriptPaths) {
       if (fs.existsSync(candidatePath)) {
         scriptPath = candidatePath;
+        console.log(`[DOCX Parser] Found Python script at: ${scriptPath}`);
         break;
       }
     }
     
     if (!scriptPath) {
-      throw new Error(`Python script not found. Tried paths:\n${scriptPaths.join('\n')}`);
+      const errorMsg = `Python script not found. Tried paths:\n${scriptPaths.join('\n')}`;
+      console.error(`[DOCX Parser] ${errorMsg}`);
+      throw new Error(errorMsg);
     }
     
     // Python 가상환경 활성화 스크립트 경로
