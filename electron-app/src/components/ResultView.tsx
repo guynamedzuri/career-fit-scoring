@@ -129,6 +129,12 @@ interface ScoringResult {
     strengths: string[];
     weaknesses: string[];
     opinion: string;
+    evaluations?: {
+      careerFit?: string;
+      requiredQual?: string;
+      preferredQual?: string;
+      certification?: string;
+    };
   };
   aiReportParsed?: boolean; // AI 보고서가 JSON으로 파싱되었는지 여부
   aiChecked?: boolean; // AI 검사 완료 여부
@@ -1243,54 +1249,40 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                 ) : '-'}
               </div>
               <div className="table-cell cell-career-fit" data-field="career-fit">
-                {result.status === 'completed' && result.applicationData ? (() => {
-                  const hasCareer = result.applicationData.careerCompanyName1 || false;
-                  let careerScore: number | undefined = undefined;
-                  
-                  if (calculateAllScores && jobMetadata) {
-                    const scores = calculateAllScores(result.applicationData, jobMetadata);
-                    careerScore = scores?.careerScore;
-                  }
-                  
-                  const grade = getCareerFitGrade(careerScore, hasCareer);
-                  return <span className={`evaluation-grade grade-${grade}`} data-grade={grade}>{grade}</span>;
-                })() : <span className="evaluation-grade grade--" data-grade="-">-</span>}
+                {result.aiChecked && result.aiReport && typeof result.aiReport === 'object' && result.aiReport.evaluations?.careerFit ? (
+                  <span className={`evaluation-grade grade-${result.aiReport.evaluations.careerFit}`} data-grade={result.aiReport.evaluations.careerFit}>
+                    {result.aiReport.evaluations.careerFit}
+                  </span>
+                ) : (
+                  <span className="evaluation-grade grade--" data-grade="-">-</span>
+                )}
               </div>
               <div className="table-cell cell-required-qual" data-field="required-qual">
-                {result.status === 'completed' && result.applicationData ? (() => {
-                  const grade = getRequiredQualificationGrade(
-                    userPrompt?.requiredQualifications,
-                    result.applicationData,
-                    userPrompt
-                  );
-                  return <span className={`evaluation-grade grade-${grade}`} data-grade={grade}>{grade}</span>;
-                })() : <span className="evaluation-grade grade--" data-grade="-">-</span>}
+                {result.aiChecked && result.aiReport && typeof result.aiReport === 'object' && result.aiReport.evaluations?.requiredQual ? (
+                  <span className={`evaluation-grade grade-${result.aiReport.evaluations.requiredQual}`} data-grade={result.aiReport.evaluations.requiredQual}>
+                    {result.aiReport.evaluations.requiredQual}
+                  </span>
+                ) : (
+                  <span className="evaluation-grade grade--" data-grade="-">-</span>
+                )}
               </div>
               <div className="table-cell cell-preferred-qual" data-field="preferred-qual">
-                {result.status === 'completed' && result.applicationData ? (() => {
-                  const grade = getPreferredQualificationGrade(
-                    userPrompt?.preferredQualifications,
-                    result.applicationData,
-                    userPrompt
-                  );
-                  return <span className={`evaluation-grade grade-${grade}`} data-grade={grade}>{grade}</span>;
-                })() : <span className="evaluation-grade grade--" data-grade="-">-</span>}
+                {result.aiChecked && result.aiReport && typeof result.aiReport === 'object' && result.aiReport.evaluations?.preferredQual ? (
+                  <span className={`evaluation-grade grade-${result.aiReport.evaluations.preferredQual}`} data-grade={result.aiReport.evaluations.preferredQual}>
+                    {result.aiReport.evaluations.preferredQual}
+                  </span>
+                ) : (
+                  <span className="evaluation-grade grade--" data-grade="-">-</span>
+                )}
               </div>
               <div className="table-cell cell-certification" data-field="certification">
-                {result.status === 'completed' && result.applicationData ? (() => {
-                  let certificationScore: number | undefined = undefined;
-                  
-                  if (calculateAllScores && jobMetadata) {
-                    const scores = calculateAllScores(result.applicationData, jobMetadata);
-                    certificationScore = scores?.certificationScore;
-                  }
-                  
-                  const grade = getCertificationGrade(
-                    certificationScore,
-                    userPrompt?.requiredCertifications
-                  );
-                  return <span className={`evaluation-grade grade-${grade}`} data-grade={grade}>{grade}</span>;
-                })() : <span className="evaluation-grade grade--" data-grade="-">-</span>}
+                {result.aiChecked && result.aiReport && typeof result.aiReport === 'object' && result.aiReport.evaluations?.certification ? (
+                  <span className={`evaluation-grade grade-${result.aiReport.evaluations.certification}`} data-grade={result.aiReport.evaluations.certification}>
+                    {result.aiReport.evaluations.certification}
+                  </span>
+                ) : (
+                  <span className="evaluation-grade grade--" data-grade="-">-</span>
+                )}
               </div>
               <div className="table-cell cell-ai-grade">
                 {result.aiChecked && result.aiGrade ? (

@@ -2086,7 +2086,14 @@ ipcMain.handle('ai-check-resume', async (event, data: {
   "summary": "한 문장으로 요약한 평가",
   "strengths": ["강점1", "강점2", "강점3", "강점4", "강점5"],
   "weaknesses": ["약점1", "약점2", "약점3", "약점4", "약점5"],
-  "opinion": "2-3문단으로 작성한 종합 의견"
+  "opinion": "2-3문단으로 작성한 종합 의견",
+  "evaluations": {
+    "careerFit": "◎|○|X|- 중 하나 (경력 적합도: ◎=매우 적합, ○=적합, X=부적합, -=경력 없음)",
+    "requiredQual": "◎|X|- 중 하나 (필수사항 만족여부: ◎=만족, X=불만족, -=평가 불가)",
+    "preferredQual": "◎|○|X|- 중 하나 (우대사항 만족여부: ◎=매우 만족, ○=만족, X=불만족, -=평가 불가)",
+    "certification": "◎|○|X|- 중 하나 (자격증 만족여부: ◎=매우 만족, ○=만족, X=불만족, -=평가 불가)"
+  }
+  }
 }
 
 중요: 반드시 유효한 JSON 형식으로만 응답하고, JSON 외의 다른 텍스트는 포함하지 마세요.`;
@@ -2190,6 +2197,12 @@ ${resumeText}
       strengths: string[];
       weaknesses: string[];
       opinion: string;
+      evaluations?: {
+        careerFit?: string;
+        requiredQual?: string;
+        preferredQual?: string;
+        certification?: string;
+      };
     } | null = null;
     
     let grade = 'C'; // 기본값
