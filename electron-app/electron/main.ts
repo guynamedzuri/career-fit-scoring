@@ -28,7 +28,10 @@ async function loadCareerFitScoring() {
       try {
         // 빌드된 앱에서 src 경로로 시도 (프로덕션 빌드에서 src가 포함된 경우)
         const path = require('path');
-        const srcPath = path.join(__dirname, '../../src/index');
+        // __dirname은 resources/app/electron이므로, src는 resources/app/src에 있음
+        const appPath = app.getAppPath();
+        const srcPath = path.join(appPath, 'src', 'index');
+        writeLog(`[Main] Trying to load from src path: ${srcPath}`, 'info');
         const module = require(srcPath);
         extractTablesFromDocx = module.extractTablesFromDocx;
         mapResumeDataToApplicationData = module.mapResumeDataToApplicationData;
@@ -36,6 +39,8 @@ async function loadCareerFitScoring() {
       } catch (e3: any) {
         writeLog(`[Main] Failed to load career-fit-scoring: ${e3.message || e3}`, 'error');
         writeLog(`[Main] Require stack: ${e3.stack || 'N/A'}`, 'error');
+        writeLog(`[Main] __dirname: ${__dirname}`, 'error');
+        writeLog(`[Main] app.getAppPath(): ${app.getAppPath()}`, 'error');
         throw e3;
       }
     }
@@ -501,6 +506,9 @@ async function setupAutoUpdater() {
     const msg = `[AutoUpdater] Update not available. Current version is latest. Info: ${JSON.stringify(info)}`;
     console.log(msg);
     writeLog(msg, 'info');
+    if (mainWindow) {
+      mainWindow.webContents.send('update-not-available', info);
+    }
   });
 
   autoUpdater.on('error', (err: any) => {

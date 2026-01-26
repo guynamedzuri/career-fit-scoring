@@ -80,6 +80,15 @@ function App() {
       }));
     };
 
+    const handleUpdateNotAvailable = () => {
+      setUpdateStatus(prev => ({
+        ...prev,
+        checking: false,
+        available: false,
+        downloading: false,
+      }));
+    };
+
     const handleUpdateError = (error: string) => {
       setUpdateStatus(prev => ({
         ...prev,
@@ -94,6 +103,7 @@ function App() {
     electron.onUpdateAvailable?.(handleUpdateAvailable);
     electron.onUpdateDownloadProgress?.(handleUpdateDownloadProgress);
     electron.onUpdateDownloaded?.(handleUpdateDownloaded);
+    electron.onUpdateNotAvailable?.(handleUpdateNotAvailable);
     electron.onUpdateError?.(handleUpdateError);
 
     return () => {
