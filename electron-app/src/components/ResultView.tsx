@@ -1617,17 +1617,28 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         </div>
       </div>
 
-      {/* 상세 정보 패널 (플레이스홀더) */}
+      {/* 상세 정보 패널 */}
       {selectedResult && (
         <div className="result-detail-panel">
           <div className="detail-panel-header">
             <h3>상세 정보</h3>
-            <button 
-              className="detail-close-btn"
-              onClick={() => setSelectedResult(null)}
-            >
-              ✕
-            </button>
+            <div className="detail-header-actions">
+              {selectedResult.aiChecked && selectedResult.aiReport && (
+                <button
+                  className="detail-ai-comment-btn"
+                  onClick={() => handleOpenAiReport(selectedResult.aiReport!, selectedResult.aiReportParsed || false)}
+                  title="AI 분석 보고서 보기"
+                >
+                  AI COMMENT 확인
+                </button>
+              )}
+              <button 
+                className="detail-close-btn"
+                onClick={() => setSelectedResult(null)}
+              >
+                ✕
+              </button>
+            </div>
           </div>
           <div className="detail-panel-content">
             <div className="detail-section">
@@ -1639,6 +1650,23 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               <div className="detail-item">
                 <span className="detail-label">경로:</span>
                 <span className="detail-value">{selectedResult.filePath}</span>
+              </div>
+              <div className="detail-item">
+                <button
+                  className="detail-open-file-btn"
+                  onClick={async () => {
+                    if (window.electron?.openFile) {
+                      try {
+                        await window.electron.openFile(selectedResult.filePath);
+                      } catch (error) {
+                        console.error('[Detail] Failed to open file:', error);
+                      }
+                    }
+                  }}
+                  title="파일 열기"
+                >
+                  파일 열기
+                </button>
               </div>
             </div>
             
@@ -1663,6 +1691,14 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                 </span>
               </div>
               <div className="detail-item">
+                <span className="detail-label">주소:</span>
+                <span className="detail-value">
+                  {selectedResult.status === 'completed' && selectedResult.applicationData?.address 
+                    ? selectedResult.applicationData.address 
+                    : 'N/A'}
+                </span>
+              </div>
+              <div className="detail-item">
                 <span className="detail-label">직전 회사:</span>
                 <span className="detail-value">
                   {selectedResult.status === 'completed' && selectedResult.lastCompany ? selectedResult.lastCompany : 'N/A'}
@@ -1674,29 +1710,165 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                   <span className="detail-value">{selectedResult.lastSalary}</span>
                 </div>
               )}
-              <div className="detail-item">
-                <span className="detail-label">총점수:</span>
-                <span className="detail-value detail-value-total">
-                  {selectedResult.status === 'completed' ? selectedResult.totalScore.toFixed(1) : 'N/A'}
-                </span>
-              </div>
             </div>
 
             <div className="detail-section">
-              <h4>추출된 데이터 (플레이스홀더)</h4>
-              <div className="detail-placeholder">
-                <p>이력서에서 추출한 데이터가 여기에 표시됩니다.</p>
-                <ul>
-                  <li>기본 정보 (이름, 생년월일, 연락처 등)</li>
-                  <li>자격증 목록</li>
-                  <li>경력 사항</li>
-                  <li>학력 사항</li>
-                  <li>대학원 정보</li>
-                </ul>
-                <p className="placeholder-note">
-                  ※ 실제 DOCX 파싱 로직 구현 후 데이터가 표시됩니다.
-                </p>
-              </div>
+              <h4>추출된 데이터</h4>
+              {selectedResult.status === 'completed' && selectedResult.applicationData ? (
+                <div className="detail-extracted-data">
+                  {/* 자격증 목록 */}
+                  {(() => {
+                    const certificates: string[] = [];
+                    for (let i = 1; i <= 10; i++) {
+                      const certName = selectedResult.applicationData[`certificateName${i}`];
+                      const certDate = selectedResult.applicationData[`certificateDate${i}`];
+                      if (certName) {
+                        certificates.push(`${certName}${certDate ? ` (${certDate})` : ''}`);
+                      }
+                    }
+                    return certificates.length > 0 ? (
+                      <div className="detail-subsection">
+                        <h5>자격증</h5>
+                        <ul className="detail-list">
+                          {certificates.map((cert, idx) => (
+                            <li key={idx}>{cert}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null;
+                  })()}
+                  
+                  {/* 경력 사항 */}
+                  {(() => {
+                    const careers: string[] = [];
+                    for (let i = 1; i <= 5; i++) {
+                      const company = selectedResult.applicationData[`careerCompanyName${i}`];
+                      const startDate = selectedResult.applicationData[`careerStartDate${i}`];
+                      const endDate = selectedResult.applicationData[`careerEndDate${i}`];
+                      const jobType = selectedResult.applicationData[`careerJobType${i}`];
+                      if (company) {
+                        careers.push(`${company} | ${startDate || ''} ~ ${endDate || '현재'} | ${jobType || ''}`);
+                      }
+                    }
+                    return careers.length > 0 ? (
+                      <div className="detail-subsection">
+                        <h5>경력 사항</h5>
+                        <ul className="detail-list">
+                          {careers.map((career, idx) => (
+                            <li key={idx}>{career}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null;
+                  })()}
+                  
+                  {/* 학력 사항 */}
+                  {(() => {
+                    const educations: string[] = [];
+                    for (let i = 1; i <= 5; i++) {
+                      const school = selectedResult.applicationData[`universityName${i}`];
+                      const degree = selectedResult.applicationData[`universityDegreeType${i}`];
+                      const major = selectedResult.applicationData[`universityMajor${i}_1`];
+                      const gpa = selectedResult.applicationData[`universityGPA${i}`];
+                      if (school) {
+                        educations.push(`${school} | ${degree || ''} | ${major || ''} | GPA: ${gpa || 'N/A'}`);
+                      }
+                    }
+                    return educations.length > 0 ? (
+                      <div className="detail-subsection">
+                        <h5>학력 사항</h5>
+                        <ul className="detail-list">
+                          {educations.map((edu, idx) => (
+                            <li key={idx}>{edu}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null;
+                  })()}
+                  
+                  {/* 대학원 정보 */}
+                  {(() => {
+                    const gradSchools: string[] = [];
+                    for (let i = 1; i <= 5; i++) {
+                      const school = selectedResult.applicationData[`graduateSchoolName${i}`];
+                      const degree = selectedResult.applicationData[`graduateSchoolDegreeType${i}`];
+                      const major = selectedResult.applicationData[`graduateSchoolMajor${i}_1`];
+                      if (school) {
+                        gradSchools.push(`${school} | ${degree || ''} | ${major || ''}`);
+                      }
+                    }
+                    return gradSchools.length > 0 ? (
+                      <div className="detail-subsection">
+                        <h5>대학원</h5>
+                        <ul className="detail-list">
+                          {gradSchools.map((grad, idx) => (
+                            <li key={idx}>{grad}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null;
+                  })()}
+                  
+                  {/* 자기소개서 */}
+                  {(() => {
+                    const selfIntros: string[] = [];
+                    for (let i = 1; i <= 4; i++) {
+                      const selfIntro = selectedResult.applicationData[`selfIntroduction${i}`];
+                      if (selfIntro && selfIntro.trim()) {
+                        selfIntros.push(selfIntro.trim());
+                      }
+                    }
+                    return selfIntros.length > 0 ? (
+                      <div className="detail-subsection">
+                        <h5>자기소개서</h5>
+                        {selfIntros.map((intro, idx) => (
+                          <div key={idx} className="detail-selfintro-item">
+                            <h6>자기소개서 {idx + 1}</h6>
+                            <p className="detail-selfintro-text">{intro}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
+                  
+                  {/* 경력기술서 */}
+                  {(() => {
+                    const careerDetails: string[] = [];
+                    for (let i = 1; i <= 4; i++) {
+                      const careerDetail = selectedResult.applicationData[`careerDetailDescription${i}`];
+                      if (careerDetail && careerDetail.trim()) {
+                        careerDetails.push(careerDetail.trim());
+                      }
+                    }
+                    return careerDetails.length > 0 ? (
+                      <div className="detail-subsection">
+                        <h5>경력기술서</h5>
+                        {careerDetails.map((detail, idx) => (
+                          <div key={idx} className="detail-career-detail-item">
+                            <h6>경력기술서 {idx + 1}</h6>
+                            <p className="detail-career-detail-text">{detail}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null;
+                  })()}
+                  
+                  {(!selectedResult.applicationData.certificateName1 && 
+                    !selectedResult.applicationData.careerCompanyName1 && 
+                    !selectedResult.applicationData.universityName1 && 
+                    !selectedResult.applicationData.graduateSchoolName1 &&
+                    !selectedResult.applicationData.selfIntroduction1 &&
+                    !selectedResult.applicationData.careerDetailDescription1) && (
+                    <div className="detail-placeholder">
+                      <p>추출된 데이터가 없습니다.</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="detail-placeholder">
+                  <p>이력서 파싱이 완료되지 않았습니다.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

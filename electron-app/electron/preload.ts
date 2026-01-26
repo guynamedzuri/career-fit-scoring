@@ -30,4 +30,6 @@ contextBridge.exposeInMainWorld('electron', {
   },
   // 스플래시 닫기 신호
   notifyAppReady: () => ipcRenderer.invoke('app-ready'),
+  // 파일 열기
+  openFile: (filePath: string) => ipcRenderer.invoke('open-file', filePath),
 });
