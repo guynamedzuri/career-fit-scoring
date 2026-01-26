@@ -11,40 +11,59 @@ let mapResumeDataToApplicationData: any;
 
 // 동적 import로 처리 (개발/프로덕션 환경 모두 지원)
 async function loadCareerFitScoring() {
-  try {
-    // 먼저 패키지로 시도 (프로덕션 빌드)
-    const module = require('career-fit-scoring');
-    extractTablesFromDocx = module.extractTablesFromDocx;
-    mapResumeDataToApplicationData = module.mapResumeDataToApplicationData;
-    writeLog('[Main] Loaded career-fit-scoring from package', 'info');
-  } catch (e: any) {
+  const path = require('path');
+  const fs = require('fs');
+  
+  // 시도할 경로 목록
+  const pathsToTry: Array<{ name: string; path: string }> = [];
+  
+  // 1. 패키지로 시도 (가장 우선)
+  pathsToTry.push({ name: 'package', path: 'career-fit-scoring' });
+  
+  // 2. 상대 경로로 시도 (개발 모드)
+  pathsToTry.push({ name: 'relative', path: '../../src/index' });
+  
+  // 3. 빌드된 앱에서 여러 경로 시도
+  const appPath = app.getAppPath();
+  pathsToTry.push(
+    { name: 'app/src', path: path.join(appPath, 'src', 'index') },
+    { name: 'app/node_modules', path: path.join(appPath, 'node_modules', 'career-fit-scoring') },
+    { name: 'app/node_modules/dist', path: path.join(appPath, 'node_modules', 'career-fit-scoring', 'dist', 'index') },
+    { name: 'app/node_modules/src', path: path.join(appPath, 'node_modules', 'career-fit-scoring', 'src', 'index') }
+  );
+  
+  // __dirname 기준 경로도 시도
+  pathsToTry.push(
+    { name: 'dirname/src', path: path.join(__dirname, '../../src/index') },
+    { name: 'dirname/node_modules', path: path.join(__dirname, '../../node_modules/career-fit-scoring') },
+    { name: 'dirname/node_modules/dist', path: path.join(__dirname, '../../node_modules/career-fit-scoring/dist/index') }
+  );
+  
+  for (const attempt of pathsToTry) {
     try {
-      // 패키지 실패 시 상대 경로로 시도 (개발 모드)
-      const module = require('../../src/index');
-      extractTablesFromDocx = module.extractTablesFromDocx;
-      mapResumeDataToApplicationData = module.mapResumeDataToApplicationData;
-      writeLog('[Main] Loaded career-fit-scoring from relative path', 'info');
-    } catch (e2: any) {
-      try {
-        // 빌드된 앱에서 src 경로로 시도 (프로덕션 빌드에서 src가 포함된 경우)
-        const path = require('path');
-        // __dirname은 resources/app/electron이므로, src는 resources/app/src에 있음
-        const appPath = app.getAppPath();
-        const srcPath = path.join(appPath, 'src', 'index');
-        writeLog(`[Main] Trying to load from src path: ${srcPath}`, 'info');
-        const module = require(srcPath);
+      writeLog(`[Main] Trying to load career-fit-scoring from ${attempt.name}: ${attempt.path}`, 'info');
+      const module = require(attempt.path);
+      
+      if (module.extractTablesFromDocx && module.mapResumeDataToApplicationData) {
         extractTablesFromDocx = module.extractTablesFromDocx;
         mapResumeDataToApplicationData = module.mapResumeDataToApplicationData;
-        writeLog('[Main] Loaded career-fit-scoring from src path', 'info');
-      } catch (e3: any) {
-        writeLog(`[Main] Failed to load career-fit-scoring: ${e3.message || e3}`, 'error');
-        writeLog(`[Main] Require stack: ${e3.stack || 'N/A'}`, 'error');
-        writeLog(`[Main] __dirname: ${__dirname}`, 'error');
-        writeLog(`[Main] app.getAppPath(): ${app.getAppPath()}`, 'error');
-        throw e3;
+        writeLog(`[Main] Successfully loaded career-fit-scoring from ${attempt.name}`, 'info');
+        return;
+      } else {
+        writeLog(`[Main] Module loaded but missing required functions from ${attempt.name}`, 'warn');
       }
+    } catch (e: any) {
+      writeLog(`[Main] Failed to load from ${attempt.name}: ${e.message || e}`, 'info');
+      continue;
     }
   }
+  
+  // 모든 경로 실패
+  const errorMsg = `[Main] Failed to load career-fit-scoring from all attempted paths`;
+  writeLog(errorMsg, 'error');
+  writeLog(`[Main] __dirname: ${__dirname}`, 'error');
+  writeLog(`[Main] app.getAppPath(): ${appPath}`, 'error');
+  throw new Error(errorMsg);
 }
 
 // electron-updater는 동적 import로 처리 (타입 에러 방지)
