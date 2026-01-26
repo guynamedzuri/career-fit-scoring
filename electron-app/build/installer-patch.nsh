@@ -7,35 +7,31 @@ Section -Post
   IfFileExists "$INSTDIR\app.exe" 0 newInstall
   
   ; 업데이트인 경우: 바탕화면 바로가기 확인
-  ; shortcutName이 "이력서 적합도 평가 시스템"이므로 바로가기 파일명은 "이력서 적합도 평가 시스템.lnk"
-  !define SHORTCUT_NAME "이력서 적합도 평가 시스템.lnk"
+  ; electron-builder가 이미 SHORTCUT_NAME을 정의했으므로 그대로 사용
+  ; 바로가기 파일명은 "${SHORTCUT_NAME}.lnk"
   
   ; 사용자 바탕화면 확인
-  IfFileExists "$DESKTOP\${SHORTCUT_NAME}" 0 checkCommonDesktop
+  IfFileExists "$DESKTOP\${SHORTCUT_NAME}.lnk" 0 checkCommonDesktop
     ; 바로가기가 이미 있으면 생성 스킵
-    ; electron-builder가 생성하는 바로가기 생성 섹션을 건너뛰기 위해 플래그 설정
-    StrCpy $R0 "skip"
+    ; electron-builder가 생성하는 바로가기 생성 섹션을 건너뛰기 위해 레지스트리에 플래그 설정
+    WriteRegStr HKCU "Software\${PRODUCT_NAME}" "SkipDesktopShortcut" "1"
     Goto endShortcut
   
   checkCommonDesktop:
     ; 공용 바탕화면 확인 (perMachine: true인 경우)
-    IfFileExists "$DESKTOP\Common Desktop\${SHORTCUT_NAME}" 0 newInstall
+    IfFileExists "$DESKTOP\Common Desktop\${SHORTCUT_NAME}.lnk" 0 newInstall
       ; 공용 바탕화면에 바로가기가 있으면 생성 스킵
-      StrCpy $R0 "skip"
+      WriteRegStr HKCU "Software\${PRODUCT_NAME}" "SkipDesktopShortcut" "1"
       Goto endShortcut
   
   newInstall:
     ; 새 설치이거나 바로가기가 없는 경우
-    ; 바로가기 생성 허용
-    StrCpy $R0 "create"
+    ; 바로가기 생성 허용 (플래그 제거)
+    DeleteRegValue HKCU "Software\${PRODUCT_NAME}" "SkipDesktopShortcut"
   
   endShortcut:
 SectionEnd
 
-; 바로가기 생성 섹션 오버라이드
-; electron-builder가 생성하는 바로가기 생성 로직을 조건부로 실행
-; 실제로는 electron-builder가 생성하는 섹션을 찾아서 조건부로 실행해야 함
-; 하지만 정확한 섹션 이름을 모르므로, 대신 바로가기 생성 전에 존재 여부를 확인하는 방식 사용
-
-; 참고: electron-builder는 보통 "installDesktopShortcut" 같은 섹션을 생성하지만,
-; 정확한 이름은 빌드된 NSIS 스크립트를 확인해야 함
+; 참고: electron-builder가 생성하는 바로가기 생성 섹션을 직접 제어하기는 어렵습니다.
+; 대신 바로가기 생성 전에 존재 여부를 확인하고, 있으면 생성하지 않도록 하는 로직을 추가해야 합니다.
+; 실제로는 electron-builder가 생성하는 NSIS 스크립트의 구조를 확인하여 정확한 방법을 찾아야 합니다.
