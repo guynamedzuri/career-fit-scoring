@@ -85,6 +85,7 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: 이력서 적합도 평가 시스템
+  # 참고: NSIS 스크립트에서 업데이트 시 바로가기 생성 스킵 처리
   # 아이콘 설정: 새로운 256x256 ICO
   installerIcon: icon.ico
   uninstallerIcon: icon.ico
@@ -92,6 +93,8 @@ nsis:
   deleteAppDataOnUninstall: false
   # 업데이트 후 자동 실행 설정
   runAfterFinish: true  # 설치 후 자동 실행
+  # NSIS 스크립트 커스터마이징: 업데이트 시 바로가기 유지
+  include: build/installer-patch.nsh
 
 mac:
   target:
