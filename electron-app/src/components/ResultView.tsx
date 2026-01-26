@@ -1137,7 +1137,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               className={`sortable ${sortField === 'aiGrade' ? 'active' : ''}`}
               onClick={() => handleSort('aiGrade')}
             >
-              종합등급 <SortIcon field="aiGrade" />
+              종합 점수 <SortIcon field="aiGrade" />
             </div>
           </div>
           <div className="table-cell cell-detail">
@@ -1211,9 +1211,9 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                 ) : '-'}
               </div>
               <div className="table-cell cell-career-fit" data-field="career-fit">
-                {result.aiChecked && result.aiReport && typeof result.aiReport === 'object' && result.aiReport.evaluations?.careerFit ? (
-                  <span className={`evaluation-grade grade-${result.aiReport.evaluations.careerFit}`} data-grade={result.aiReport.evaluations.careerFit}>
-                    {result.aiReport.evaluations.careerFit}
+                {result.aiChecked && result.aiGrade ? (
+                  <span className={`evaluation-grade grade-${result.aiGrade.toLowerCase()}`} data-grade={result.aiGrade}>
+                    {result.aiGrade}
                   </span>
                 ) : (
                   <span className="evaluation-grade grade--" data-grade="-">-</span>
@@ -1265,13 +1265,94 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                 })()}
               </div>
               <div className="table-cell cell-ai-grade">
-                {result.aiChecked && result.aiGrade ? (
-                  <span className={`ai-grade ai-grade-${result.aiGrade.toLowerCase()}`}>
-                    {result.aiGrade}
-                  </span>
-                ) : (
-                  <span className="ai-grade-placeholder">-</span>
-                )}
+                {(() => {
+                  // 종합 점수 계산
+                  if (!result.aiChecked || !result.aiReport || typeof result.aiReport !== 'object' || !result.aiReport.evaluations) {
+                    return <span className="ai-grade-placeholder">-</span>;
+                  }
+                  
+                  const evaluations = result.aiReport.evaluations;
+                  
+                  // 가중치 가져오기 (userPrompt에서)
+                  const weights = userPrompt?.scoringWeights || {
+                    career: 100,
+                    requirements: 0,
+                    preferred: 0,
+                    certifications: 0,
+                  };
+                  
+                  // 가중치를 비율로 변환 (합이 100이 되도록 정규화)
+                  const totalWeight = weights.career + weights.requirements + weights.preferred + weights.certifications;
+                  const careerRatio = totalWeight > 0 ? weights.career / totalWeight : 0;
+                  const requirementsRatio = totalWeight > 0 ? weights.requirements / totalWeight : 0;
+                  const preferredRatio = totalWeight > 0 ? weights.preferred / totalWeight : 0;
+                  const certificationsRatio = totalWeight > 0 ? weights.certifications / totalWeight : 0;
+                  
+                  // 각 항목 점수 계산
+                  // 1. 경력 적합도 점수 (A=100, B=80, C=60, D=40, E=0)
+                  let careerScore = 0;
+                  if (result.aiGrade) {
+                    const gradeMap: { [key: string]: number } = {
+                      'A': 100,
+                      'B': 80,
+                      'C': 60,
+                      'D': 40,
+                      'E': 0,
+                    };
+                    careerScore = gradeMap[result.aiGrade] || 0;
+                  }
+                  
+                  // 2. 필수사항 만족여부 점수 (◎=100, X=불만족, -=0)
+                  let requiredScore = 0;
+                  const requiredQual = evaluations.requiredQual;
+                  if (userPrompt?.requiredQualifications && userPrompt.requiredQualifications.trim()) {
+                    if (requiredQual === '◎') {
+                      requiredScore = 100;
+                    } else if (requiredQual === 'X') {
+                      // 필수사항 불만족이면 종합 점수 대신 '필수사항 불만족' 표시
+                      return <span className="ai-grade ai-grade-fail" style={{ color: '#ef4444', fontWeight: '600' }}>
+                        필수사항 불만족
+                      </span>;
+                    }
+                  }
+                  
+                  // 3. 우대사항 만족여부 점수 (◎=100, ○=80, X=0, -=0)
+                  let preferredScore = 0;
+                  const preferredQual = evaluations.preferredQual;
+                  if (userPrompt?.preferredQualifications && userPrompt.preferredQualifications.trim()) {
+                    if (preferredQual === '◎') {
+                      preferredScore = 100;
+                    } else if (preferredQual === '○') {
+                      preferredScore = 80;
+                    } else if (preferredQual === 'X') {
+                      preferredScore = 0;
+                    }
+                  }
+                  
+                  // 4. 자격증 만족여부 점수 (◎=100, ○=80, X=0, -=0)
+                  let certificationScore = 0;
+                  const certificationQual = evaluations.certification;
+                  if (userPrompt?.requiredCertifications && userPrompt.requiredCertifications.length > 0) {
+                    if (certificationQual === '◎') {
+                      certificationScore = 100;
+                    } else if (certificationQual === '○') {
+                      certificationScore = 80;
+                    } else if (certificationQual === 'X') {
+                      certificationScore = 0;
+                    }
+                  }
+                  
+                  // 종합 점수 계산 (가중치 적용)
+                  const totalScore = 
+                    (careerScore * careerRatio) +
+                    (requiredScore * requirementsRatio) +
+                    (preferredScore * preferredRatio) +
+                    (certificationScore * certificationsRatio);
+                  
+                  return <span className="ai-grade ai-grade-score" style={{ fontWeight: '600', color: '#072761' }}>
+                    {Math.round(totalScore)}
+                  </span>;
+                })()}
               </div>
               <div className="table-cell cell-detail">
                 <button 
