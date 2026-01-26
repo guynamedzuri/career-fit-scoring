@@ -834,12 +834,11 @@ function createWindow() {
     windowOptions.minHeight = 500;
     // maxWidth, maxHeight는 제한 없음
   } else {
-    // 프로덕션 환경: 창 크기 고정
-    windowOptions.resizable = false;
-    windowOptions.minWidth = 1000;
+    // 프로덕션 환경: 창 크기 조절 가능하지만 최소 크기 제한
+    windowOptions.resizable = true;
+    windowOptions.minWidth = 1400; // 최소 너비를 초기 너비와 동일하게 설정
     windowOptions.minHeight = 700;
-    windowOptions.maxWidth = 1000;
-    windowOptions.maxHeight = 700;
+    // maxWidth, maxHeight는 제한 없음 (사용자가 원하는 크기로 조절 가능)
   }
   
   mainWindow = new BrowserWindow(windowOptions);
