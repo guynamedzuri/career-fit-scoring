@@ -11,46 +11,8 @@ try {
   console.warn('[ResultView] Failed to load calculateAllScores from career-fit-scoring:', e);
 }
 
-// 평가 항목 점수 계산 함수들
-function getCareerFitGrade(careerScore: number | undefined, hasCareer: boolean): '◎' | '○' | 'X' | '-' {
-  if (!hasCareer || careerScore === undefined) return '-';
-  if (careerScore >= 15) return '◎';
-  if (careerScore >= 8) return '○';
-  return 'X';
-}
-
-function getRequiredQualificationGrade(
-  requiredQualifications: string | undefined,
-  applicationData: any,
-  userPrompt: any
-): '◎' | 'X' | '-' {
-  if (!requiredQualifications || !requiredQualifications.trim()) return '-';
-  // TODO: 실제 필수사항 만족 여부 계산 로직 구현 필요
-  // 임시로 항상 ◎ 반환 (나중에 실제 로직으로 교체)
-  return '◎';
-}
-
-function getPreferredQualificationGrade(
-  preferredQualifications: string | undefined,
-  applicationData: any,
-  userPrompt: any
-): '◎' | '○' | 'X' | '-' {
-  if (!preferredQualifications || !preferredQualifications.trim()) return '-';
-  // TODO: 실제 우대사항 만족 여부 계산 로직 구현 필요
-  // 임시로 항상 ○ 반환 (나중에 실제 로직으로 교체)
-  return '○';
-}
-
-function getCertificationGrade(
-  certificationScore: number | undefined,
-  requiredCertifications: string[] | undefined
-): '◎' | '○' | 'X' | '-' {
-  if (!requiredCertifications || requiredCertifications.length === 0) return '-';
-  if (certificationScore === undefined) return '-';
-  if (certificationScore >= 8) return '◎';
-  if (certificationScore >= 5) return '○';
-  return 'X';
-}
+// 평가 항목 점수 계산 함수들은 AI 분석 단계로 이동하여 더 이상 사용하지 않음
+// 이제 모든 평가 항목은 AI 분석 결과에서 가져옴
 
 // 생년월일로부터 만나이 계산 함수
 function calculateAgeFromBirthDate(birthDate: string | undefined): number | undefined {
