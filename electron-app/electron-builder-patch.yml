@@ -66,7 +66,7 @@ win:
     - target: nsis
       arch:
         - x64
-  requestedExecutionLevel: asInvoker
+  requestedExecutionLevel: requireAdministrator  # 시스템당 설치를 위해 관리자 권한 필요
   icon: icon.ico
   extraResources:
     - from: icon.ico
@@ -79,7 +79,7 @@ win:
 
 nsis:
   oneClick: true  # Patcher: 자동 설치 (기존 설치가 있을 때 사용)
-  perMachine: false  # 사용자별 설치
+  perMachine: true  # 시스템당 설치 (모든 사용자)
   allowToChangeInstallationDirectory: false  # One-click일 때는 변경 불가
   artifactName: "CareerFitScoring-Patcher-${version}.${ext}"  # Patcher 파일명 구분 (영문으로 변경)
   createDesktopShortcut: true

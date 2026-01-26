@@ -69,7 +69,7 @@ win:
     - target: nsis
       arch:
         - x64
-  requestedExecutionLevel: asInvoker
+  requestedExecutionLevel: requireAdministrator  # 시스템당 설치를 위해 관리자 권한 필요
   # 실행 파일(.exe) 아이콘 설정
   # 이 설정이 실제 앱 실행 파일의 아이콘을 결정함
   # buildResources 디렉토리(build) 기준 상대 경로
@@ -95,7 +95,7 @@ win:
 
 nsis:
   oneClick: false  # 기본 installer: 설치 옵션을 물어봄
-  perMachine: false  # 사용자별 설치
+  perMachine: true  # 시스템당 설치 (모든 사용자)
   allowToChangeInstallationDirectory: true  # 설치 경로 변경 가능
   artifactName: "CareerFitScoring-Installer-${version}.${ext}"  # Installer 파일명 구분 (영문으로 변경)
   createDesktopShortcut: true
