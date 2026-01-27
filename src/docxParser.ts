@@ -36,6 +36,10 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
   const execAsync = promisify(exec);
   const path = require('path');
   const fs = require('fs');
+  const isWindows = process.platform === 'win32';
+  
+  // Python 실행 경로 (에러 메시지에서 사용하기 위해 함수 스코프에 선언)
+  let pythonCmd: string = isWindows ? 'python' : 'python3';
   
   try {
     // Python 스크립트 경로 찾기 (여러 경로 시도)
@@ -99,8 +103,6 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
     }
     
     // Python 실행 경로 찾기 (우선순위: 번들된 Python > 가상환경 > 시스템 Python)
-    let pythonCmd: string | null = null;
-    const isWindows = process.platform === 'win32';
     const pythonPaths: string[] = [];
     
     // 1. 번들된 Python embeddable 찾기 (extraResources에 포함된 경우)
@@ -150,14 +152,9 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
       }
     }
     
-    if (!pythonCmd) {
-      pythonCmd = isWindows ? 'python' : 'python3';
-    }
-    
     // Python 스크립트 실행하여 JSON 출력 받기
     // Windows에서 경로에 공백이 있으면 따옴표로 감싸기
     // exec를 사용하여 경로 문제 해결
-    const isWindows = process.platform === 'win32';
     const pythonCmdQuoted = isWindows ? `"${pythonCmd}"` : pythonCmd;
     const scriptPathQuoted = isWindows ? `"${scriptPath}"` : scriptPath;
     const filePathQuoted = isWindows ? `"${filePath}"` : filePath;
