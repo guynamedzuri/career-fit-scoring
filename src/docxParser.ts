@@ -98,25 +98,60 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
       throw new Error(errorMsg);
     }
     
-    // Python 가상환경 활성화 스크립트 경로
-    // Windows: .venv\Scripts\python.exe
-    // Linux/Mac: .venv/bin/python3
-    let venvPython: string | null = null;
+    // Python 실행 경로 찾기 (우선순위: 번들된 Python > 가상환경 > 시스템 Python)
+    let pythonCmd: string | null = null;
+    const isWindows = process.platform === 'win32';
+    const pythonPaths: string[] = [];
+    
+    // 1. 번들된 Python embeddable 찾기 (extraResources에 포함된 경우)
+    try {
+      const { app } = require('electron');
+      if (app && app.getPath) {
+        const exePath = app.getPath('exe');
+        const resourcesPath = path.dirname(exePath);
+        
+        // Windows: resources/python-embed/python.exe
+        if (isWindows) {
+          pythonPaths.push(path.join(resourcesPath, 'resources', 'python-embed', 'python.exe'));
+          pythonPaths.push(path.join(resourcesPath, 'python-embed', 'python.exe'));
+        } else {
+          // Linux/Mac: resources/python-embed/bin/python3
+          pythonPaths.push(path.join(resourcesPath, 'resources', 'python-embed', 'bin', 'python3'));
+          pythonPaths.push(path.join(resourcesPath, 'python-embed', 'bin', 'python3'));
+        }
+      }
+    } catch (e) {
+      // electron 모듈이 없으면 무시
+    }
+    
+    // 2. 가상환경 Python 찾기
     if (projectRoot) {
-      const isWindows = process.platform === 'win32';
       if (isWindows) {
-        venvPython = path.join(projectRoot, '.venv', 'Scripts', 'python.exe');
+        pythonPaths.push(path.join(projectRoot, '.venv', 'Scripts', 'python.exe'));
       } else {
-        venvPython = path.join(projectRoot, '.venv', 'bin', 'python3');
+        pythonPaths.push(path.join(projectRoot, '.venv', 'bin', 'python3'));
       }
     }
     
-    // Python 명령어 결정 (Windows는 python, Linux/Mac는 python3)
-    let pythonCmd: string;
-    if (venvPython && fs.existsSync(venvPython)) {
-      pythonCmd = venvPython;
-    } else {
-      pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    // 3. 시스템 Python (경로 확인 없이 시도)
+    pythonPaths.push(isWindows ? 'python' : 'python3');
+    
+    // 첫 번째로 존재하는 Python 경로 사용
+    for (const pythonPath of pythonPaths) {
+      if (pythonPath === 'python' || pythonPath === 'python3') {
+        // 시스템 Python은 존재 여부 확인 없이 시도
+        pythonCmd = pythonPath;
+        console.log(`[DOCX Parser] Will try system Python: ${pythonCmd}`);
+        break;
+      } else if (fs.existsSync(pythonPath)) {
+        pythonCmd = pythonPath;
+        console.log(`[DOCX Parser] Found Python at: ${pythonCmd}`);
+        break;
+      }
+    }
+    
+    if (!pythonCmd) {
+      pythonCmd = isWindows ? 'python' : 'python3';
     }
     
     // Python 스크립트 실행하여 JSON 출력 받기
@@ -231,7 +266,7 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
     
     // Windows에서 python 명령어가 없을 때 더 명확한 에러 메시지
     if (error.code === 9009 || (error.message && error.message.includes('python') && process.platform === 'win32')) {
-      throw new Error(`DOCX 파싱 실패: Python이 설치되어 있지 않거나 PATH에 없습니다. Python을 설치하고 PATH에 추가해주세요. (사용된 명령어: ${error.message && error.message.includes('python3') ? 'python3' : 'python'})`);
+      throw new Error(`DOCX 파싱 실패: Python이 설치되어 있지 않거나 PATH에 없습니다.\n\n해결 방법:\n1. Python을 설치하고 PATH에 추가하세요 (https://www.python.org/downloads/)\n2. 또는 앱 개발자에게 Python embeddable이 포함된 버전을 요청하세요.\n\n사용된 명령어: ${pythonCmd}`);
     }
     
     throw new Error(`DOCX 파싱 실패: ${error.message || error}`);

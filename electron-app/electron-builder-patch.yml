@@ -78,6 +78,11 @@ win:
       to: scripts
       filter:
         - "**/*.py"
+    # Python embeddable 포함 (선택사항 - 있으면 포함)
+    - from: python-embed
+      to: python-embed
+      filter:
+        - "**/*"
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
   signAndEditExecutable: false
