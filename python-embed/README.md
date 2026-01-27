@@ -44,14 +44,35 @@ Python embeddable에는 기본적으로 pip가 포함되어 있지 않습니다.
 
 2. **pip 설치**:
    ```bash
-   .\python-embed\python.exe get-pip.py
+   .\python.exe get-pip.py
    ```
 
-3. **python-docx 설치**:
+3. **pythonxx._pth 파일 수정** (중요!):
+   pip 설치 후 `pythonxx._pth` 파일을 열어서 다음 줄을 추가하거나 주석 해제:
+   ```
+   Lib\site-packages
+   import site
+   ```
+   
+   예를 들어 `python314._pth` 파일을 열고:
+   ```
+   python314.zip
+   .
+   Lib\site-packages
+   import site
+   ```
+
+4. **python-docx 설치**:
    ```bash
-   .\python-embed\python.exe -m pip install python-docx
+   .\python.exe -m pip install python-docx
+   ```
+   
+   또는 Scripts 폴더의 pip 직접 사용:
+   ```bash
+   .\Scripts\pip.exe install python-docx
    ```
 
 **주의**: 
 - `python.exe`만 입력하면 PATH에 등록된 시스템 Python이 실행됩니다. 반드시 `.\python-embed\python.exe` 또는 절대 경로를 사용하세요.
 - pip 설치 후 `python-embed` 폴더에 `Scripts` 폴더와 `Lib` 폴더가 생성됩니다.
+- `pythonxx._pth` 파일을 수정하지 않으면 `python.exe -m pip`가 작동하지 않을 수 있습니다.
