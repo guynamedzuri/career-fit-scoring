@@ -94,8 +94,8 @@ win:
       to: scripts
       filter:
         - "**/*.py"
-    # Python embeddable 포함 (선택사항 - 있으면 포함)
-    - from: python-embed
+    # Python embeddable 포함 (프로젝트 루트의 python-embed 폴더)
+    - from: ../python-embed
       to: python-embed
       filter:
         - "**/*"
