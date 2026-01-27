@@ -31,4 +31,18 @@ scp -r python-embed user@windows:/path/to/career-fit-scoring/
 
 - Python embeddable은 약 10-20MB 정도의 크기입니다
 - `python-docx` 라이브러리가 필요하면 `python-embed` 폴더에 설치해야 합니다
-- 설치 방법: `python-embed/python.exe -m pip install python-docx`
+
+## 설치 방법
+
+**절대 경로로 실행해야 합니다** (PATH의 Python이 아닌 이 폴더의 Python을 사용):
+
+```bash
+# Windows
+.\python-embed\python.exe -m pip install python-docx
+
+# 또는 python-embed 폴더로 이동
+cd python-embed
+.\python.exe -m pip install python-docx
+```
+
+**주의**: `python.exe`만 입력하면 PATH에 등록된 시스템 Python이 실행됩니다. 반드시 `.\python-embed\python.exe` 또는 절대 경로를 사용하세요.
