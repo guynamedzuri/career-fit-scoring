@@ -1874,10 +1874,16 @@ ipcMain.handle('read-official-certificates', async () => {
     }
     
     // 프로젝트 루트를 찾지 못한 경우, 여러 경로 시도
+    const appPath = app.getAppPath();
     const possiblePaths = [
+      // 빌드된 앱의 resources/app 경로 (files에 포함된 파일들)
+      path.join(appPath, 'certificate_official.txt'),
+      path.join(appPath, '..', 'certificate_official.txt'),
+      // __dirname 기반 경로
       path.join(__dirname, '../../..', 'certificate_official.txt'),
       path.join(__dirname, '../..', 'certificate_official.txt'),
       path.join(__dirname, '..', 'certificate_official.txt'),
+      // process.cwd() 기반 경로
       path.join(process.cwd(), 'certificate_official.txt'),
       path.join(process.cwd(), '..', 'certificate_official.txt'),
       path.join(process.cwd(), '../..', 'certificate_official.txt'),

@@ -2,17 +2,10 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Search, ChevronUp, ChevronDown, Download, Info, AlertCircle, CheckCircle2, Filter } from 'lucide-react';
 import '../styles/result-view.css';
 
-// career-fit-scoring 모듈에서 점수 계산 함수 import
-let calculateAllScores: any = null;
-try {
-  const scoringModule = require('career-fit-scoring');
-  calculateAllScores = scoringModule.calculateAllScores;
-} catch (e) {
-  console.warn('[ResultView] Failed to load calculateAllScores from career-fit-scoring:', e);
-}
-
 // 평가 항목 점수 계산 함수들은 AI 분석 단계로 이동하여 더 이상 사용하지 않음
 // 이제 모든 평가 항목은 AI 분석 결과에서 가져옴
+// 참고: renderer 프로세스에서는 require를 사용할 수 없으므로, 
+// calculateAllScores는 더 이상 사용하지 않으며 AI 분석 결과를 사용합니다.
 
 // 생년월일로부터 만나이 계산 함수
 function calculateAgeFromBirthDate(birthDate: string | undefined): number | undefined {

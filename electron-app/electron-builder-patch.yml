@@ -25,6 +25,7 @@ files:
   - dist/**/*
   - package.json
   - "../.env"
+  - "../certificate_official.txt"
   # icon.ico와 favicon.ico는 extraResources로 루트에 복사 (files는 resources/app에 감)
   # 모든 node_modules 포함
   - "node_modules/**/*"
