@@ -32,17 +32,26 @@ scp -r python-embed user@windows:/path/to/career-fit-scoring/
 - Python embeddable은 약 10-20MB 정도의 크기입니다
 - `python-docx` 라이브러리가 필요하면 `python-embed` 폴더에 설치해야 합니다
 
-## 설치 방법
+## pip 설치 방법
 
-**절대 경로로 실행해야 합니다** (PATH의 Python이 아닌 이 폴더의 Python을 사용):
+Python embeddable에는 기본적으로 pip가 포함되어 있지 않습니다. 먼저 pip를 설치해야 합니다:
 
-```bash
-# Windows
-.\python-embed\python.exe -m pip install python-docx
+1. **get-pip.py 다운로드**:
+   ```bash
+   curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+   ```
+   또는 브라우저에서 https://bootstrap.pypa.io/get-pip.py 다운로드
 
-# 또는 python-embed 폴더로 이동
-cd python-embed
-.\python.exe -m pip install python-docx
-```
+2. **pip 설치**:
+   ```bash
+   .\python-embed\python.exe get-pip.py
+   ```
 
-**주의**: `python.exe`만 입력하면 PATH에 등록된 시스템 Python이 실행됩니다. 반드시 `.\python-embed\python.exe` 또는 절대 경로를 사용하세요.
+3. **python-docx 설치**:
+   ```bash
+   .\python-embed\python.exe -m pip install python-docx
+   ```
+
+**주의**: 
+- `python.exe`만 입력하면 PATH에 등록된 시스템 Python이 실행됩니다. 반드시 `.\python-embed\python.exe` 또는 절대 경로를 사용하세요.
+- pip 설치 후 `python-embed` 폴더에 `Scripts` 폴더와 `Lib` 폴더가 생성됩니다.
