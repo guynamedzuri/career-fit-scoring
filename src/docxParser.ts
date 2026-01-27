@@ -135,21 +135,19 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
       }
     }
     
-    // 3. 시스템 Python (경로 확인 없이 시도)
-    pythonPaths.push(isWindows ? 'python' : 'python3');
-    
-    // 첫 번째로 존재하는 Python 경로 사용
+    // 첫 번째로 존재하는 Python 경로 사용 (시스템 Python은 제외하고 먼저 확인)
     for (const pythonPath of pythonPaths) {
-      if (pythonPath === 'python' || pythonPath === 'python3') {
-        // 시스템 Python은 존재 여부 확인 없이 시도
-        pythonCmd = pythonPath;
-        console.log(`[DOCX Parser] Will try system Python: ${pythonCmd}`);
-        break;
-      } else if (fs.existsSync(pythonPath)) {
+      if (fs.existsSync(pythonPath)) {
         pythonCmd = pythonPath;
         console.log(`[DOCX Parser] Found Python at: ${pythonCmd}`);
         break;
       }
+    }
+    
+    // 번들된 Python이나 가상환경 Python을 찾지 못한 경우에만 시스템 Python 사용
+    if (!pythonCmd || (!pythonCmd.includes('python-embed') && !pythonCmd.includes('.venv'))) {
+      pythonCmd = isWindows ? 'python' : 'python3';
+      console.log(`[DOCX Parser] Using system Python as fallback: ${pythonCmd}`);
     }
     
     // Python 스크립트 실행하여 JSON 출력 받기
