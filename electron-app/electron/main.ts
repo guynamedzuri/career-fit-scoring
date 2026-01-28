@@ -2497,6 +2497,74 @@ ${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length 
       reportText = aiContent;
     }
 
+    // parsedReport가 있지만 필수 필드가 비어있는 경우, aiContent에서 추출 시도
+    if (parsedReport && typeof parsedReport === 'object') {
+      // summary나 opinion이 비어있으면 aiContent에서 추출 시도
+      if ((!parsedReport.summary || parsedReport.summary.trim() === '') || 
+          (!parsedReport.opinion || parsedReport.opinion.trim() === '')) {
+        try {
+          // summary 추출 시도
+          if (!parsedReport.summary || parsedReport.summary.trim() === '') {
+            const summaryMatch = aiContent.match(/"summary"\s*:\s*"([^"]+)"/) ||
+                                aiContent.match(/'summary'\s*:\s*'([^']+)'/);
+            if (summaryMatch && summaryMatch[1]) {
+              parsedReport.summary = summaryMatch[1];
+            }
+          }
+          
+          // opinion 추출 시도
+          if (!parsedReport.opinion || parsedReport.opinion.trim() === '') {
+            const opinionMatch = aiContent.match(/"opinion"\s*:\s*"([^"]+)"/s) ||
+                                aiContent.match(/'opinion'\s*:\s*'([^']+)'/s);
+            if (opinionMatch && opinionMatch[1]) {
+              parsedReport.opinion = opinionMatch[1];
+            }
+          }
+          
+          // strengths 추출 시도 (비어있는 경우)
+          if (!parsedReport.strengths || parsedReport.strengths.length === 0) {
+            const strengthsMatch = aiContent.match(/"strengths"\s*:\s*\[(.*?)\]/s);
+            if (strengthsMatch) {
+              try {
+                const strengthsArray = JSON.parse(`[${strengthsMatch[1]}]`);
+                if (Array.isArray(strengthsArray) && strengthsArray.length > 0) {
+                  parsedReport.strengths = strengthsArray;
+                }
+              } catch (e) {
+                // 배열 파싱 실패 시 무시
+              }
+            }
+          }
+          
+          // weaknesses 추출 시도 (비어있는 경우)
+          if (!parsedReport.weaknesses || parsedReport.weaknesses.length === 0) {
+            const weaknessesMatch = aiContent.match(/"weaknesses"\s*:\s*\[(.*?)\]/s);
+            if (weaknessesMatch) {
+              try {
+                const weaknessesArray = JSON.parse(`[${weaknessesMatch[1]}]`);
+                if (Array.isArray(weaknessesArray) && weaknessesArray.length > 0) {
+                  parsedReport.weaknesses = weaknessesArray;
+                }
+              } catch (e) {
+                // 배열 파싱 실패 시 무시
+              }
+            }
+          }
+          
+          // 여전히 필수 필드가 비어있으면 원본 텍스트 사용
+          if ((!parsedReport.summary || parsedReport.summary.trim() === '') && 
+              (!parsedReport.opinion || parsedReport.opinion.trim() === '')) {
+            // parsedReport를 사용하되, summary나 opinion이 없으면 원본 텍스트를 opinion으로 사용
+            if (!parsedReport.opinion || parsedReport.opinion.trim() === '') {
+              parsedReport.opinion = aiContent.substring(0, 1000); // 원본 텍스트의 일부를 사용
+            }
+          }
+        } catch (extractError: any) {
+          console.warn('[AI Check] Failed to extract missing fields from aiContent:', extractError.message);
+        }
+      }
+    }
+
       console.log('[AI Check] Success for:', data.fileName, 'Grade:', grade);
       console.log('[AI Check] Parsed report evaluations:', parsedReport?.evaluations);
 
