@@ -917,6 +917,25 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
+.detail-photo-placeholder {
+  width: 150px;
+  height: 200px;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  background: #f3f4f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.detail-photo-placeholder::after {
+  content: '📷';
+  font-size: 3rem;
+  opacity: 0.3;
+}
+
 .detail-section h4 {
   margin: 0 0 1rem 0;
   font-size: 0.875rem;
