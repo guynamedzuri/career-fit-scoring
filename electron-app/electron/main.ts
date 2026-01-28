@@ -584,6 +584,24 @@ async function setupAutoUpdater() {
  */
 function loadEnvFile(): void {
   try {
+    // packaged 환경에서의 경로 확보
+    // (main.ts 최상단에서 이미 app/path/fs를 사용하고 있으므로 여기서는 추가 require 없이 사용)
+    const exeDir = (() => {
+      try {
+        return app?.getPath ? path.dirname(app.getPath('exe')) : null;
+      } catch {
+        return null;
+      }
+    })();
+    const appPath = (() => {
+      try {
+        return app?.getAppPath ? app.getAppPath() : null;
+      } catch {
+        return null;
+      }
+    })();
+    const resourcesPath = (process as any).resourcesPath ? (process as any).resourcesPath : null;
+
     // 프로젝트 루트 찾기
     const projectRoot = findProjectRoot();
     if (!projectRoot) {
@@ -596,6 +614,13 @@ function loadEnvFile(): void {
       path.join(__dirname, '../../.env'),
       path.join(__dirname, '../../../.env'),
       path.join(process.cwd(), '.env'),
+      // packaged/installer 환경에서 흔한 위치들
+      appPath ? path.join(appPath, '.env') : null, // e.g. .../resources/app.asar/.env
+      resourcesPath ? path.join(resourcesPath, '.env') : null, // e.g. .../resources/.env
+      resourcesPath ? path.join(resourcesPath, 'app.asar', '.env') : null, // 일부 환경에서 appPath 대신 필요
+      resourcesPath ? path.join(resourcesPath, 'app', '.env') : null, // asar 비활성/특정 빌드 구조
+      exeDir ? path.join(exeDir, '.env') : null, // exe 옆에 두는 운영 방식도 지원
+      exeDir ? path.join(exeDir, 'resources', '.env') : null,
     ].filter((p): p is string => p !== null);
     
     for (const envPath of envPaths) {
