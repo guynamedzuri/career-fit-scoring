@@ -2628,6 +2628,13 @@ ${resumeText}
 
 위 업무 내용과 이력서의 경력을 비교하여, 제공된 등급 기준에 따라 적합도를 평가하고 등급을 부여해주세요.
 
+중요: 각 등급(최상, 상, 중, 하, 최하)의 조건을 만족하는지 여부와 그 근거를 반드시 gradeEvaluations 객체에 포함해주세요. 각 등급의 조건은 다음과 같습니다:
+- 최상: ${userPrompt.gradeCriteria?.최상 || '조건 없음'}
+- 상: ${userPrompt.gradeCriteria?.상 || '조건 없음'}
+- 중: ${userPrompt.gradeCriteria?.중 || '조건 없음'}
+- 하: ${userPrompt.gradeCriteria?.하 || '조건 없음'}
+- 최하: ${userPrompt.gradeCriteria?.최하 || '조건 없음'}
+
 추가로 다음 항목들도 평가해주세요:
 1. 경력 적합도: 이력서의 경력이 업무 내용과 얼마나 적합한지 평가 (◎=매우 적합, ○=적합, X=부적합, -=경력 없음)
 ${userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim() ? '2. 필수사항 만족여부: 필수 요구사항을 모두 만족하는지 평가 (◎=만족, X=불만족)' : ''}
