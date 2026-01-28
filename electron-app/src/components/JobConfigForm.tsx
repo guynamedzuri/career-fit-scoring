@@ -656,6 +656,7 @@ export default function JobConfigForm({
                   }}
                               placeholder="예: 일반프레스 (40~80톤) 설비 양산 운영 경험, 금형셋업 및 타발 업무, 자주검사 및 포장, 룸램프, RY TERMINAL, AMATEUR 터미널, F CONTACTOR ASSY 등 양산 경험 보유"
                   rows={6}
+                  spellCheck={false}
                 />
               </div>
 
@@ -683,6 +684,7 @@ export default function JobConfigForm({
                       }}
                       placeholder="예: 업무 내용과 거의 동일한 실무 경험이 3년 이상이고, 관련 자격증을 보유한 경우"
                       rows={3}
+                      spellCheck={false}
                     />
                   </div>
 
@@ -702,6 +704,7 @@ export default function JobConfigForm({
                       }}
                       placeholder="예: 경력 중에 업무 내용과 거의 동일한 실무 경험이 있거나 업무내용과 관련있는 경력을 1년 이상 유지한 경우"
                       rows={3}
+                      spellCheck={false}
                     />
                   </div>
 
@@ -721,6 +724,7 @@ export default function JobConfigForm({
                       }}
                       placeholder="예: 경력 중에 업무 내용과 직접적으로 관련이 있는 경우"
                       rows={3}
+                      spellCheck={false}
                     />
                   </div>
 
@@ -740,6 +744,7 @@ export default function JobConfigForm({
                       }}
                       placeholder="예: 자기소개서의 문항마다 제한 글자수의 80% 이상 채웠으며 제조업, 현장 경력이 1개 이상인 경우"
                       rows={3}
+                      spellCheck={false}
                     />
                   </div>
 
@@ -759,6 +764,7 @@ export default function JobConfigForm({
                       }}
                       placeholder="예: 상위 등급 조건을 모두 만족하지 못하며 이력서가 빈약하고 성의가 없는 경우"
                       rows={3}
+                      spellCheck={false}
                     />
                   </div>
                 </div>
@@ -782,6 +788,7 @@ export default function JobConfigForm({
             }}
             placeholder="예: 5년 이상의 개발 경력, 대학 졸업 이상의 학력 등"
             rows={4}
+            spellCheck={false}
           />
         </div>
 
@@ -798,6 +805,7 @@ export default function JobConfigForm({
             onBlur={(e) => {
               setPreferredQualifications(e.target.value.trim());
             }}
+            spellCheck={false}
             placeholder="예: 대학원 졸업, 특정 자격증 보유, 특정 기술 스택 경험 등"
             rows={4}
           />
