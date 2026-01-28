@@ -1249,6 +1249,50 @@ ipcMain.handle('open-file', async (event, filePath: string) => {
   }
 });
 
+// 이미지 파일을 base64로 읽기 IPC 핸들러
+ipcMain.handle('read-image-as-base64', async (event, imagePath: string) => {
+  try {
+    if (!imagePath) {
+      return { success: false, error: 'Image path is required' };
+    }
+    
+    // 경로 정규화
+    const normalizedPath = path.normalize(imagePath);
+    
+    if (!fs.existsSync(normalizedPath)) {
+      writeLog(`[Read Image] Image file not found: ${normalizedPath}`, 'warn');
+      return { success: false, error: 'Image file not found' };
+    }
+    
+    // 이미지 파일 읽기
+    const imageBuffer = fs.readFileSync(normalizedPath);
+    
+    // 확장자로 MIME 타입 결정
+    const ext = path.extname(normalizedPath).toLowerCase();
+    let mimeType = 'image/jpeg'; // 기본값
+    if (ext === '.png') {
+      mimeType = 'image/png';
+    } else if (ext === '.gif') {
+      mimeType = 'image/gif';
+    } else if (ext === '.bmp') {
+      mimeType = 'image/bmp';
+    } else if (ext === '.webp') {
+      mimeType = 'image/webp';
+    }
+    
+    // base64로 변환
+    const base64 = imageBuffer.toString('base64');
+    const dataUrl = `data:${mimeType};base64,${base64}`;
+    
+    writeLog(`[Read Image] Successfully read image: ${normalizedPath} (${imageBuffer.length} bytes)`, 'info');
+    
+    return { success: true, dataUrl };
+  } catch (error: any) {
+    writeLog(`[Read Image] Error reading image: ${error.message}`, 'error');
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('check-for-updates', async () => {
   try {
     const msg = '[AutoUpdater] Manual update check requested';

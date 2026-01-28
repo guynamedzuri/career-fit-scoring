@@ -10,6 +10,7 @@ declare global {
       qnetSearchCertifications: () => Promise<string[]>;
       readOfficialCertificates: () => Promise<string | null>;
       parseOfficialCertificates: (fileContent: string) => Promise<string[]>;
+      readImageAsBase64: (imagePath: string) => Promise<{ success: boolean; dataUrl?: string; error?: string }>;
       parseAdditionalNationalCertificates: (content: string) => Promise<string[]>;
       getAdditionalNationalCertificates: () => Promise<string>;
     };

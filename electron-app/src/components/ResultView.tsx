@@ -2,6 +2,73 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Search, ChevronUp, ChevronDown, Download, Info, AlertCircle, CheckCircle2, Filter } from 'lucide-react';
 import '../styles/result-view.css';
 
+// 이미지를 base64로 로드하는 컴포넌트
+function PhotoImage({ photoPath, alt, className, placeholderClassName }: { 
+  photoPath?: string; 
+  alt: string; 
+  className: string;
+  placeholderClassName?: string;
+}) {
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!photoPath) {
+      setImageSrc(null);
+      setError(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(false);
+
+    // IPC를 통해 이미지를 base64로 읽기
+    if (window.electron?.readImageAsBase64) {
+      window.electron.readImageAsBase64(photoPath)
+        .then((result: any) => {
+          if (result.success && result.dataUrl) {
+            setImageSrc(result.dataUrl);
+            setError(false);
+          } else {
+            console.warn('[PhotoImage] Failed to load image:', result.error);
+            setError(true);
+          }
+        })
+        .catch((err: any) => {
+          console.error('[PhotoImage] Error loading image:', err);
+          setError(true);
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    } else {
+      console.warn('[PhotoImage] readImageAsBase64 not available');
+      setError(true);
+      setLoading(false);
+    }
+  }, [photoPath]);
+
+  if (!photoPath || error) {
+    return <div className={placeholderClassName || className}></div>;
+  }
+
+  if (loading || !imageSrc) {
+    return <div className={placeholderClassName || className}></div>;
+  }
+
+  return (
+    <img 
+      src={imageSrc} 
+      alt={alt}
+      className={className}
+      onError={() => {
+        setError(true);
+      }}
+    />
+  );
+}
+
 // 평가 항목 점수 계산 함수들은 AI 분석 단계로 이동하여 더 이상 사용하지 않음
 // 이제 모든 평가 항목은 AI 분석 결과에서 가져옴
 // 참고: renderer 프로세스에서는 require를 사용할 수 없으므로, 
@@ -1411,19 +1478,12 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               <div className="table-cell cell-name">
                 <div className="candidate-info">
                   <div className="candidate-photo-container">
-                    {result.photoPath ? (
-                      <img 
-                        src={`file://${result.photoPath}`} 
-                        alt={result.name || result.fileName}
-                        className="candidate-photo"
-                        onError={(e) => {
-                          // 이미지 로드 실패 시 숨기기
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="candidate-photo candidate-photo-placeholder"></div>
-                    )}
+                    <PhotoImage 
+                      photoPath={result.photoPath}
+                      alt={result.name || result.fileName}
+                      className="candidate-photo"
+                      placeholderClassName="candidate-photo candidate-photo-placeholder"
+                    />
                   </div>
                   <span className="candidate-name">{result.name || result.fileName}</span>
                   {result.errorMessage && (
@@ -1684,22 +1744,12 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
             <div className="detail-section">
               <h4>기본 정보</h4>
               <div className="detail-photo-container">
-                {selectedResult.photoPath ? (
-                  <img 
-                    src={`file://${selectedResult.photoPath}`} 
-                    alt={selectedResult.name || selectedResult.fileName}
-                    className="detail-photo"
-                    onError={(e) => {
-                      // 이미지 로드 실패 시 placeholder로 변경
-                      const container = (e.target as HTMLImageElement).parentElement;
-                      if (container) {
-                        container.innerHTML = '<div class="detail-photo detail-photo-placeholder"></div>';
-                      }
-                    }}
-                  />
-                ) : (
-                  <div className="detail-photo detail-photo-placeholder"></div>
-                )}
+                <PhotoImage 
+                  photoPath={selectedResult.photoPath}
+                  alt={selectedResult.name || selectedResult.fileName}
+                  className="detail-photo"
+                  placeholderClassName="detail-photo detail-photo-placeholder"
+                />
               </div>
               <div className="detail-item">
                 <span className="detail-label">이름:</span>

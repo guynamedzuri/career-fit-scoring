@@ -41,4 +41,6 @@ contextBridge.exposeInMainWorld('electron', {
   notifyAppReady: () => ipcRenderer.invoke('app-ready'),
   // 파일 열기
   openFile: (filePath: string) => ipcRenderer.invoke('open-file', filePath),
+  // 이미지 파일을 base64로 읽기
+  readImageAsBase64: (imagePath: string) => ipcRenderer.invoke('read-image-as-base64', imagePath),
 });
