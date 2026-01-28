@@ -319,7 +319,10 @@ def generate_career_with_condition(department_type: str = 'random', min_years: f
     
     # 경력 기간 계산
     current_date = datetime(2025, 1, 1)
-    total_months = int((max_years - min_years) * 12 * random.random() + min_years * 12)
+    if max_years > min_years:
+        total_months = int((max_years - min_years) * 12 * random.random() + min_years * 12)
+    else:
+        total_months = int(min_years * 12)
     
     start_date = current_date - timedelta(days=total_months * 30)
     start_year = start_date.year
@@ -1241,8 +1244,10 @@ def main():
                 # 경력 없음 또는 인사팀/회계팀
                 if random.random() < 0.3:  # 30% 확률로 경력 없음
                     has_career = False
+                    dept_type = 'random'  # 사용 안 함
                 else:
                     dept_type = random.choice(['hr', 'accounting'])
+                    has_career = True
             
             # 임시 파일로 먼저 생성
             temp_path = output_dir / f"temp_{uuid.uuid4().hex[:8]}.docx"
