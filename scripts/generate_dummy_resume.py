@@ -1281,49 +1281,51 @@ def main():
                 if temp_path.exists():
                     temp_path.unlink()
                 print("✗ 실패")
-    
+        
         print()
         print(f"완료: {success_count}/{total_count}개 생성됨")
         print(f"출력 위치: {output_dir.absolute()}")
     else:
-        # 기존 랜덤 생성 로직
-        success_count = 0
-        for i in range(args.count):
-            print(f"[{i+1}/{args.count}] 생성 중...", end=' ')
-            
-            # 임시 파일로 먼저 생성
-            temp_path = output_dir / f"temp_{uuid.uuid4().hex[:8]}.docx"
-            name = fill_resume_form(template_path, str(temp_path), args.use_ai, args.character, args.field)
-            
-            if name:
-                # 이름_고유번호[char키워드].docx 형식으로 저장
-                unique_id = uuid.uuid4().hex[:8]
+        # count가 50이 아닌 경우에만 기존 랜덤 생성 로직 실행
+        if args.count != 50:
+            # 기존 랜덤 생성 로직
+            success_count = 0
+            for i in range(args.count):
+                print(f"[{i+1}/{args.count}] 생성 중...", end=' ')
                 
-                # char 정보에서 키워드 추출
-                char_keywords = extract_char_keywords(args.character) if args.character else ""
+                # 임시 파일로 먼저 생성
+                temp_path = output_dir / f"temp_{uuid.uuid4().hex[:8]}.docx"
+                name = fill_resume_form(template_path, str(temp_path), args.use_ai, args.character, args.field)
                 
-                output_filename = f"{name}_{unique_id}{char_keywords}.docx"
-                output_path = output_dir / output_filename
-                
-                # 파일명 중복 체크
-                counter = 1
-                while output_path.exists():
-                    output_filename = f"{name}_{unique_id}{char_keywords}_{counter}.docx"
+                if name:
+                    # 이름_고유번호[char키워드].docx 형식으로 저장
+                    unique_id = uuid.uuid4().hex[:8]
+                    
+                    # char 정보에서 키워드 추출
+                    char_keywords = extract_char_keywords(args.character) if args.character else ""
+                    
+                    output_filename = f"{name}_{unique_id}{char_keywords}.docx"
                     output_path = output_dir / output_filename
-                    counter += 1
-                
-                # 임시 파일을 최종 파일명으로 이동
-                temp_path.rename(output_path)
-                print(f"✓ 완료: {output_filename}")
-                success_count += 1
-            else:
-                if temp_path.exists():
-                    temp_path.unlink()
-                print("✗ 실패")
-        
-        print()
-        print(f"완료: {success_count}/{args.count}개 생성됨")
-        print(f"출력 위치: {output_dir.absolute()}")
+                    
+                    # 파일명 중복 체크
+                    counter = 1
+                    while output_path.exists():
+                        output_filename = f"{name}_{unique_id}{char_keywords}_{counter}.docx"
+                        output_path = output_dir / output_filename
+                        counter += 1
+                    
+                    # 임시 파일을 최종 파일명으로 이동
+                    temp_path.rename(output_path)
+                    print(f"✓ 완료: {output_filename}")
+                    success_count += 1
+                else:
+                    if temp_path.exists():
+                        temp_path.unlink()
+                    print("✗ 실패")
+            
+            print()
+            print(f"완료: {success_count}/{args.count}개 생성됨")
+            print(f"출력 위치: {output_dir.absolute()}")
 
 
 if __name__ == '__main__':
