@@ -397,7 +397,6 @@ def generate_resume_data_with_ai(character_description: str = None, field_descri
     "birthDate": "생년월일 (예: 1995.03.15)",
     "email": "이메일주소 (예: minjun.kim@gmail.com)",
     "phone": "이동전화 (예: 010-1234-5678)",
-    "phoneHome": "자택전화 (예: 02-1234-5678)",
     "address": "주소 (예: 서울특별시 강남구 테헤란로 123)",
     "desiredSalary": "희망연봉 (예: 4000만원)",
     "militaryService": "병역사항 (예: 현역, 보충역, 면제, 해당없음 중 하나)"
