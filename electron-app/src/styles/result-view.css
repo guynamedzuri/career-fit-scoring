@@ -380,7 +380,7 @@
 }
 
 .cell-name {
-  width: 80px;
+  width: 150px;
   flex-shrink: 0;
   text-align: left;
   justify-content: flex-start;
@@ -700,11 +700,12 @@
   flex-direction: row;
   align-items: center;
   gap: 0.5rem;
+  width: 100%;
 }
 
 .candidate-photo {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 4px;
   object-fit: cover;
   border: 1px solid #e5e7eb;
@@ -715,6 +716,11 @@
   font-weight: 500;
   color: #111827;
   font-size: 0.875rem;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .candidate-row .cell-career,
