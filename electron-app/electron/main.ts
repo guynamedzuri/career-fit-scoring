@@ -2146,6 +2146,318 @@ function calculateAge(birthDate: string): number | undefined {
   }
 }
 
+// AI API 호출 및 파싱 헬퍼 함수
+async function callAIAndParse(
+  systemPrompt: string,
+  userPromptText: string,
+  fileName: string,
+  retryCount: number = 0
+): Promise<{
+  success: boolean;
+  grade: string;
+  report: any;
+  reportParsed: boolean;
+  error?: string;
+}> {
+  const MAX_RETRIES = 1; // 최대 1회 재시도
+  const API_KEY = process.env.AZURE_OPENAI_API_KEY || '';
+  const API_ENDPOINT = (process.env.AZURE_OPENAI_ENDPOINT || 'https://roar-mjm4cwji-swedencentral.openai.azure.com/').replace(/\/+$/, '');
+  const DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+  const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
+  const apiUrl = `${API_ENDPOINT}/openai/deployments/${DEPLOYMENT}/chat/completions?api-version=${API_VERSION}`;
+
+  try {
+    console.log(`[AI Check] Calling Azure OpenAI API for: ${fileName}${retryCount > 0 ? ` (재시도 ${retryCount})` : ''}`);
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': API_KEY,
+      },
+      body: JSON.stringify({
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt,
+          },
+          {
+            role: 'user',
+            content: userPromptText,
+          },
+        ],
+        max_tokens: 2000,
+        temperature: 0.7,
+        top_p: 1.0,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('[AI Check] API Error:', response.status, errorData);
+      
+      // 429 Rate Limit 에러 처리
+      if (response.status === 429) {
+        let retryAfter = 10;
+        try {
+          const errorJson = JSON.parse(errorData);
+          if (errorJson.error?.message) {
+            const retryMatch = errorJson.error.message.match(/after (\d+) seconds?/i);
+            if (retryMatch) {
+              retryAfter = parseInt(retryMatch[1], 10) + 2;
+            }
+          }
+        } catch (e) {
+          // JSON 파싱 실패 시 기본값 사용
+        }
+        
+        writeLog(`[AI Check] Rate limit reached, retrying after ${retryAfter} seconds...`, 'warn');
+        throw new Error(`RATE_LIMIT:${retryAfter}`);
+      }
+      
+      throw new Error(`AI API 호출 실패: ${response.status}`);
+    }
+
+    const responseData = await response.json() as {
+      choices?: Array<{
+        message?: {
+          content?: string;
+        };
+      }>;
+    };
+    const aiContent = responseData.choices?.[0]?.message?.content || '';
+
+    // JSON 파싱 시도
+    let parsedReport: {
+      grade: string;
+      summary: string;
+      strengths: string[];
+      weaknesses: string[];
+      opinion: string;
+      evaluations?: {
+        careerFit?: string;
+        requiredQual?: string;
+        preferredQual?: string;
+        certification?: string;
+      };
+    } | null = null;
+    
+    let grade = 'C';
+    let reportText = aiContent;
+    let parseSuccess = false;
+
+    try {
+      // JSON 코드 블록 제거
+      let jsonText = aiContent.trim();
+      if (jsonText.startsWith('```')) {
+        const lines = jsonText.split('\n');
+        const startIndex = lines[0].includes('json') ? 1 : 0;
+        const endIndex = lines[lines.length - 1].trim() === '```' ? lines.length - 1 : lines.length;
+        jsonText = lines.slice(startIndex, endIndex).join('\n').trim();
+      }
+      
+      parsedReport = JSON.parse(jsonText);
+      
+      // 유효한 객체인지 확인
+      if (parsedReport && typeof parsedReport === 'object' && 'grade' in parsedReport) {
+        const gradeMap: { [key: string]: string } = {
+          '최상': 'A',
+          '상': 'B',
+          '중': 'C',
+          '하': 'D',
+          '최하': 'E'
+        };
+        
+        grade = gradeMap[parsedReport.grade] || 'C';
+        
+        // 필수 필드가 모두 있는지 확인
+        if (parsedReport.summary && parsedReport.summary.trim() && 
+            parsedReport.opinion && parsedReport.opinion.trim()) {
+          parseSuccess = true;
+        }
+      } else {
+        parsedReport = null;
+      }
+      
+      if (parseSuccess) {
+        console.log('[AI Check] Successfully parsed JSON for:', fileName, 'Grade:', grade);
+      } else {
+        console.warn('[AI Check] JSON parsed but missing required fields for:', fileName);
+      }
+    } catch (parseError: any) {
+      console.warn('[AI Check] Failed to parse JSON:', parseError.message);
+      console.warn('[AI Check] Raw content:', aiContent.substring(0, 500));
+      
+      // 등급 추출 시도
+      const gradeMatch = aiContent.match(/등급[:\s]*([A-D최상중하])/i) || 
+                        aiContent.match(/["']grade["']:\s*["']([A-D최상중하])/i) ||
+                        aiContent.match(/\[([A-D])\]/i);
+      
+      if (gradeMatch) {
+        const matchedGrade = gradeMatch[1].toUpperCase();
+        const gradeMap: { [key: string]: string } = {
+          '최상': 'A',
+          '상': 'B',
+          '중': 'C',
+          '하': 'D',
+          '최하': 'E'
+        };
+        grade = gradeMap[matchedGrade] || (matchedGrade.match(/[A-D]/) ? matchedGrade : 'C');
+      }
+      
+      // evaluations 추출 시도
+      try {
+        const evaluationsMatch = aiContent.match(/"evaluations"\s*:\s*\{[^}]*\}/s);
+        if (evaluationsMatch) {
+          const evaluationsJson = `{${evaluationsMatch[0]}}`;
+          const evaluationsOnly = JSON.parse(evaluationsJson);
+          if (evaluationsOnly.evaluations && typeof evaluationsOnly.evaluations === 'object') {
+            if (!parsedReport) {
+              parsedReport = {
+                grade: grade,
+                summary: '',
+                strengths: [],
+                weaknesses: [],
+                opinion: '',
+                evaluations: evaluationsOnly.evaluations
+              };
+            } else {
+              parsedReport.evaluations = evaluationsOnly.evaluations;
+            }
+          }
+        } else {
+          // 개별 필드 추출
+          const extractedEvaluations: any = {};
+          const careerFitMatch = aiContent.match(/"careerFit"\s*:\s*["']([◎○X-])["']/);
+          if (careerFitMatch) extractedEvaluations.careerFit = careerFitMatch[1];
+          const requiredQualMatch = aiContent.match(/"requiredQual"\s*:\s*["']([◎X-])["']/);
+          if (requiredQualMatch) extractedEvaluations.requiredQual = requiredQualMatch[1];
+          const preferredQualMatch = aiContent.match(/"preferredQual"\s*:\s*["']([◎○X-])["']/);
+          if (preferredQualMatch) extractedEvaluations.preferredQual = preferredQualMatch[1];
+          const certificationMatch = aiContent.match(/"certification"\s*:\s*["']([◎○X-])["']/);
+          if (certificationMatch) extractedEvaluations.certification = certificationMatch[1];
+          
+          if (Object.keys(extractedEvaluations).length > 0) {
+            if (!parsedReport) {
+              parsedReport = {
+                grade: grade,
+                summary: '',
+                strengths: [],
+                weaknesses: [],
+                opinion: '',
+                evaluations: extractedEvaluations
+              };
+            } else {
+              parsedReport.evaluations = extractedEvaluations;
+            }
+          }
+        }
+      } catch (evalError: any) {
+        console.warn('[AI Check] Failed to extract evaluations:', evalError.message);
+      }
+      
+      reportText = aiContent;
+    }
+
+    // parsedReport가 있지만 필수 필드가 비어있는 경우, aiContent에서 추출 시도
+    if (parsedReport && typeof parsedReport === 'object') {
+      if ((!parsedReport.summary || parsedReport.summary.trim() === '') || 
+          (!parsedReport.opinion || parsedReport.opinion.trim() === '')) {
+        try {
+          if (!parsedReport.summary || parsedReport.summary.trim() === '') {
+            const summaryMatch = aiContent.match(/"summary"\s*:\s*"([^"]+)"/) ||
+                                aiContent.match(/'summary'\s*:\s*'([^']+)'/);
+            if (summaryMatch && summaryMatch[1]) {
+              parsedReport.summary = summaryMatch[1];
+            }
+          }
+          
+          if (!parsedReport.opinion || parsedReport.opinion.trim() === '') {
+            const opinionMatch = aiContent.match(/"opinion"\s*:\s*"([^"]+)"/s) ||
+                                aiContent.match(/'opinion'\s*:\s*'([^']+)'/s);
+            if (opinionMatch && opinionMatch[1]) {
+              parsedReport.opinion = opinionMatch[1];
+            }
+          }
+          
+          if (!parsedReport.strengths || parsedReport.strengths.length === 0) {
+            const strengthsMatch = aiContent.match(/"strengths"\s*:\s*\[(.*?)\]/s);
+            if (strengthsMatch) {
+              try {
+                const strengthsArray = JSON.parse(`[${strengthsMatch[1]}]`);
+                if (Array.isArray(strengthsArray) && strengthsArray.length > 0) {
+                  parsedReport.strengths = strengthsArray;
+                }
+              } catch (e) {}
+            }
+          }
+          
+          if (!parsedReport.weaknesses || parsedReport.weaknesses.length === 0) {
+            const weaknessesMatch = aiContent.match(/"weaknesses"\s*:\s*\[(.*?)\]/s);
+            if (weaknessesMatch) {
+              try {
+                const weaknessesArray = JSON.parse(`[${weaknessesMatch[1]}]`);
+                if (Array.isArray(weaknessesArray) && weaknessesArray.length > 0) {
+                  parsedReport.weaknesses = weaknessesArray;
+                }
+              } catch (e) {}
+            }
+          }
+          
+          if ((!parsedReport.summary || parsedReport.summary.trim() === '') && 
+              (!parsedReport.opinion || parsedReport.opinion.trim() === '')) {
+            if (!parsedReport.opinion || parsedReport.opinion.trim() === '') {
+              const jsonEndMatch = aiContent.match(/\}\s*$/);
+              if (jsonEndMatch) {
+                const afterJson = aiContent.substring(aiContent.lastIndexOf('}') + 1).trim();
+                if (afterJson.length > 50) {
+                  parsedReport.opinion = afterJson.substring(0, 1000);
+                } else {
+                  parsedReport.opinion = aiContent.substring(0, 1000);
+                }
+              } else {
+                parsedReport.opinion = aiContent.substring(0, 1000);
+              }
+            }
+            if (!parsedReport.summary || parsedReport.summary.trim() === '') {
+              parsedReport.summary = parsedReport.opinion.substring(0, 200).trim();
+            }
+          }
+        } catch (extractError: any) {
+          console.warn('[AI Check] Failed to extract missing fields:', extractError.message);
+        }
+      }
+    }
+
+    // 파싱이 실패했거나 필수 필드가 비어있는 경우 재시도
+    if (!parseSuccess && retryCount < MAX_RETRIES) {
+      console.log(`[AI Check] Parsing failed or incomplete, retrying (${retryCount + 1}/${MAX_RETRIES})...`);
+      // 재시도 시 더 명확한 프롬프트 사용
+      const retrySystemPrompt = systemPrompt + '\n\n중요: 반드시 완전한 JSON 형식으로 응답해야 합니다. summary와 opinion 필드는 반드시 채워주세요.';
+      return callAIAndParse(retrySystemPrompt, userPromptText, fileName, retryCount + 1);
+    }
+
+    console.log('[AI Check] Success for:', fileName, 'Grade:', grade);
+    console.log('[AI Check] Parsed report evaluations:', parsedReport?.evaluations);
+
+    return {
+      success: true,
+      grade,
+      report: parsedReport || reportText,
+      reportParsed: parsedReport !== null,
+    };
+  } catch (error) {
+    console.error('[AI Check] Error:', error);
+    return {
+      success: false,
+      grade: 'C',
+      report: '',
+      reportParsed: false,
+      error: error instanceof Error ? error.message : '알 수 없는 오류',
+    };
+  }
+}
+
 // Azure OpenAI API 호출 IPC 핸들러
 ipcMain.handle('ai-check-resume', async (event, data: {
   applicationData: any;
@@ -2286,310 +2598,14 @@ ${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length 
 
 중요: evaluations 객체에는 위에서 언급된 항목들만 포함하세요. 예를 들어 필수 요구사항이 없으면 requiredQual 필드를 포함하지 마세요.`;
 
-    console.log('[AI Check] Calling Azure OpenAI API for:', data.fileName);
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': API_KEY,
-      },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt,
-          },
-          {
-            role: 'user',
-            content: userPromptText,
-          },
-        ],
-        max_tokens: 2000,
-        temperature: 0.7,
-        top_p: 1.0,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('[AI Check] API Error:', response.status, errorData);
-      
-      // 429 Rate Limit 에러 처리
-      if (response.status === 429) {
-        let retryAfter = 10; // 기본 10초
-        try {
-          const errorJson = JSON.parse(errorData);
-          if (errorJson.error?.message) {
-            // "Please retry after 8 seconds" 같은 메시지에서 숫자 추출
-            const retryMatch = errorJson.error.message.match(/after (\d+) seconds?/i);
-            if (retryMatch) {
-              retryAfter = parseInt(retryMatch[1], 10) + 2; // 여유를 위해 2초 추가
-            }
-          }
-        } catch (e) {
-          // JSON 파싱 실패 시 기본값 사용
-        }
-        
-        writeLog(`[AI Check] Rate limit reached, retrying after ${retryAfter} seconds...`, 'warn');
-        throw new Error(`RATE_LIMIT:${retryAfter}`); // 특별한 에러 형식으로 전달
-      }
-      
-      throw new Error(`AI API 호출 실패: ${response.status}`);
-    }
-
-    const responseData = await response.json() as {
-      choices?: Array<{
-        message?: {
-          content?: string;
-        };
-      }>;
-    };
-    const aiContent = responseData.choices?.[0]?.message?.content || '';
-
-    // JSON 파싱 시도
-    let parsedReport: {
-      grade: string;
-      summary: string;
-      strengths: string[];
-      weaknesses: string[];
-      opinion: string;
-      evaluations?: {
-        careerFit?: string;
-        requiredQual?: string;
-        preferredQual?: string;
-        certification?: string;
-      };
-    } | null = null;
+    // AI API 호출 및 파싱 (재시도 로직 포함)
+    const result = await callAIAndParse(systemPrompt, userPromptText, data.fileName, 0);
     
-    let grade = 'C'; // 기본값
-    let reportText = aiContent; // 파싱 실패 시 원본 텍스트 사용
-
-    try {
-      // JSON 코드 블록 제거 (```json ... ``` 형식)
-      let jsonText = aiContent.trim();
-      if (jsonText.startsWith('```')) {
-        const lines = jsonText.split('\n');
-        const startIndex = lines[0].includes('json') ? 1 : 0;
-        const endIndex = lines[lines.length - 1].trim() === '```' ? lines.length - 1 : lines.length;
-        jsonText = lines.slice(startIndex, endIndex).join('\n').trim();
-      }
-      
-      parsedReport = JSON.parse(jsonText);
-      
-      // parsedReport가 null이 아니고 유효한 객체인지 확인
-      if (parsedReport && typeof parsedReport === 'object' && 'grade' in parsedReport) {
-        // 등급 매핑 (최상/상/중/하/최하 -> A/B/C/D/E)
-        const gradeMap: { [key: string]: string } = {
-          '최상': 'A',
-          '상': 'B',
-          '중': 'C',
-          '하': 'D',
-          '최하': 'E'
-        };
-        
-        grade = gradeMap[parsedReport.grade] || 'C';
-      } else {
-        // 파싱은 성공했지만 형식이 맞지 않음
-        parsedReport = null;
-      }
-      
-      console.log('[AI Check] Successfully parsed JSON for:', data.fileName, 'Grade:', grade);
-    } catch (parseError: any) {
-      console.warn('[AI Check] Failed to parse JSON, falling back to text parsing:', parseError.message);
-      console.warn('[AI Check] Raw content:', aiContent.substring(0, 500));
-      
-      // JSON 파싱 실패 시 기존 방식으로 등급 추출
-      const gradeMatch = aiContent.match(/등급[:\s]*([A-D최상중하])/i) || 
-                        aiContent.match(/["']grade["']:\s*["']([A-D최상중하])/i) ||
-                        aiContent.match(/\[([A-D])\]/i);
-      
-      if (gradeMatch) {
-        const matchedGrade = gradeMatch[1].toUpperCase();
-        const gradeMap: { [key: string]: string } = {
-          '최상': 'A',
-          '상': 'B',
-          '중': 'C',
-          '하': 'D',
-          '최하': 'E'
-        };
-        grade = gradeMap[matchedGrade] || (matchedGrade.match(/[A-D]/) ? matchedGrade : 'C');
-      }
-      
-      // evaluations 객체 추출 시도 (JSON 파싱 실패해도 evaluations는 추출 가능할 수 있음)
-      try {
-        // evaluations 객체 부분만 찾아서 파싱 시도
-        const evaluationsMatch = aiContent.match(/"evaluations"\s*:\s*\{[^}]*\}/s);
-        if (evaluationsMatch) {
-          const evaluationsJson = `{${evaluationsMatch[0]}}`;
-          const evaluationsOnly = JSON.parse(evaluationsJson);
-          if (evaluationsOnly.evaluations && typeof evaluationsOnly.evaluations === 'object') {
-            // parsedReport가 null이면 기본 구조 생성
-            if (!parsedReport) {
-              parsedReport = {
-                grade: grade,
-                summary: '',
-                strengths: [],
-                weaknesses: [],
-                opinion: '',
-                evaluations: evaluationsOnly.evaluations
-              };
-            } else {
-              parsedReport.evaluations = evaluationsOnly.evaluations;
-            }
-            console.log('[AI Check] Extracted evaluations from partial JSON:', evaluationsOnly.evaluations);
-          }
-        } else {
-          // evaluations 객체를 찾지 못한 경우, 개별 필드를 정규식으로 추출
-          const extractedEvaluations: {
-            careerFit?: string;
-            requiredQual?: string;
-            preferredQual?: string;
-            certification?: string;
-          } = {};
-          
-          // careerFit 추출
-          const careerFitMatch = aiContent.match(/"careerFit"\s*:\s*["']([◎○X-])["']/);
-          if (careerFitMatch) {
-            extractedEvaluations.careerFit = careerFitMatch[1];
-          }
-          
-          // requiredQual 추출
-          const requiredQualMatch = aiContent.match(/"requiredQual"\s*:\s*["']([◎X-])["']/);
-          if (requiredQualMatch) {
-            extractedEvaluations.requiredQual = requiredQualMatch[1];
-          }
-          
-          // preferredQual 추출
-          const preferredQualMatch = aiContent.match(/"preferredQual"\s*:\s*["']([◎○X-])["']/);
-          if (preferredQualMatch) {
-            extractedEvaluations.preferredQual = preferredQualMatch[1];
-          }
-          
-          // certification 추출
-          const certificationMatch = aiContent.match(/"certification"\s*:\s*["']([◎○X-])["']/);
-          if (certificationMatch) {
-            extractedEvaluations.certification = certificationMatch[1];
-          }
-          
-          // 추출한 evaluations가 있으면 추가
-          if (Object.keys(extractedEvaluations).length > 0) {
-            if (!parsedReport) {
-              parsedReport = {
-                grade: grade,
-                summary: '',
-                strengths: [],
-                weaknesses: [],
-                opinion: '',
-                evaluations: extractedEvaluations
-              };
-            } else {
-              parsedReport.evaluations = extractedEvaluations;
-            }
-            console.log('[AI Check] Extracted evaluations using regex:', extractedEvaluations);
-          }
-        }
-      } catch (evalError: any) {
-        console.warn('[AI Check] Failed to extract evaluations from partial JSON:', evalError.message);
-      }
-      
-      // 파싱 실패 시 원본 텍스트를 report로 사용
-      reportText = aiContent;
+    if (!result.success) {
+      throw new Error(result.error || 'AI 분석 실패');
     }
-
-    // parsedReport가 있지만 필수 필드가 비어있는 경우, aiContent에서 추출 시도
-    if (parsedReport && typeof parsedReport === 'object') {
-      // summary나 opinion이 비어있으면 aiContent에서 추출 시도
-      if ((!parsedReport.summary || parsedReport.summary.trim() === '') || 
-          (!parsedReport.opinion || parsedReport.opinion.trim() === '')) {
-        try {
-          // summary 추출 시도
-          if (!parsedReport.summary || parsedReport.summary.trim() === '') {
-            const summaryMatch = aiContent.match(/"summary"\s*:\s*"([^"]+)"/) ||
-                                aiContent.match(/'summary'\s*:\s*'([^']+)'/);
-            if (summaryMatch && summaryMatch[1]) {
-              parsedReport.summary = summaryMatch[1];
-            }
-          }
-          
-          // opinion 추출 시도
-          if (!parsedReport.opinion || parsedReport.opinion.trim() === '') {
-            const opinionMatch = aiContent.match(/"opinion"\s*:\s*"([^"]+)"/s) ||
-                                aiContent.match(/'opinion'\s*:\s*'([^']+)'/s);
-            if (opinionMatch && opinionMatch[1]) {
-              parsedReport.opinion = opinionMatch[1];
-            }
-          }
-          
-          // strengths 추출 시도 (비어있는 경우)
-          if (!parsedReport.strengths || parsedReport.strengths.length === 0) {
-            const strengthsMatch = aiContent.match(/"strengths"\s*:\s*\[(.*?)\]/s);
-            if (strengthsMatch) {
-              try {
-                const strengthsArray = JSON.parse(`[${strengthsMatch[1]}]`);
-                if (Array.isArray(strengthsArray) && strengthsArray.length > 0) {
-                  parsedReport.strengths = strengthsArray;
-                }
-              } catch (e) {
-                // 배열 파싱 실패 시 무시
-              }
-            }
-          }
-          
-          // weaknesses 추출 시도 (비어있는 경우)
-          if (!parsedReport.weaknesses || parsedReport.weaknesses.length === 0) {
-            const weaknessesMatch = aiContent.match(/"weaknesses"\s*:\s*\[(.*?)\]/s);
-            if (weaknessesMatch) {
-              try {
-                const weaknessesArray = JSON.parse(`[${weaknessesMatch[1]}]`);
-                if (Array.isArray(weaknessesArray) && weaknessesArray.length > 0) {
-                  parsedReport.weaknesses = weaknessesArray;
-                }
-              } catch (e) {
-                // 배열 파싱 실패 시 무시
-              }
-            }
-          }
-          
-          // 여전히 필수 필드가 비어있으면 원본 텍스트 사용
-          if ((!parsedReport.summary || parsedReport.summary.trim() === '') && 
-              (!parsedReport.opinion || parsedReport.opinion.trim() === '')) {
-            // summary나 opinion이 없으면 원본 텍스트를 opinion으로 사용
-            if (!parsedReport.opinion || parsedReport.opinion.trim() === '') {
-              // JSON 형식이 아닌 부분을 찾아서 opinion으로 사용
-              const jsonEndMatch = aiContent.match(/\}\s*$/);
-              if (jsonEndMatch) {
-                // JSON 뒤에 추가 설명이 있는 경우
-                const afterJson = aiContent.substring(aiContent.lastIndexOf('}') + 1).trim();
-                if (afterJson.length > 50) {
-                  parsedReport.opinion = afterJson.substring(0, 1000);
-                } else {
-                  parsedReport.opinion = aiContent.substring(0, 1000);
-                }
-              } else {
-                parsedReport.opinion = aiContent.substring(0, 1000);
-              }
-            }
-            // summary도 비어있으면 opinion의 앞부분 사용
-            if (!parsedReport.summary || parsedReport.summary.trim() === '') {
-              parsedReport.summary = parsedReport.opinion.substring(0, 200).trim();
-            }
-          }
-        } catch (extractError: any) {
-          console.warn('[AI Check] Failed to extract missing fields from aiContent:', extractError.message);
-        }
-      }
-    }
-
-      console.log('[AI Check] Success for:', data.fileName, 'Grade:', grade);
-      console.log('[AI Check] Parsed report evaluations:', parsedReport?.evaluations);
-
-    return {
-      success: true,
-      grade,
-      report: parsedReport || reportText, // 파싱된 객체 또는 원본 텍스트
-      reportParsed: parsedReport !== null, // 파싱 성공 여부
-    };
+    
+    return result;
   } catch (error) {
     console.error('[AI Check] Error:', error);
     return {
