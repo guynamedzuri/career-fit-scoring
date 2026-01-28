@@ -1683,6 +1683,19 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
             
             <div className="detail-section">
               <h4>기본 정보</h4>
+              {selectedResult.photoPath && (
+                <div className="detail-photo-container">
+                  <img 
+                    src={`file://${selectedResult.photoPath}`} 
+                    alt={selectedResult.name || selectedResult.fileName}
+                    className="detail-photo"
+                    onError={(e) => {
+                      // 이미지 로드 실패 시 숨기기
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
               <div className="detail-item">
                 <span className="detail-label">이름:</span>
                 <span className="detail-value">

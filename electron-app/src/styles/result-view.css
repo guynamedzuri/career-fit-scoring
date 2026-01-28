@@ -900,6 +900,23 @@
   margin-bottom: 0;
 }
 
+.detail-photo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 1rem 0;
+}
+
+.detail-photo {
+  width: 150px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
 .detail-section h4 {
   margin: 0 0 1rem 0;
   font-size: 0.875rem;
