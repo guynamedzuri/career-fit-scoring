@@ -54,6 +54,55 @@ def extract_images_from_docx(docx_path: str, output_dir: str) -> dict:
     os.makedirs(output_dir, exist_ok=True)
     
     try:
+        # python-docx로 문서 열어서 이미지 위치 정보 먼저 추출
+        doc = Document(docx_path)
+        
+        # 이미지 파일명과 셀 위치 매핑
+        import xml.etree.ElementTree as ET
+        
+        # 이미지 관계 매핑 (rId -> 파일명)
+        image_relation_map = {}
+        with ZipFile(docx_path, 'r') as zip_ref:
+            try:
+                rels_content = zip_ref.read('word/_rels/document.xml.rels')
+                root = ET.fromstring(rels_content)
+                for rel in root:
+                    rel_id = rel.get('Id')
+                    target = rel.get('Target')
+                    if target and target.startswith('media/'):
+                        filename = target.split('/')[-1]
+                        image_relation_map[rel_id] = filename
+            except:
+                pass
+        
+        # 각 테이블의 각 셀에서 이미지 찾기 및 매핑
+        image_positions = []
+        image_cell_mapping = {}  # filename -> [cell positions]
+        
+        for table_idx, table in enumerate(doc.tables):
+            for row_idx, row in enumerate(table.rows):
+                for cell_idx, cell in enumerate(row.cells):
+                    # 셀 내 이미지 확인
+                    for para in cell.paragraphs:
+                        for run in para.runs:
+                            blip = run.element.find('.//a:blip', namespaces={'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'})
+                            if blip is not None:
+                                embed_id = blip.get('{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed')
+                                if embed_id and embed_id in image_relation_map:
+                                    filename = image_relation_map[embed_id]
+                                    cell_pos = {
+                                        "table_index": table_idx,
+                                        "row_index": row_idx,
+                                        "cell_index": cell_idx
+                                    }
+                                    image_positions.append(cell_pos)
+                                    
+                                    # 이미지 파일명별로 셀 위치 저장
+                                    if filename not in image_cell_mapping:
+                                        image_cell_mapping[filename] = []
+                                    image_cell_mapping[filename].append(cell_pos)
+                                break
+        
         # DOCX 파일을 ZIP으로 열어서 이미지 추출
         extracted_images = []
         
@@ -79,32 +128,16 @@ def extract_images_from_docx(docx_path: str, output_dir: str) -> dict:
                     with open(output_path, 'wb') as f:
                         f.write(img_data)
                     
+                    # 해당 이미지가 있는 셀 위치 정보 추가
+                    cell_positions = image_cell_mapping.get(filename, [])
+                    
                     extracted_images.append({
                         "original_path": img_path,
                         "filename": filename,
                         "output_path": output_path,
-                        "size": len(img_data)
+                        "size": len(img_data),
+                        "cell_positions": cell_positions  # 이 이미지가 있는 셀 위치들
                     })
-        
-        # python-docx로 문서 열어서 이미지 위치 정보도 추출
-        doc = Document(docx_path)
-        
-        # 각 테이블의 각 셀에서 이미지 찾기
-        image_positions = []
-        for table_idx, table in enumerate(doc.tables):
-            for row_idx, row in enumerate(table.rows):
-                for cell_idx, cell in enumerate(row.cells):
-                    # 셀 내 이미지 확인
-                    for para in cell.paragraphs:
-                        for run in para.runs:
-                            if run.element.findall('.//a:blip', namespaces={'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}):
-                                # 이미지가 있는 셀
-                                image_positions.append({
-                                    "table_index": table_idx,
-                                    "row_index": row_idx,
-                                    "cell_index": cell_idx
-                                })
-                                break
         
         return {
             "success": True,
@@ -112,7 +145,8 @@ def extract_images_from_docx(docx_path: str, output_dir: str) -> dict:
             "output_dir": output_dir,
             "extracted_count": len(extracted_images),
             "images": extracted_images,
-            "image_positions": image_positions  # 이미지가 있는 셀 위치
+            "image_positions": image_positions,  # 이미지가 있는 셀 위치
+            "image_cell_mapping": image_cell_mapping  # 파일명별 셀 위치 매핑
         }
     
     except Exception as e:

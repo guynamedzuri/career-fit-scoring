@@ -2029,8 +2029,26 @@ ipcMain.handle('process-resume', async (event, filePath: string) => {
         const result = JSON.parse(stdout);
         
         if (result.success && result.images && result.images.length > 0) {
-          // 첫 번째 이미지 사용 (증명사진은 보통 첫 번째)
-          photoPath = result.images[0].output_path;
+          // 증명사진 위치 (Table 0, Row 2, Cell 4)에 있는 이미지 찾기
+          let photoImage = null;
+          for (const img of result.images) {
+            const cellPositions = img.cell_positions || [];
+            // Table 0, Row 2, Cell 4 (증명사진 위치)에 있는 이미지 찾기
+            const isPhotoCell = cellPositions.some((pos: any) => 
+              pos.table_index === 0 && pos.row_index === 2 && pos.cell_index === 4
+            );
+            if (isPhotoCell) {
+              photoImage = img;
+              break;
+            }
+          }
+          
+          // 증명사진 위치에 있는 이미지가 없으면 첫 번째 이미지 사용
+          if (!photoImage) {
+            photoImage = result.images[0];
+          }
+          
+          photoPath = photoImage.output_path;
           
           // 파일이 실제로 존재하는지 확인
           if (!fs.existsSync(photoPath)) {
