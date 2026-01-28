@@ -66,6 +66,15 @@ MAJORS = ['컴퓨터공학', '전기전자공학', '기계공학', '화학공학
           '마케팅', '심리학', '사회학', '영어영문학', '국어국문학', '수학', '물리학', '화학', '생물학',
           '건축학', '토목공학', '환경공학', '식품영양학', '간호학', '의학', '법학', '행정학']
 
+# 문과 전공
+LIBERAL_ARTS_MAJORS = ['경영학', '경제학', '회계학', '마케팅', '심리학', '사회학', '영어영문학', '국어국문학', '법학', '행정학']
+
+# 공과 전공 (전기과 제외)
+ENGINEERING_MAJORS = ['컴퓨터공학', '기계공학', '화학공학', '산업공학', '건축학', '토목공학', '환경공학']
+
+# 전기 관련 전공
+ELECTRICAL_MAJORS = ['전기전자공학', '전기공학', '전자공학']
+
 COMPANIES = ['삼성전자', 'LG전자', 'SK하이닉스', '현대자동차', '기아', '네이버', '카카오', 'LG화학',
              '포스코', '한화', '롯데', 'CJ', '두산', 'GS', 'KT', 'SK텔레콤', 'LG유플러스',
              '신한은행', 'KB금융', '하나은행', '우리은행', 'NH농협은행', 'IBK기업은행',
@@ -145,6 +154,91 @@ def generate_salary() -> str:
     return f"{base}만원"
 
 
+def generate_education_with_type(education_type: str = 'random', is_electrical: bool = False) -> List[Dict]:
+    """조건에 맞는 학력 정보 생성
+    
+    Args:
+        education_type: 'liberal_arts' (문과), 'engineering' (공과), 'random' (랜덤)
+        is_electrical: True면 전기 관련 전공
+    """
+    educations = []
+    
+    # 항상 고등학교 포함
+    high_school_city = random.choice(CITIES).replace('시', '').replace('도', '').replace('특별시', '').replace('광역시', '').replace('특별자치도', '')
+    high_school_name = f"{high_school_city}고등학교"
+    hs_start_year = random.randint(2010, 2015)
+    hs_end_year = hs_start_year + 3
+    
+    educations.append({
+        'start': f"{hs_start_year}.{random.randint(1, 3):02d}",
+        'end': f"{hs_end_year}.{random.randint(1, 12):02d}",
+        'school': high_school_name,
+        'major': '',
+        'gpa': '',
+        'location': random.choice(CITIES),
+        'graduation': '졸업'
+    })
+    
+    # 대학교 또는 대학원 추가
+    if education_type == 'liberal_arts':
+        # 문과: 고졸 또는 대졸
+        if random.random() < 0.3:  # 30% 확률로 고졸
+            return educations
+        
+        major = random.choice(LIBERAL_ARTS_MAJORS)
+        university = random.choice(UNIVERSITIES)
+    elif education_type == 'engineering':
+        # 공과: 공고 또는 공대
+        if random.random() < 0.2:  # 20% 확률로 공고 졸업
+            # 공고 추가
+            tech_school = random.choice(['서울공업고등학교', '인천공업고등학교', '부산공업고등학교', '대구공업고등학교'])
+            prev_end_year = int(educations[-1]['end'].split('.')[0])
+            start_year = prev_end_year
+            end_year = start_year + 3
+            
+            educations.append({
+                'start': f"{start_year}.{random.randint(1, 3):02d}",
+                'end': f"{end_year}.{random.randint(1, 12):02d}",
+                'school': tech_school,
+                'major': '전기과' if is_electrical else random.choice(['기계과', '전자과', '화학과', '건축과']),
+                'gpa': '',
+                'location': random.choice(CITIES),
+                'graduation': '졸업'
+            })
+            return educations
+        
+        # 공대 졸업
+        if is_electrical:
+            major = random.choice(ELECTRICAL_MAJORS)
+        else:
+            major = random.choice(ENGINEERING_MAJORS)
+        university = random.choice(UNIVERSITIES)
+    else:
+        # 랜덤
+        major = random.choice(MAJORS)
+        university = random.choice(UNIVERSITIES)
+    
+    prev_end_year = int(educations[-1]['end'].split('.')[0])
+    start_year = prev_end_year + random.randint(0, 1)
+    end_year = start_year + 4
+    
+    gpa = f"{random.uniform(3.0, 4.5):.2f}/4.5"
+    location = random.choice(CITIES)
+    graduation = random.choice(['졸업', '졸업예정', '수료'])
+    
+    educations.append({
+        'start': f"{start_year}.{random.randint(1, 3):02d}",
+        'end': f"{end_year}.{random.randint(1, 12):02d}",
+        'school': university,
+        'major': major,
+        'gpa': gpa,
+        'location': location,
+        'graduation': graduation
+    })
+    
+    return educations
+
+
 def generate_education() -> List[Dict]:
     """학력 정보 생성 (고등학교 + 대학교/대학원, 최대 3개)"""
     educations = []
@@ -209,6 +303,62 @@ def generate_education() -> List[Dict]:
     return educations
 
 
+def generate_career_with_condition(department_type: str = 'random', min_years: float = 0, max_years: float = 10, has_career: bool = True) -> List[Dict]:
+    """조건에 맞는 경력 정보 생성
+    
+    Args:
+        department_type: 'facility' (시설관리), 'hr' (인사팀), 'accounting' (회계팀), 'random' (랜덤)
+        min_years: 최소 경력 기간 (년)
+        max_years: 최대 경력 기간 (년)
+        has_career: 경력 유무 (False면 빈 리스트 반환)
+    """
+    if not has_career:
+        return []
+    
+    careers = []
+    
+    # 경력 기간 계산
+    current_date = datetime(2025, 1, 1)
+    total_months = int((max_years - min_years) * 12 * random.random() + min_years * 12)
+    
+    start_date = current_date - timedelta(days=total_months * 30)
+    start_year = start_date.year
+    start_month = start_date.month
+    
+    end_year = current_date.year
+    end_month = current_date.month
+    
+    company = random.choice(COMPANIES)
+    
+    if department_type == 'facility':
+        department = '시설관리팀'
+        position = random.choice(['사원', '주임', '대리', '과장'])
+    elif department_type == 'hr':
+        department = '인사팀'
+        position = random.choice(['사원', '주임', '대리', '과장'])
+    elif department_type == 'accounting':
+        department = '회계팀'
+        position = random.choice(['사원', '주임', '대리', '과장'])
+    else:
+        department = random.choice(DEPARTMENTS)
+        position = random.choice(POSITIONS)
+    
+    salary = random.randint(3000, 8000)
+    reason = random.choice(['개인사정', '이직', '계약만료', '회사사정', '전직희망'])
+    
+    careers.append({
+        'start': f"{start_year}.{start_month:02d}",
+        'end': f"{end_year}.{end_month:02d}",
+        'company': company,
+        'department': department,
+        'position': position,
+        'salary': f"{salary}만원",
+        'reason': reason
+    })
+    
+    return careers
+
+
 def generate_career() -> List[Dict]:
     """경력 정보 생성 (1-4개)"""
     count = random.randint(1, 4)
@@ -246,6 +396,67 @@ def generate_career() -> List[Dict]:
         })
     
     return careers
+
+
+def generate_certificates_with_condition(has_electrical_industrial: bool = False, has_fire_safety_manager: bool = False, has_either: bool = False) -> List[Dict]:
+    """조건에 맞는 자격증 정보 생성
+    
+    Args:
+        has_electrical_industrial: 전기산업기사 포함 여부
+        has_fire_safety_manager: 소방안전관리자 1급 포함 여부
+        has_either: 둘 중 하나만 포함 여부
+    """
+    certs = []
+    
+    if has_electrical_industrial:
+        certs.append({
+            'name': '전기산업기사',
+            'grade': '산업기사',
+            'issuer': '한국산업인력공단',
+            'date': f"{random.randint(2020, 2024)}.{random.randint(1, 12):02d}"
+        })
+    
+    if has_fire_safety_manager:
+        certs.append({
+            'name': '소방안전관리자',
+            'grade': '1급',
+            'issuer': '소방청',
+            'date': f"{random.randint(2020, 2024)}.{random.randint(1, 12):02d}"
+        })
+    
+    if has_either and not has_electrical_industrial and not has_fire_safety_manager:
+        # 둘 중 하나만
+        if random.random() < 0.5:
+            certs.append({
+                'name': '전기산업기사',
+                'grade': '산업기사',
+                'issuer': '한국산업인력공단',
+                'date': f"{random.randint(2020, 2024)}.{random.randint(1, 12):02d}"
+            })
+        else:
+            certs.append({
+                'name': '소방안전관리자',
+                'grade': '1급',
+                'issuer': '소방청',
+                'date': f"{random.randint(2020, 2024)}.{random.randint(1, 12):02d}"
+            })
+    
+    # 추가 자격증 (0-2개)
+    additional_count = random.randint(0, 2)
+    for _ in range(additional_count):
+        cert_name = random.choice([c for c in CERTIFICATES if c not in ['전기산업기사', '소방안전관리자']])
+        grade = random.choice(['1급', '2급', '기사', '산업기사', '990점', '850점', '750점', 'N1', 'N2'])
+        issuer = random.choice(['한국산업인력공단', '대한상공회의소', '한국어능력시험원', 'ETS', '영국문화원'])
+        date = f"{random.randint(2020, 2024)}.{random.randint(1, 12):02d}"
+        
+        certs.append({
+            'name': cert_name,
+            'grade': grade,
+            'issuer': issuer,
+            'date': date
+        })
+    
+    return certs
 
 
 def generate_certificates() -> List[Dict]:
@@ -620,7 +831,10 @@ def extract_char_keywords(character_description: str) -> str:
         return f'_{hash_val}'
 
 
-def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False, character_description: str = None, field_description: str = None):
+def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False, character_description: str = None, field_description: str = None, 
+                     education_type: str = 'random', is_electrical: bool = False,
+                     department_type: str = 'random', min_years: float = 0, max_years: float = 10, has_career: bool = True,
+                     has_electrical_industrial: bool = False, has_fire_safety_manager: bool = False, has_either: bool = False):
     """이력서 양식에 더미 데이터 채우기
     
     Args:
@@ -684,8 +898,8 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False,
                 address = generate_address()
                 salary = generate_salary()
                 military = random.choice(MILITARY_STATUS)
-                educations = generate_education()
-                careers = generate_career()
+                educations = generate_education_with_type(education_type, is_electrical)
+                careers = generate_career_with_condition(department_type, min_years, max_years, has_career)
                 
                 # 최신순으로 정렬 (졸업년월 기준 내림차순)
                 educations.sort(key=lambda x: (
@@ -707,8 +921,8 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False,
             address = generate_address()
             salary = generate_salary()
             military = random.choice(MILITARY_STATUS)
-            educations = generate_education()
-            careers = generate_career()
+            educations = generate_education_with_type(education_type, is_electrical)
+            careers = generate_career_with_condition(department_type, min_years, max_years, has_career)
             
             # 최신순으로 정렬 (졸업년월 기준 내림차순)
             educations.sort(key=lambda x: (
@@ -722,8 +936,8 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False,
                 int(x.get('start', '0.0').split('.')[0]) * 100 + int(x.get('start', '0.0').split('.')[1]) if '.' in x.get('start', '0.0') else 0
             ), reverse=True)
         
-        # 자격증과 어학은 항상 랜덤 생성 (AI 옵션 없음)
-        certificates = generate_certificates()
+        # 자격증과 어학 생성
+        certificates = generate_certificates_with_condition(has_electrical_industrial, has_fire_safety_manager, has_either)
         languages = generate_languages()
         
         # AI로 자기소개서 생성
@@ -974,44 +1188,137 @@ def main():
         print(f"채용분야: {args.field[:60]}..." if len(args.field) > 60 else f"채용분야: {args.field}")
     print()
     
-    # 더미 이력서 생성
-    success_count = 0
-    for i in range(args.count):
-        print(f"[{i+1}/{args.count}] 생성 중...", end=' ')
+    # count가 50이면 조건별 생성, 아니면 기존 로직
+    if args.count == 50:
+        # 조건별 더미 이력서 생성
+    conditions = [
+        # 1. 10명: 문과(고졸/대졸 상관없이), 경력 없거나 인사팀/회계팀 경력
+        {'count': 10, 'education_type': 'liberal_arts', 'is_electrical': False, 
+         'department_type': 'random', 'min_years': 0, 'max_years': 10, 'has_career': True,
+         'has_electrical_industrial': False, 'has_fire_safety_manager': False, 'has_either': False,
+         'career_dept_filter': ['인사팀', '회계팀', None]},  # None은 경력 없음
         
-        # 임시 파일로 먼저 생성
-        temp_path = output_dir / f"temp_{uuid.uuid4().hex[:8]}.docx"
-        name = fill_resume_form(template_path, str(temp_path), args.use_ai, args.character, args.field)
+        # 2. 9명: 문과(고졸/대졸 상관없이), 시설관리 근무 경력 1-3년
+        {'count': 9, 'education_type': 'liberal_arts', 'is_electrical': False,
+         'department_type': 'facility', 'min_years': 1, 'max_years': 3, 'has_career': True,
+         'has_electrical_industrial': False, 'has_fire_safety_manager': False, 'has_either': False},
         
-        if name:
-            # 이름_고유번호[char키워드].docx 형식으로 저장
-            unique_id = uuid.uuid4().hex[:8]
-            
-            # char 정보에서 키워드 추출
-            char_keywords = extract_char_keywords(args.character) if args.character else ""
-            
-            output_filename = f"{name}_{unique_id}{char_keywords}.docx"
-            output_path = output_dir / output_filename
-            
-            # 파일명 중복 체크
-            counter = 1
-            while output_path.exists():
-                output_filename = f"{name}_{unique_id}{char_keywords}_{counter}.docx"
-                output_path = output_dir / output_filename
-                counter += 1
-            
-            # 임시 파일을 최종 파일명으로 이동
-            temp_path.rename(output_path)
-            print(f"✓ 완료: {output_filename}")
-            success_count += 1
-        else:
-            if temp_path.exists():
-                temp_path.unlink()
-            print("✗ 실패")
+        # 3. 1명: 문과(고졸/대졸 상관없이), 시설관리 근무 경력 3년 이상, 전기산업기사 + 소방안전관리자 1급
+        {'count': 1, 'education_type': 'liberal_arts', 'is_electrical': False,
+         'department_type': 'facility', 'min_years': 3, 'max_years': 10, 'has_career': True,
+         'has_electrical_industrial': True, 'has_fire_safety_manager': True, 'has_either': False},
+        
+        # 4. 25명: 공고/공대 졸업(전기과 제외), 시설관리자 경력 1년 이하 또는 없음
+        {'count': 25, 'education_type': 'engineering', 'is_electrical': False,
+         'department_type': 'facility', 'min_years': 0, 'max_years': 1, 'has_career': True,
+         'has_electrical_industrial': False, 'has_fire_safety_manager': False, 'has_either': False},
+        
+        # 5. 4명: 공고/공대 졸업(전기과), 시설관리자 경력 1년 이하 또는 없음, 전기산업기사 또는 소방안전관리자 1급 중 하나
+        {'count': 4, 'education_type': 'engineering', 'is_electrical': True,
+         'department_type': 'facility', 'min_years': 0, 'max_years': 1, 'has_career': True,
+         'has_electrical_industrial': False, 'has_fire_safety_manager': False, 'has_either': True},
+        
+        # 6. 1명: 공고/공대 졸업(전기과), 시설관리자 경력 3년 이상, 전기산업기사 + 소방안전관리자 1급 둘 다
+        {'count': 1, 'education_type': 'engineering', 'is_electrical': True,
+         'department_type': 'facility', 'min_years': 3, 'max_years': 10, 'has_career': True,
+         'has_electrical_industrial': True, 'has_fire_safety_manager': True, 'has_either': False},
+    ]
     
-    print()
-    print(f"완료: {success_count}/{args.count}개 생성됨")
-    print(f"출력 위치: {output_dir.absolute()}")
+    success_count = 0
+    total_count = sum(c['count'] for c in conditions)
+    current_index = 0
+    
+    for condition_idx, condition in enumerate(conditions):
+        print(f"\n=== 조건 {condition_idx + 1}: {condition['count']}명 생성 ===")
+        for i in range(condition['count']):
+            current_index += 1
+            print(f"[{current_index}/{total_count}] 생성 중...", end=' ')
+            
+            # 조건 1의 경우 경력 부서 필터 적용
+            dept_type = condition['department_type']
+            has_career = condition['has_career']
+            if 'career_dept_filter' in condition:
+                # 경력 없음 또는 인사팀/회계팀
+                if random.random() < 0.3:  # 30% 확률로 경력 없음
+                    has_career = False
+                else:
+                    dept_type = random.choice(['hr', 'accounting'])
+            
+            # 임시 파일로 먼저 생성
+            temp_path = output_dir / f"temp_{uuid.uuid4().hex[:8]}.docx"
+            name = fill_resume_form(
+                template_path, str(temp_path), args.use_ai, args.character, args.field,
+                condition['education_type'], condition['is_electrical'],
+                dept_type, condition['min_years'], condition['max_years'], has_career,
+                condition['has_electrical_industrial'], condition['has_fire_safety_manager'], condition['has_either']
+            )
+            
+            if name:
+                # 이름_고유번호[조건].docx 형식으로 저장
+                unique_id = uuid.uuid4().hex[:8]
+                condition_tag = f"_C{condition_idx+1}"
+                
+                output_filename = f"{name}_{unique_id}{condition_tag}.docx"
+                output_path = output_dir / output_filename
+                
+                # 파일명 중복 체크
+                counter = 1
+                while output_path.exists():
+                    output_filename = f"{name}_{unique_id}{condition_tag}_{counter}.docx"
+                    output_path = output_dir / output_filename
+                    counter += 1
+                
+                # 임시 파일을 최종 파일명으로 이동
+                temp_path.rename(output_path)
+                print(f"✓ 완료: {output_filename}")
+                success_count += 1
+            else:
+                if temp_path.exists():
+                    temp_path.unlink()
+                print("✗ 실패")
+    
+        print()
+        print(f"완료: {success_count}/{total_count}개 생성됨")
+        print(f"출력 위치: {output_dir.absolute()}")
+    else:
+        # 기존 랜덤 생성 로직
+        success_count = 0
+        for i in range(args.count):
+            print(f"[{i+1}/{args.count}] 생성 중...", end=' ')
+            
+            # 임시 파일로 먼저 생성
+            temp_path = output_dir / f"temp_{uuid.uuid4().hex[:8]}.docx"
+            name = fill_resume_form(template_path, str(temp_path), args.use_ai, args.character, args.field)
+            
+            if name:
+                # 이름_고유번호[char키워드].docx 형식으로 저장
+                unique_id = uuid.uuid4().hex[:8]
+                
+                # char 정보에서 키워드 추출
+                char_keywords = extract_char_keywords(args.character) if args.character else ""
+                
+                output_filename = f"{name}_{unique_id}{char_keywords}.docx"
+                output_path = output_dir / output_filename
+                
+                # 파일명 중복 체크
+                counter = 1
+                while output_path.exists():
+                    output_filename = f"{name}_{unique_id}{char_keywords}_{counter}.docx"
+                    output_path = output_dir / output_filename
+                    counter += 1
+                
+                # 임시 파일을 최종 파일명으로 이동
+                temp_path.rename(output_path)
+                print(f"✓ 완료: {output_filename}")
+                success_count += 1
+            else:
+                if temp_path.exists():
+                    temp_path.unlink()
+                print("✗ 실패")
+        
+        print()
+        print(f"완료: {success_count}/{args.count}개 생성됨")
+        print(f"출력 위치: {output_dir.absolute()}")
 
 
 if __name__ == '__main__':
