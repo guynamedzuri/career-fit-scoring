@@ -146,8 +146,8 @@ export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
     photo: { rowIndex: 2, cellIndex: 5 },
     // (3,1): 생년월일
     birthDate: { rowIndex: 3, cellIndex: 1 },
-    // (3,4): 이메일
-    email: { rowIndex: 3, cellIndex: 4 },
+    // (3,3): 이메일 (Cell 2는 'e-mail' 라벨, Cell 3부터 입력 필드)
+    email: { rowIndex: 3, cellIndex: 3 },
     // (4,1): 현재 주소지
     address: { rowIndex: 4, cellIndex: 1 },
     // (5,1): 연락처 (기존 자택전화번호 자리, 이제 하나만 사용)
