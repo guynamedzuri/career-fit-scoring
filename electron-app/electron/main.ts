@@ -2249,6 +2249,9 @@ ${userPrompt.preferredQualifications}
       userPromptText += `필수 자격증:
 ${userPrompt.requiredCertifications.join(', ')}
 
+자격증 평가 가이드:
+국가기술자격은 가장 낮은 순서부터 기능사, 산업기사, 기사, 기술사로 단계가 나뉩니다(물론 꼭 그렇지 않은 자격증도 있습니다). 요구하는 자격증보다 단계가 높은 자격증을 가진 경우에는 해당 자격증도 보유한 것으로 간주합니다. 예를 들어, 전기기사 자격을 보유하고 있다면 굳이 전기산업기사 자격시험을 치르지 않아도 전기산업기사도 보유하고 있는 것으로 봅니다. 따라서 필수 자격증이 "정보처리산업기사 이상"으로 되어 있고, 이력서에 "정보처리기사"가 있다면 이는 요구사항을 만족하는 것으로 평가해야 합니다.
+
 `;
     }
 
@@ -2261,7 +2264,7 @@ ${resumeText}
 1. 경력 적합도: 이력서의 경력이 업무 내용과 얼마나 적합한지 평가 (◎=매우 적합, ○=적합, X=부적합, -=경력 없음)
 ${userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim() ? '2. 필수사항 만족여부: 필수 요구사항을 모두 만족하는지 평가 (◎=만족, X=불만족)' : ''}
 ${userPrompt.preferredQualifications && userPrompt.preferredQualifications.trim() ? '3. 우대사항 만족여부: 우대 사항을 얼마나 만족하는지 평가 (◎=매우 만족, ○=만족, X=불만족)' : ''}
-${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length > 0 ? '4. 자격증 만족여부: 필수 자격증을 보유하고 있는지 평가 (◎=매우 만족, ○=만족, X=불만족)' : ''}
+${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length > 0 ? '4. 자격증 만족여부: 필수 자격증을 보유하고 있는지 평가 (◎=매우 만족, ○=만족, X=불만족). 위의 자격증 평가 가이드를 참고하여, 요구하는 자격증보다 단계가 높은 자격증을 보유한 경우에도 만족한 것으로 평가하세요.' : ''}
 
 중요: evaluations 객체에는 위에서 언급된 항목들만 포함하세요. 예를 들어 필수 요구사항이 없으면 requiredQual 필드를 포함하지 마세요.`;
 
