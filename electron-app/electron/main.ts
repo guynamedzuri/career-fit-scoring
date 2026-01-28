@@ -2240,6 +2240,13 @@ async function callAIAndParse(
         preferredQual?: string;
         certification?: string;
       };
+      gradeEvaluations?: {
+        최상?: { satisfied: boolean; reason: string };
+        상?: { satisfied: boolean; reason: string };
+        중?: { satisfied: boolean; reason: string };
+        하?: { satisfied: boolean; reason: string };
+        최하?: { satisfied: boolean; reason: string };
+      };
     } | null = null;
     
     let grade = 'C';
@@ -2440,10 +2447,17 @@ async function callAIAndParse(
     console.log('[AI Check] Success for:', fileName, 'Grade:', grade);
     console.log('[AI Check] Parsed report evaluations:', parsedReport?.evaluations);
 
+    // gradeEvaluations는 로그에만 출력하고 인터페이스에는 포함하지 않음
+    // 인터페이스로 반환할 때는 gradeEvaluations를 제거
+    const reportForInterface = parsedReport ? { ...parsedReport } : reportText;
+    if (reportForInterface && typeof reportForInterface === 'object' && 'gradeEvaluations' in reportForInterface) {
+      delete (reportForInterface as any).gradeEvaluations;
+    }
+
     return {
       success: true,
       grade,
-      report: parsedReport || reportText,
+      report: reportForInterface,
       reportParsed: parsedReport !== null,
     };
   } catch (error) {
@@ -2551,10 +2565,34 @@ ipcMain.handle('ai-check-resume', async (event, data: {
     "requiredQual": "◎|X 중 하나 (필수사항 만족여부: ◎=만족, X=불만족) - 필수 요구사항이 있는 경우에만 평가",
     "preferredQual": "◎|○|X 중 하나 (우대사항 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 우대 사항이 있는 경우에만 평가",
     "certification": "◎|○|X 중 하나 (자격증 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 필수 자격증이 있는 경우에만 평가"
+  },
+  "gradeEvaluations": {
+    "최상": {
+      "satisfied": true|false,
+      "reason": "만족 여부에 대한 구체적인 근거 설명"
+    },
+    "상": {
+      "satisfied": true|false,
+      "reason": "만족 여부에 대한 구체적인 근거 설명"
+    },
+    "중": {
+      "satisfied": true|false,
+      "reason": "만족 여부에 대한 구체적인 근거 설명"
+    },
+    "하": {
+      "satisfied": true|false,
+      "reason": "만족 여부에 대한 구체적인 근거 설명"
+    },
+    "최하": {
+      "satisfied": true|false,
+      "reason": "만족 여부에 대한 구체적인 근거 설명"
+    }
   }
 }
 
-중요: 반드시 유효한 JSON 형식으로만 응답하고, JSON 외의 다른 텍스트는 포함하지 마세요.`;
+중요: 
+1. 반드시 유효한 JSON 형식으로만 응답하고, JSON 외의 다른 텍스트는 포함하지 마세요.
+2. gradeEvaluations 객체에는 각 등급(최상, 상, 중, 하, 최하)의 조건을 만족하는지 여부(satisfied)와 그 근거(reason)를 반드시 포함해야 합니다.`;
 
     let userPromptText = `업무 내용:
 ${userPrompt.jobDescription || '업무 내용이 없습니다.'}
@@ -2603,6 +2641,34 @@ ${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length 
     
     if (!result.success) {
       throw new Error(result.error || 'AI 분석 실패');
+    }
+    
+    // 등급별 조건 만족 여부 로그 출력
+    if (result.report && typeof result.report === 'object' && 'gradeEvaluations' in result.report) {
+      const gradeEvaluations = result.report.gradeEvaluations;
+      const gradeNames = ['최상', '상', '중', '하', '최하'];
+      const gradeLabels = ['A (최상)', 'B (상)', 'C (중)', 'D (하)', 'E (최하)'];
+      
+      writeLog(`[AI Check] 등급별 조건 평가 결과 (${data.fileName}):`, 'info');
+      
+      gradeNames.forEach((gradeName, index) => {
+        const evaluation = gradeEvaluations?.[gradeName as keyof typeof gradeEvaluations];
+        const criteria = userPrompt.gradeCriteria?.[gradeName as keyof typeof userPrompt.gradeCriteria] || '조건 없음';
+        
+        if (evaluation) {
+          const satisfied = evaluation.satisfied ? '✓ 만족' : '✗ 불만족';
+          const reason = evaluation.reason || '근거 없음';
+          
+          writeLog(`[AI Check] ${gradeLabels[index]} 등급 조건: ${criteria}`, 'info');
+          writeLog(`[AI Check] ${gradeLabels[index]} 만족 여부: ${satisfied}`, 'info');
+          writeLog(`[AI Check] ${gradeLabels[index]} 근거: ${reason}`, 'info');
+        } else {
+          writeLog(`[AI Check] ${gradeLabels[index]} 등급 조건: ${criteria}`, 'info');
+          writeLog(`[AI Check] ${gradeLabels[index]} 만족 여부: 평가 정보 없음`, 'warn');
+        }
+      });
+    } else {
+      writeLog(`[AI Check] 등급별 조건 평가 정보가 없습니다 (${data.fileName})`, 'warn');
     }
     
     return result;
