@@ -2063,33 +2063,50 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                     </span>
                   </div>
                   
-                  <div className="ai-report-section">
-                    <h4 className="ai-report-section-title">평가 요약</h4>
-                    <p className="ai-report-summary">{currentAiReport.summary}</p>
-                  </div>
+                  {currentAiReport.summary && currentAiReport.summary.trim() && (
+                    <div className="ai-report-section">
+                      <h4 className="ai-report-section-title">평가 요약</h4>
+                      <p className="ai-report-summary">{currentAiReport.summary}</p>
+                    </div>
+                  )}
                   
-                  <div className="ai-report-section">
-                    <h4 className="ai-report-section-title">주요 강점</h4>
-                    <ul className="ai-report-list ai-report-strengths">
-                      {currentAiReport.strengths.map((strength, index) => (
-                        <li key={index}>{strength}</li>
-                      ))}
-                    </ul>
-                  </div>
+                  {currentAiReport.strengths && currentAiReport.strengths.length > 0 && (
+                    <div className="ai-report-section">
+                      <h4 className="ai-report-section-title">주요 강점</h4>
+                      <ul className="ai-report-list ai-report-strengths">
+                        {currentAiReport.strengths.map((strength, index) => (
+                          <li key={index}>{strength}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   
-                  <div className="ai-report-section">
-                    <h4 className="ai-report-section-title">주요 약점</h4>
-                    <ul className="ai-report-list ai-report-weaknesses">
-                      {currentAiReport.weaknesses.map((weakness, index) => (
-                        <li key={index}>{weakness}</li>
-                      ))}
-                    </ul>
-                  </div>
+                  {currentAiReport.weaknesses && currentAiReport.weaknesses.length > 0 && (
+                    <div className="ai-report-section">
+                      <h4 className="ai-report-section-title">주요 약점</h4>
+                      <ul className="ai-report-list ai-report-weaknesses">
+                        {currentAiReport.weaknesses.map((weakness, index) => (
+                          <li key={index}>{weakness}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   
-                  <div className="ai-report-section">
-                    <h4 className="ai-report-section-title">종합 의견</h4>
-                    <div className="ai-report-opinion">{currentAiReport.opinion}</div>
-                  </div>
+                  {currentAiReport.opinion && currentAiReport.opinion.trim() && (
+                    <div className="ai-report-section">
+                      <h4 className="ai-report-section-title">종합 의견</h4>
+                      <div className="ai-report-opinion">{currentAiReport.opinion}</div>
+                    </div>
+                  )}
+                  
+                  {(!currentAiReport.summary || !currentAiReport.summary.trim()) && 
+                   (!currentAiReport.opinion || !currentAiReport.opinion.trim()) && 
+                   (!currentAiReport.strengths || currentAiReport.strengths.length === 0) && 
+                   (!currentAiReport.weaknesses || currentAiReport.weaknesses.length === 0) && (
+                    <div className="ai-report-section">
+                      <p className="ai-report-empty">AI 분석 결과가 비어있습니다. 원본 응답을 확인해주세요.</p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <pre className="ai-report-text">{typeof currentAiReport === 'string' ? currentAiReport : JSON.stringify(currentAiReport, null, 2)}</pre>

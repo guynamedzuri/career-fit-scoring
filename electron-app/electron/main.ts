@@ -2554,9 +2554,25 @@ ${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length 
           // 여전히 필수 필드가 비어있으면 원본 텍스트 사용
           if ((!parsedReport.summary || parsedReport.summary.trim() === '') && 
               (!parsedReport.opinion || parsedReport.opinion.trim() === '')) {
-            // parsedReport를 사용하되, summary나 opinion이 없으면 원본 텍스트를 opinion으로 사용
+            // summary나 opinion이 없으면 원본 텍스트를 opinion으로 사용
             if (!parsedReport.opinion || parsedReport.opinion.trim() === '') {
-              parsedReport.opinion = aiContent.substring(0, 1000); // 원본 텍스트의 일부를 사용
+              // JSON 형식이 아닌 부분을 찾아서 opinion으로 사용
+              const jsonEndMatch = aiContent.match(/\}\s*$/);
+              if (jsonEndMatch) {
+                // JSON 뒤에 추가 설명이 있는 경우
+                const afterJson = aiContent.substring(aiContent.lastIndexOf('}') + 1).trim();
+                if (afterJson.length > 50) {
+                  parsedReport.opinion = afterJson.substring(0, 1000);
+                } else {
+                  parsedReport.opinion = aiContent.substring(0, 1000);
+                }
+              } else {
+                parsedReport.opinion = aiContent.substring(0, 1000);
+              }
+            }
+            // summary도 비어있으면 opinion의 앞부분 사용
+            if (!parsedReport.summary || parsedReport.summary.trim() === '') {
+              parsedReport.summary = parsedReport.opinion.substring(0, 200).trim();
             }
           }
         } catch (extractError: any) {
