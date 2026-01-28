@@ -663,25 +663,63 @@ export default function JobConfigForm({
               <div className="grade-criteria-section">
                 <h3 className="grade-criteria-header">경력 적합도 등급 기준 *</h3>
                 <p className="grade-criteria-tip">
-                  ※ 점진적 소거법으로 작성하세요. 하위 등급 조건을 만족하면서 추가 조건을 충족하는 경우 상위 등급으로 평가됩니다.
+                  ※ 높은 기준에 부합하기만 하면 우선순위를 주는 방식으로 작성하세요. 상 등급 기준만 만족해도 하 등급 기준을 만족하지 않아도 상 등급으로 평가됩니다.
                 </p>
                 
                 <div className="grade-criteria-wrapper">
-                  <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.최하 ? 'error' : ''}`}>
-                    <label className="form-label">최하 등급 기준 *</label>
+                  <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.최상 ? 'error' : ''}`}>
+                    <label className="form-label">최상 등급 기준 *</label>
                     <textarea
                       className="grade-criteria-input"
-                      value={gradeCriteria.최하}
+                      value={gradeCriteria.최상}
                       onChange={(e) => {
-                        setGradeCriteria({ ...gradeCriteria, 최하: e.target.value });
-                        if (setValidationErrors && validationErrors.gradeCriteria?.최하) {
+                        setGradeCriteria({ ...gradeCriteria, 최상: e.target.value });
+                        if (setValidationErrors && validationErrors.gradeCriteria?.최상) {
                           setValidationErrors({
                             ...validationErrors,
-                            gradeCriteria: { ...validationErrors.gradeCriteria, 최하: false },
+                            gradeCriteria: { ...validationErrors.gradeCriteria, 최상: false },
                           });
                         }
                       }}
-                      placeholder="예: 최상, 상, 중, 하 조건을 만족하지 못하며 이력서가 빈약하고 성의가 없는 경우"
+                      placeholder="예: 업무 내용과 거의 동일한 실무 경험이 3년 이상이고, 관련 자격증을 보유한 경우"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.상 ? 'error' : ''}`}>
+                    <label className="form-label">상 등급 기준 *</label>
+                    <textarea
+                      className="grade-criteria-input"
+                      value={gradeCriteria.상}
+                      onChange={(e) => {
+                        setGradeCriteria({ ...gradeCriteria, 상: e.target.value });
+                        if (setValidationErrors && validationErrors.gradeCriteria?.상) {
+                          setValidationErrors({
+                            ...validationErrors,
+                            gradeCriteria: { ...validationErrors.gradeCriteria, 상: false },
+                          });
+                        }
+                      }}
+                      placeholder="예: 경력 중에 업무 내용과 거의 동일한 실무 경험이 있거나 업무내용과 관련있는 경력을 1년 이상 유지한 경우"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.중 ? 'error' : ''}`}>
+                    <label className="form-label">중 등급 기준 *</label>
+                    <textarea
+                      className="grade-criteria-input"
+                      value={gradeCriteria.중}
+                      onChange={(e) => {
+                        setGradeCriteria({ ...gradeCriteria, 중: e.target.value });
+                        if (setValidationErrors && validationErrors.gradeCriteria?.중) {
+                          setValidationErrors({
+                            ...validationErrors,
+                            gradeCriteria: { ...validationErrors.gradeCriteria, 중: false },
+                          });
+                        }
+                      }}
+                      placeholder="예: 경력 중에 업무 내용과 직접적으로 관련이 있는 경우"
                       rows={3}
                     />
                   </div>
@@ -705,59 +743,21 @@ export default function JobConfigForm({
                     />
                   </div>
 
-                  <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.중 ? 'error' : ''}`}>
-                    <label className="form-label">중 등급 기준 *</label>
+                  <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.최하 ? 'error' : ''}`}>
+                    <label className="form-label">최하 등급 기준 *</label>
                     <textarea
                       className="grade-criteria-input"
-                      value={gradeCriteria.중}
+                      value={gradeCriteria.최하}
                       onChange={(e) => {
-                        setGradeCriteria({ ...gradeCriteria, 중: e.target.value });
-                        if (setValidationErrors && validationErrors.gradeCriteria?.중) {
+                        setGradeCriteria({ ...gradeCriteria, 최하: e.target.value });
+                        if (setValidationErrors && validationErrors.gradeCriteria?.최하) {
                           setValidationErrors({
                             ...validationErrors,
-                            gradeCriteria: { ...validationErrors.gradeCriteria, 중: false },
+                            gradeCriteria: { ...validationErrors.gradeCriteria, 최하: false },
                           });
                         }
                       }}
-                      placeholder="예: 하 등급 조건을 만족하면서 경력 중에 업무 내용과 직접적으로 관련이 있는 경우"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.상 ? 'error' : ''}`}>
-                    <label className="form-label">상 등급 기준 *</label>
-                    <textarea
-                      className="grade-criteria-input"
-                      value={gradeCriteria.상}
-                      onChange={(e) => {
-                        setGradeCriteria({ ...gradeCriteria, 상: e.target.value });
-                        if (setValidationErrors && validationErrors.gradeCriteria?.상) {
-                          setValidationErrors({
-                            ...validationErrors,
-                            gradeCriteria: { ...validationErrors.gradeCriteria, 상: false },
-                          });
-                        }
-                      }}
-                      placeholder="예: 중 등급 조건을 만족하면서 경력 중에 업무 내용과 거의 동일한 실무 경험이 있거나 업무내용과 관련있는 경력을 1년 이상 유지한 경우"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.최상 ? 'error' : ''}`}>
-                    <label className="form-label">최상 등급 기준 *</label>
-                    <textarea
-                      className="grade-criteria-input"
-                      value={gradeCriteria.최상}
-                      onChange={(e) => {
-                        setGradeCriteria({ ...gradeCriteria, 최상: e.target.value });
-                        if (setValidationErrors && validationErrors.gradeCriteria?.최상) {
-                          setValidationErrors({
-                            ...validationErrors,
-                            gradeCriteria: { ...validationErrors.gradeCriteria, 최상: false },
-                          });
-                        }
-                      }}
-                      placeholder="예: 하위 등급의 모든 조건(OR 조건도 AND로)을 만족하면서 자기소개서에 LS오토모티브라는 키워드 있는 경우"
+                      placeholder="예: 상위 등급 조건을 모두 만족하지 못하며 이력서가 빈약하고 성의가 없는 경우"
                       rows={3}
                     />
                   </div>
