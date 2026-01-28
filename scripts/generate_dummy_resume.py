@@ -1145,6 +1145,7 @@ def main():
     parser.add_argument('--no-ai', action='store_false', dest='use_ai', default=True, help='AI를 사용하지 않고 기본 텍스트로 생성 (기본값: AI 사용)')
     parser.add_argument('--char', '--character', type=str, default=None, dest='character', help='캐릭터 배경 설명 (예: "중위권 대학의 애매한 성적, 공대 졸업 생산직 진출") - AI 사용 시에만 적용')
     parser.add_argument('--field', type=str, default=None, dest='field', help='채용분야 설명 (예: "부품생산팀 PRESS분야 채용. 담당업무는 일반프레스(40~80톤) 설비 양산 운영...") - AI 사용 시에만 적용')
+    parser.add_argument('--label', type=str, default=None, help='파일명 끝에 붙일 라벨 (예: C1, C2 ...). count!=50 랜덤 생성 시에만 적용. 예: 홍길동_abcd1234_C1.docx')
     parser.add_argument('--template', type=str, default='resume_form.docx', help='템플릿 파일 경로 (기본값: resume_form.docx)')
     
     args = parser.parse_args()
@@ -1302,14 +1303,26 @@ def main():
                     
                     # char 정보에서 키워드 추출
                     char_keywords = extract_char_keywords(args.character) if args.character else ""
+                    # 라벨이 주어지면 char 키워드 대신 강제 사용
+                    label_suffix = ""
+                    if args.label:
+                        safe_label = str(args.label).strip()
+                        # 사용자가 _C1 처럼 넣어도 중복 언더바 방지
+                        if safe_label.startswith('_'):
+                            safe_label = safe_label[1:]
+                        # 공백 제거
+                        safe_label = safe_label.replace(' ', '')
+                        if safe_label:
+                            label_suffix = f"_{safe_label}"
                     
-                    output_filename = f"{name}_{unique_id}{char_keywords}.docx"
+                    suffix = label_suffix if label_suffix else char_keywords
+                    output_filename = f"{name}_{unique_id}{suffix}.docx"
                     output_path = output_dir / output_filename
                     
                     # 파일명 중복 체크
                     counter = 1
                     while output_path.exists():
-                        output_filename = f"{name}_{unique_id}{char_keywords}_{counter}.docx"
+                        output_filename = f"{name}_{unique_id}{suffix}_{counter}.docx"
                         output_path = output_dir / output_filename
                         counter += 1
                     
