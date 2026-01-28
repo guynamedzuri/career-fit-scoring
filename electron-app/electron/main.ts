@@ -1988,77 +1988,154 @@ ipcMain.handle('process-resume', async (event, filePath: string) => {
       const fileName = path.basename(filePath, path.extname(filePath));
       const tempDir = path.join(os.tmpdir(), 'career-fit-scoring', 'photos', fileName);
       fs.mkdirSync(tempDir, { recursive: true });
+      writeLog(`[Photo Extract] 임시 디렉토리 생성: ${tempDir}`, 'info');
       
       // Python 스크립트 경로 찾기
       const scriptPaths = [
         path.join(__dirname, '..', '..', 'scripts', 'extract_images_from_docx.py'),
         path.join(__dirname, '..', 'scripts', 'extract_images_from_docx.py'),
         path.join(process.cwd(), 'scripts', 'extract_images_from_docx.py'),
+        path.join(app.getAppPath(), 'scripts', 'extract_images_from_docx.py'),
+        path.join(app.getAppPath(), '..', 'scripts', 'extract_images_from_docx.py'),
       ];
       
       let scriptPath: string | null = null;
       for (const candidatePath of scriptPaths) {
         if (fs.existsSync(candidatePath)) {
           scriptPath = candidatePath;
+          writeLog(`[Photo Extract] Python 스크립트 찾음: ${scriptPath}`, 'info');
           break;
         }
       }
       
-      if (scriptPath) {
+      if (!scriptPath) {
+        writeLog(`[Photo Extract] Python 스크립트를 찾을 수 없습니다. 시도한 경로: ${scriptPaths.join(', ')}`, 'warn');
+      } else {
         // Python 실행 경로
         const isWindows = process.platform === 'win32';
         let pythonCmd = isWindows ? 'python' : 'python3';
         
         // Python embeddable 우선 시도
         try {
-          const { app } = require('electron');
           if (app && app.getPath) {
             const exePath = app.getPath('exe');
             const resourcesPath = path.dirname(exePath);
             const embedPython = path.join(resourcesPath, 'resources', 'python-embed', isWindows ? 'python.exe' : 'python3');
             if (fs.existsSync(embedPython)) {
               pythonCmd = embedPython;
+              writeLog(`[Photo Extract] Embeddable Python 사용: ${pythonCmd}`, 'info');
+            } else {
+              writeLog(`[Photo Extract] Embeddable Python 없음, 시스템 Python 사용: ${pythonCmd}`, 'info');
             }
           }
         } catch (e) {
-          // electron 모듈이 없으면 시스템 Python 사용
+          writeLog(`[Photo Extract] Electron app 경로 확인 실패, 시스템 Python 사용: ${pythonCmd}`, 'info');
         }
         
         // 이미지 추출 실행
-        const { stdout } = await execAsync(`"${pythonCmd}" "${scriptPath}" "${filePath}" "${tempDir}"`);
-        const result = JSON.parse(stdout);
+        const command = `"${pythonCmd}" "${scriptPath}" "${filePath}" "${tempDir}"`;
+        writeLog(`[Photo Extract] 명령 실행: ${command}`, 'info');
         
-        if (result.success && result.images && result.images.length > 0) {
-          // 증명사진 위치 (Table 0, Row 2, Cell 4)에 있는 이미지 찾기
-          let photoImage = null;
-          for (const img of result.images) {
-            const cellPositions = img.cell_positions || [];
-            // Table 0, Row 2, Cell 4 (증명사진 위치)에 있는 이미지 찾기
-            const isPhotoCell = cellPositions.some((pos: any) => 
-              pos.table_index === 0 && pos.row_index === 2 && pos.cell_index === 4
-            );
-            if (isPhotoCell) {
-              photoImage = img;
-              break;
+        try {
+          const { stdout, stderr } = await execAsync(command, { maxBuffer: 10 * 1024 * 1024 });
+          
+          if (stderr && stderr.trim()) {
+            writeLog(`[Photo Extract] Python stderr: ${stderr}`, 'warn');
+          }
+          
+          if (!stdout || !stdout.trim()) {
+            writeLog(`[Photo Extract] Python 스크립트 출력이 비어있습니다.`, 'warn');
+          } else {
+            // JSON 파싱 시도
+            let result: any;
+            try {
+              result = JSON.parse(stdout);
+            } catch (parseError: any) {
+              writeLog(`[Photo Extract] JSON 파싱 실패: ${parseError.message}`, 'error');
+              writeLog(`[Photo Extract] stdout 내용 (처음 500자): ${stdout.substring(0, 500)}`, 'error');
+              throw parseError;
+            }
+            
+            writeLog(`[Photo Extract] 추출 결과: success=${result.success}, 이미지 개수=${result.images?.length || 0}`, 'info');
+            
+            if (result.error) {
+              writeLog(`[Photo Extract] Python 스크립트 에러: ${result.error}`, 'error');
+            } else if (result.success && result.images && result.images.length > 0) {
+              writeLog(`[Photo Extract] ${result.images.length}개 이미지 추출 성공`, 'info');
+              
+              // 증명사진 위치 (Table 0, Row 2, Cell 4)에 있는 이미지 찾기
+              let photoImage = null;
+              for (const img of result.images) {
+                const cellPositions = img.cell_positions || [];
+                writeLog(`[Photo Extract] 이미지 확인: ${img.filename}, 셀 위치 개수=${cellPositions.length}`, 'info');
+                
+                // Table 0, Row 2, Cell 4 (증명사진 위치)에 있는 이미지 찾기
+                const isPhotoCell = cellPositions.some((pos: any) => 
+                  pos.table_index === 0 && pos.row_index === 2 && pos.cell_index === 4
+                );
+                if (isPhotoCell) {
+                  photoImage = img;
+                  writeLog(`[Photo Extract] 증명사진 위치(Table 0, Row 2, Cell 4)에서 이미지 찾음: ${img.filename}`, 'info');
+                  break;
+                }
+              }
+              
+              // 증명사진 위치에 있는 이미지가 없으면 첫 번째 이미지 사용
+              if (!photoImage) {
+                photoImage = result.images[0];
+                writeLog(`[Photo Extract] 증명사진 위치에서 이미지를 찾지 못해 첫 번째 이미지 사용: ${photoImage.filename}`, 'info');
+              }
+              
+              // 경로 정규화 (절대 경로로 변환)
+              let resolvedPath = photoImage.output_path;
+              if (!path.isAbsolute(resolvedPath)) {
+                resolvedPath = path.resolve(tempDir, resolvedPath);
+              }
+              resolvedPath = path.normalize(resolvedPath);
+              
+              writeLog(`[Photo Extract] 사진 경로 확인: ${resolvedPath}`, 'info');
+              
+              // 파일이 실제로 존재하는지 확인
+              if (fs.existsSync(resolvedPath)) {
+                photoPath = resolvedPath;
+                writeLog(`[Photo Extract] 사진 경로 설정 성공: ${photoPath}`, 'info');
+              } else {
+                writeLog(`[Photo Extract] 사진 파일이 존재하지 않음: ${resolvedPath}`, 'warn');
+                // 상대 경로로도 시도
+                const altPath = path.join(tempDir, photoImage.filename);
+                if (fs.existsSync(altPath)) {
+                  photoPath = altPath;
+                  writeLog(`[Photo Extract] 대체 경로로 사진 찾음: ${photoPath}`, 'info');
+                } else {
+                  writeLog(`[Photo Extract] 대체 경로도 존재하지 않음: ${altPath}`, 'warn');
+                }
+              }
+            } else {
+              writeLog(`[Photo Extract] 이미지가 추출되지 않았습니다. (success=${result.success}, images=${result.images?.length || 0})`, 'warn');
             }
           }
-          
-          // 증명사진 위치에 있는 이미지가 없으면 첫 번째 이미지 사용
-          if (!photoImage) {
-            photoImage = result.images[0];
+        } catch (execError: any) {
+          writeLog(`[Photo Extract] Python 스크립트 실행 실패: ${execError.message}`, 'error');
+          if (execError.stdout) {
+            writeLog(`[Photo Extract] stdout: ${execError.stdout.substring(0, 500)}`, 'error');
           }
-          
-          photoPath = photoImage.output_path;
-          
-          // 파일이 실제로 존재하는지 확인
-          if (!fs.existsSync(photoPath)) {
-            photoPath = undefined;
+          if (execError.stderr) {
+            writeLog(`[Photo Extract] stderr: ${execError.stderr.substring(0, 500)}`, 'error');
           }
         }
       }
     } catch (error: any) {
       // 이미지 추출 실패는 무시 (선택적 기능)
-      console.warn('[Process Resume] Failed to extract photo:', error.message);
+      writeLog(`[Photo Extract] 이미지 추출 중 예외 발생: ${error.message}`, 'error');
+      if (error.stack) {
+        writeLog(`[Photo Extract] 스택 트레이스: ${error.stack}`, 'error');
+      }
+    }
+    
+    if (!photoPath) {
+      writeLog(`[Photo Extract] 최종 결과: 사진 경로를 찾지 못했습니다.`, 'warn');
+    } else {
+      writeLog(`[Photo Extract] 최종 결과: 사진 경로 설정 완료 - ${photoPath}`, 'info');
     }
     
     // 추가 정보 추출 (이름, 나이, 직전 회사, 연봉 등)
