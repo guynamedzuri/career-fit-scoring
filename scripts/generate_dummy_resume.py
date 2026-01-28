@@ -4,12 +4,12 @@
 이력서 양식(resume_form.docx)을 베이스로 더미 이력서를 생성하는 스크립트
 
 사용법:
-    python3 scripts/generate_dummy_resume.py [--count N] [--output-dir DIR] [--use-ai]
+    python3 scripts/generate_dummy_resume.py [--count N] [--output-dir DIR] [--no-ai]
     
 옵션:
     --count N: 생성할 더미 이력서 개수 (기본값: 1)
-    --output-dir DIR: 출력 디렉토리 (기본값: ./dummy_resumes)
-    --use-ai: AI를 사용해서 자기소개서 생성 (선택적, Azure OpenAI 필요)
+    --output-dir DIR: 출력 디렉토리 (기본값: ./generated_resumes)
+    --no-ai: AI를 사용하지 않고 기본 텍스트로 생성 (기본값: AI 사용)
 """
 
 import sys
@@ -970,9 +970,9 @@ def fill_resume_form(template_path: str, output_path: str, use_ai: bool = False,
                 if len(table0.rows) > 3 and len(table0.rows[3].cells) > 1:
                     table0.rows[3].cells[1].text = birth_date
                 
-                # (3,4): 이메일 (Python 인덱스: rows[3].cells[4])
-                if len(table0.rows) > 3 and len(table0.rows[3].cells) > 4:
-                    table0.rows[3].cells[4].text = email
+                # (3,3): 이메일 (Python 인덱스: rows[3].cells[3])
+                if len(table0.rows) > 3 and len(table0.rows[3].cells) > 3:
+                    table0.rows[3].cells[3].text = email
                 
                 # (4,1): 주소 (Python 인덱스: rows[4].cells[1])
                 if len(table0.rows) > 4 and len(table0.rows[4].cells) > 1:
@@ -1142,7 +1142,7 @@ def main():
     parser = argparse.ArgumentParser(description='더미 이력서 생성기')
     parser.add_argument('--count', type=int, default=1, help='생성할 더미 이력서 개수 (기본값: 1)')
     parser.add_argument('--output-dir', type=str, default='./generated_resumes', help='출력 디렉토리 (기본값: ./generated_resumes)')
-    parser.add_argument('--use-ai', action='store_true', help='AI를 사용해서 자기소개서 및 경력기술서 생성 (선택적, Azure OpenAI 필요)')
+    parser.add_argument('--no-ai', action='store_false', dest='use_ai', default=True, help='AI를 사용하지 않고 기본 텍스트로 생성 (기본값: AI 사용)')
     parser.add_argument('--char', '--character', type=str, default=None, dest='character', help='캐릭터 배경 설명 (예: "중위권 대학의 애매한 성적, 공대 졸업 생산직 진출") - AI 사용 시에만 적용')
     parser.add_argument('--field', type=str, default=None, dest='field', help='채용분야 설명 (예: "부품생산팀 PRESS분야 채용. 담당업무는 일반프레스(40~80톤) 설비 양산 운영...") - AI 사용 시에만 적용')
     parser.add_argument('--template', type=str, default='resume_form.docx', help='템플릿 파일 경로 (기본값: resume_form.docx)')
@@ -1159,13 +1159,13 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    # AI 사용 여부 확인
+    # AI 사용 여부 확인 (기본값: True)
     if args.use_ai:
         env_vars = load_env_file()
         api_key = env_vars.get('AZURE_OPENAI_API_KEY') or os.getenv('AZURE_OPENAI_API_KEY')
         if not api_key:
             print("WARNING: Azure OpenAI API 키가 설정되지 않았습니다.")
-            print("  .env 파일에 AZURE_OPENAI_API_KEY를 설정하거나 --use-ai 옵션을 제거하세요.")
+            print("  .env 파일에 AZURE_OPENAI_API_KEY를 설정하거나 --no-ai 옵션을 사용하세요.")
             print("  AI 없이 생성합니다...")
             args.use_ai = False
     
