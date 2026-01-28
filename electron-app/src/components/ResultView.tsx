@@ -389,6 +389,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                     residence: result.residence,
                     applicationData: result.applicationData,
                     searchableText: result.searchableText || r.fileName,
+                    photoPath: result.photoPath, // 증명사진 경로
                   };
                 }
                 return r;
@@ -409,6 +410,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                   residence: result.residence,
                   applicationData: result.applicationData,
                   searchableText: result.searchableText || file.name,
+                  photoPath: result.photoPath, // 증명사진 경로
                 },
               }]);
             }
