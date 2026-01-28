@@ -2439,9 +2439,14 @@ async function callAIAndParse(
     // 파싱이 실패했거나 필수 필드가 비어있는 경우 재시도
     if (!parseSuccess && retryCount < MAX_RETRIES) {
       console.log(`[AI Check] Parsing failed or incomplete, retrying (${retryCount + 1}/${MAX_RETRIES})...`);
-      // 재시도 시 더 명확한 프롬프트 사용
-      const retrySystemPrompt = systemPrompt + '\n\n중요: 반드시 완전한 JSON 형식으로 응답해야 합니다. summary와 opinion 필드는 반드시 채워주세요.';
-      return callAIAndParse(retrySystemPrompt, userPromptText, fileName, retryCount + 1);
+      // 재시도 시 더 명확한 프롬프트 사용 (기존 프롬프트 유지 + 강조 사항 추가)
+      const retrySystemPrompt = systemPrompt + '\n\n[재시도 강조 사항]\n1. 반드시 완전한 JSON 형식으로 응답해야 합니다. summary와 opinion 필드는 반드시 채워주세요.\n2. summary와 opinion은 등급 근거가 아닌 이력서 전체에 대한 종합 평가여야 합니다.\n3. 자격증 평가: 이력서의 자격사항 섹션에 명시적으로 기재된 자격증만 인정합니다. 자격증이 없거나 명시되지 않았다면 반드시 "X"로 평가하세요.';
+      // 재시도 시 userPromptText에도 자격증 평가 강조 추가
+      let retryUserPromptText = userPromptText;
+      if (userPromptText.includes('자격증 만족여부')) {
+        retryUserPromptText += '\n\n[재시도 강조] 자격증 평가 시 주의: 이력서의 자격사항 섹션을 정확히 확인하세요. 자격증이 명시되지 않았다면 절대 추측하지 말고 반드시 "X"로 평가하세요.';
+      }
+      return callAIAndParse(retrySystemPrompt, retryUserPromptText, fileName, retryCount + 1);
     }
 
     console.log('[AI Check] Success for:', fileName, 'Grade:', grade);
@@ -2615,12 +2620,13 @@ ${userPrompt.preferredQualifications}
       userPromptText += `필수 자격증:
 ${userPrompt.requiredCertifications.join(', ')}
 
-자격증 평가 가이드:
-1. 국가기술자격은 가장 낮은 순서부터 기능사, 산업기사, 기사, 기술사로 단계가 나뉩니다(물론 꼭 그렇지 않은 자격증도 있습니다).
-2. 요구하는 자격증보다 단계가 높은 자격증을 가진 경우에는 해당 자격증도 보유한 것으로 간주합니다. 예를 들어, 전기기사 자격을 보유하고 있다면 전기산업기사도 보유한 것으로 봅니다.
-3. **중요**: 이력서의 자격사항 섹션에 명시적으로 기재된 자격증만 인정합니다. 이력서에 자격증이 없거나 명시되지 않았다면 반드시 "X"로 평가해야 합니다.
-4. 필수 자격증이 여러 개인 경우, 모든 자격증을 보유해야 "◎" 또는 "○"로 평가됩니다. 하나라도 없으면 "X"입니다.
-5. 자격증 이름이 정확히 일치하지 않더라도, 동일한 자격증임이 명확하면 인정합니다 (예: "전기산업기사"와 "전기 산업기사").
+자격증 평가 가이드 (반드시 준수):
+1. **가장 중요**: 이력서의 자격사항 섹션에 명시적으로 기재된 자격증만 인정합니다. 이력서에 자격증이 없거나 명시되지 않았다면, 불확실하다고 느껴도 절대 추측하지 말고 반드시 "X"로 평가해야 합니다.
+2. 자격사항 섹션이 비어있거나 "없음"이라고 명시되어 있다면 "X"입니다.
+3. 국가기술자격은 가장 낮은 순서부터 기능사, 산업기사, 기사, 기술사로 단계가 나뉩니다(물론 꼭 그렇지 않은 자격증도 있습니다).
+4. 요구하는 자격증보다 단계가 높은 자격증을 가진 경우에는 해당 자격증도 보유한 것으로 간주합니다. 예를 들어, 전기기사 자격을 보유하고 있다면 전기산업기사도 보유한 것으로 봅니다. 단, 이력서에 명시되어 있어야 합니다.
+5. 필수 자격증이 여러 개인 경우, 모든 자격증을 보유해야 "◎" 또는 "○"로 평가됩니다. 하나라도 없으면 "X"입니다.
+6. 자격증 이름이 정확히 일치하지 않더라도, 동일한 자격증임이 명확하면 인정합니다 (예: "전기산업기사"와 "전기 산업기사").
 
 `;
     }
@@ -2649,7 +2655,7 @@ ${resumeText}
 5. 추가 평가 항목:
 ${userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim() ? '- 필수사항 만족여부: 필수 요구사항을 모두 만족하는지 평가 (◎=만족, X=불만족). 이력서에 명시되지 않은 항목은 불만족으로 평가하세요.' : ''}
 ${userPrompt.preferredQualifications && userPrompt.preferredQualifications.trim() ? '- 우대사항 만족여부: 우대 사항을 얼마나 만족하는지 평가 (◎=매우 만족, ○=만족, X=불만족)' : ''}
-${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length > 0 ? '- 자격증 만족여부: 이력서의 자격사항 섹션에 필수 자격증이 명시적으로 기재되어 있는지 확인하세요. 자격증이 없거나 명시되지 않았다면 반드시 "X"로 평가하세요. 위의 자격증 평가 가이드를 참고하여, 요구하는 자격증보다 단계가 높은 자격증을 보유한 경우에도 만족한 것으로 평가하세요.' : ''}
+${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length > 0 ? '- 자격증 만족여부: **중요** - 이력서의 자격사항 섹션을 정확히 확인하세요. 필수 자격증이 명시적으로 기재되어 있는지 확인하고, 자격증이 없거나 명시되지 않았다면 절대 추측하지 말고 반드시 "X"로 평가하세요. 이력서에 자격증이 없다고 명시되어 있거나 자격사항 섹션이 비어있다면 "X"입니다. 위의 자격증 평가 가이드를 참고하여, 요구하는 자격증보다 단계가 높은 자격증을 보유한 경우에도 만족한 것으로 평가하세요.' : ''}
 - 경력 적합도: 이력서의 경력이 업무 내용과 얼마나 적합한지 평가 (◎=매우 적합, ○=적합, X=부적합, -=경력 없음)
 
 중요: evaluations 객체에는 위에서 언급된 항목들만 포함하세요. 예를 들어 필수 요구사항이 없으면 requiredQual 필드를 포함하지 마세요.`;
