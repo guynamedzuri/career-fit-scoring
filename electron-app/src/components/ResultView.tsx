@@ -1410,17 +1410,21 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               </div>
               <div className="table-cell cell-name">
                 <div className="candidate-info">
-                  {result.photoPath && (
-                    <img 
-                      src={`file://${result.photoPath}`} 
-                      alt={result.name || result.fileName}
-                      className="candidate-photo"
-                      onError={(e) => {
-                        // 이미지 로드 실패 시 숨기기
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  )}
+                  <div className="candidate-photo-container">
+                    {result.photoPath ? (
+                      <img 
+                        src={`file://${result.photoPath}`} 
+                        alt={result.name || result.fileName}
+                        className="candidate-photo"
+                        onError={(e) => {
+                          // 이미지 로드 실패 시 숨기기
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="candidate-photo candidate-photo-placeholder"></div>
+                    )}
+                  </div>
                   <span className="candidate-name">{result.name || result.fileName}</span>
                   {result.errorMessage && (
                     <span className="candidate-error">{result.errorMessage}</span>

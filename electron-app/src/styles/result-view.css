@@ -703,12 +703,27 @@
   width: 100%;
 }
 
+.candidate-photo-container {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
 .candidate-photo {
   width: 40px;
   height: 40px;
   border-radius: 4px;
   object-fit: cover;
   border: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.candidate-photo-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+  background: #f3f4f6;
   flex-shrink: 0;
 }
 
