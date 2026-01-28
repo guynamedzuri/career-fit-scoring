@@ -1226,68 +1226,67 @@ def main():
          'department_type': 'facility', 'min_years': 3, 'max_years': 10, 'has_career': True,
          'has_electrical_industrial': True, 'has_fire_safety_manager': True, 'has_either': False},
     ]
-    
-    success_count = 0
-    total_count = sum(c['count'] for c in conditions)
-    current_index = 0
-    
-    for condition_idx, condition in enumerate(conditions):
-        print(f"\n=== 조건 {condition_idx + 1}: {condition['count']}명 생성 ===")
-        for i in range(condition['count']):
-            current_index += 1
-            print(f"[{current_index}/{total_count}] 생성 중...", end=' ')
-            
-            # 조건 1의 경우 경력 부서 필터 적용
-            dept_type = condition['department_type']
-            has_career = condition['has_career']
-            if 'career_dept_filter' in condition:
-                # 경력 없음 또는 인사팀/회계팀
-                if random.random() < 0.3:  # 30% 확률로 경력 없음
-                    has_career = False
-                    dept_type = 'random'  # 사용 안 함
-                else:
-                    dept_type = random.choice(['hr', 'accounting'])
-                    has_career = True
-            
-            # 임시 파일로 먼저 생성
-            temp_path = output_dir / f"temp_{uuid.uuid4().hex[:8]}.docx"
-            name = fill_resume_form(
-                template_path, str(temp_path), args.use_ai, args.character, args.field,
-                condition['education_type'], condition['is_electrical'],
-                dept_type, condition['min_years'], condition['max_years'], has_career,
-                condition['has_electrical_industrial'], condition['has_fire_safety_manager'], condition['has_either']
-            )
-            
-            if name:
-                # 이름_고유번호[조건].docx 형식으로 저장
-                unique_id = uuid.uuid4().hex[:8]
-                condition_tag = f"_C{condition_idx+1}"
+        
+        success_count = 0
+        total_count = sum(c['count'] for c in conditions)
+        current_index = 0
+        
+        for condition_idx, condition in enumerate(conditions):
+            print(f"\n=== 조건 {condition_idx + 1}: {condition['count']}명 생성 ===")
+            for i in range(condition['count']):
+                current_index += 1
+                print(f"[{current_index}/{total_count}] 생성 중...", end=' ')
                 
-                output_filename = f"{name}_{unique_id}{condition_tag}.docx"
-                output_path = output_dir / output_filename
+                # 조건 1의 경우 경력 부서 필터 적용
+                dept_type = condition['department_type']
+                has_career = condition['has_career']
+                if 'career_dept_filter' in condition:
+                    # 경력 없음 또는 인사팀/회계팀
+                    if random.random() < 0.3:  # 30% 확률로 경력 없음
+                        has_career = False
+                        dept_type = 'random'  # 사용 안 함
+                    else:
+                        dept_type = random.choice(['hr', 'accounting'])
+                        has_career = True
                 
-                # 파일명 중복 체크
-                counter = 1
-                while output_path.exists():
-                    output_filename = f"{name}_{unique_id}{condition_tag}_{counter}.docx"
+                # 임시 파일로 먼저 생성
+                temp_path = output_dir / f"temp_{uuid.uuid4().hex[:8]}.docx"
+                name = fill_resume_form(
+                    template_path, str(temp_path), args.use_ai, args.character, args.field,
+                    condition['education_type'], condition['is_electrical'],
+                    dept_type, condition['min_years'], condition['max_years'], has_career,
+                    condition['has_electrical_industrial'], condition['has_fire_safety_manager'], condition['has_either']
+                )
+                
+                if name:
+                    # 이름_고유번호[조건].docx 형식으로 저장
+                    unique_id = uuid.uuid4().hex[:8]
+                    condition_tag = f"_C{condition_idx+1}"
+                    
+                    output_filename = f"{name}_{unique_id}{condition_tag}.docx"
                     output_path = output_dir / output_filename
-                    counter += 1
-                
-                # 임시 파일을 최종 파일명으로 이동
-                temp_path.rename(output_path)
-                print(f"✓ 완료: {output_filename}")
-                success_count += 1
-            else:
-                if temp_path.exists():
-                    temp_path.unlink()
-                print("✗ 실패")
+                    
+                    # 파일명 중복 체크
+                    counter = 1
+                    while output_path.exists():
+                        output_filename = f"{name}_{unique_id}{condition_tag}_{counter}.docx"
+                        output_path = output_dir / output_filename
+                        counter += 1
+                    
+                    # 임시 파일을 최종 파일명으로 이동
+                    temp_path.rename(output_path)
+                    print(f"✓ 완료: {output_filename}")
+                    success_count += 1
+                else:
+                    if temp_path.exists():
+                        temp_path.unlink()
+                    print("✗ 실패")
         
         print()
         print(f"완료: {success_count}/{total_count}개 생성됨")
         print(f"출력 위치: {output_dir.absolute()}")
     else:
-        # count가 50이 아닌 경우에만 기존 랜덤 생성 로직 실행
-        if args.count != 50:
+        # count가 50이 아닌 경우 기존 랜덤 생성 로직 실행
             # 기존 랜덤 생성 로직
             success_count = 0
             for i in range(args.count):
