@@ -1194,7 +1194,7 @@ def main():
     # count가 50이면 조건별 생성, 아니면 기존 로직
     if args.count == 50:
         # 조건별 더미 이력서 생성
-    conditions = [
+        conditions = [
         # 1. 10명: 문과(고졸/대졸 상관없이), 경력 없거나 인사팀/회계팀 경력
         {'count': 10, 'education_type': 'liberal_arts', 'is_electrical': False, 
          'department_type': 'random', 'min_years': 0, 'max_years': 10, 'has_career': True,
