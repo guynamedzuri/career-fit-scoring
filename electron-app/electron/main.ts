@@ -1974,6 +1974,75 @@ ipcMain.handle('process-resume', async (event, filePath: string) => {
     // 매핑 설정으로 applicationData 변환
     const applicationData = mapResumeDataToApplicationData(tables);
     
+    // 이미지 추출 (증명사진)
+    let photoPath: string | undefined = undefined;
+    try {
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
+      const path = require('path');
+      const fs = require('fs');
+      const os = require('os');
+      
+      // 임시 디렉토리 생성 (파일명 기반)
+      const fileName = path.basename(filePath, path.extname(filePath));
+      const tempDir = path.join(os.tmpdir(), 'career-fit-scoring', 'photos', fileName);
+      fs.mkdirSync(tempDir, { recursive: true });
+      
+      // Python 스크립트 경로 찾기
+      const scriptPaths = [
+        path.join(__dirname, '..', '..', 'scripts', 'extract_images_from_docx.py'),
+        path.join(__dirname, '..', 'scripts', 'extract_images_from_docx.py'),
+        path.join(process.cwd(), 'scripts', 'extract_images_from_docx.py'),
+      ];
+      
+      let scriptPath: string | null = null;
+      for (const candidatePath of scriptPaths) {
+        if (fs.existsSync(candidatePath)) {
+          scriptPath = candidatePath;
+          break;
+        }
+      }
+      
+      if (scriptPath) {
+        // Python 실행 경로
+        const isWindows = process.platform === 'win32';
+        let pythonCmd = isWindows ? 'python' : 'python3';
+        
+        // Python embeddable 우선 시도
+        try {
+          const { app } = require('electron');
+          if (app && app.getPath) {
+            const exePath = app.getPath('exe');
+            const resourcesPath = path.dirname(exePath);
+            const embedPython = path.join(resourcesPath, 'resources', 'python-embed', isWindows ? 'python.exe' : 'python3');
+            if (fs.existsSync(embedPython)) {
+              pythonCmd = embedPython;
+            }
+          }
+        } catch (e) {
+          // electron 모듈이 없으면 시스템 Python 사용
+        }
+        
+        // 이미지 추출 실행
+        const { stdout } = await execAsync(`"${pythonCmd}" "${scriptPath}" "${filePath}" "${tempDir}"`);
+        const result = JSON.parse(stdout);
+        
+        if (result.success && result.images && result.images.length > 0) {
+          // 첫 번째 이미지 사용 (증명사진은 보통 첫 번째)
+          photoPath = result.images[0].output_path;
+          
+          // 파일이 실제로 존재하는지 확인
+          if (!fs.existsSync(photoPath)) {
+            photoPath = undefined;
+          }
+        }
+      }
+    } catch (error: any) {
+      // 이미지 추출 실패는 무시 (선택적 기능)
+      console.warn('[Process Resume] Failed to extract photo:', error.message);
+    }
+    
     // 추가 정보 추출 (이름, 나이, 직전 회사, 연봉 등)
     const name = applicationData.name || undefined;
     const birthDate = applicationData.birthDate || undefined;
@@ -2001,6 +2070,7 @@ ipcMain.handle('process-resume', async (event, filePath: string) => {
       lastSalary,
       residence,
       searchableText,
+      photoPath, // 증명사진 경로
     };
   } catch (error: any) {
     console.error('[Process Resume] Error:', error);

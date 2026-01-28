@@ -76,6 +76,7 @@ interface ScoringResult {
   lastSalary?: string; // 직전 연봉
   residence?: string; // 거주지 (서울, 수도권, 시흥, 안산, 지방)
   searchableText?: string; // 검색 가능한 전체 텍스트 (이름, 회사, 자격증 등 모든 정보)
+  photoPath?: string; // 증명사진 파일 경로
   // AI 검사 결과
   aiGrade?: string; // AI 평가 등급 (예: 'A', 'B', 'C', 'D')
   aiReport?: string | { // AI 분석 결과 보고서 (JSON 파싱된 객체 또는 원본 텍스트)
@@ -1407,6 +1408,17 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               </div>
               <div className="table-cell cell-name">
                 <div className="candidate-info">
+                  {result.photoPath && (
+                    <img 
+                      src={`file://${result.photoPath}`} 
+                      alt={result.name || result.fileName}
+                      className="candidate-photo"
+                      onError={(e) => {
+                        // 이미지 로드 실패 시 숨기기
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  )}
                   <span className="candidate-name">{result.name || result.fileName}</span>
                   {result.errorMessage && (
                     <span className="candidate-error">{result.errorMessage}</span>

@@ -135,7 +135,7 @@ export interface ResumeMappingConfig {
  */
 export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
   basicInfo: {
-    tableIndex: 1, // 테이블 1: 기본 인적사항
+    tableIndex: 0, // 테이블 0: 기본 인적사항 (기존 table1에서 변경)
     // (1,1): 한글이름 + 한문이름
     name: { rowIndex: 1, cellIndex: 1 },
     // (2,1): 영문이름
@@ -150,15 +150,13 @@ export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
     email: { rowIndex: 3, cellIndex: 4 },
     // (4,1): 현재 주소지
     address: { rowIndex: 4, cellIndex: 1 },
-    // (5,1): 자택전화번호
-    phoneHome: { rowIndex: 5, cellIndex: 1 },
-    // (6,1): 이동전화번호
-    phone: { rowIndex: 6, cellIndex: 1 },
-    // (8,1~5): 병역 관련 (5개 셀)
-    militaryService: { rowIndex: 8, cellIndexStart: 1, cellIndexEnd: 5 },
+    // (5,1): 연락처 (기존 자택전화번호 자리, 이제 하나만 사용)
+    phone: { rowIndex: 5, cellIndex: 1 },
+    // (6,1): 병역사항 (필/미필/면제/해당없음) - 기존 이동전화번호 자리
+    militaryService: { rowIndex: 6, cellIndexStart: 1, cellIndexEnd: 1 }, // 단일 셀
   },
   certificates: {
-    tableIndex: 4, // 테이블 4: 자격사항
+    tableIndex: 3, // 테이블 3: 자격사항 (기존 table4에서 변경)
     headerRowIndex: 1,
     dataStartRowIndex: 2, // row 2~4
     dataEndRowIndex: 4,
@@ -171,7 +169,7 @@ export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
     maxCount: 3,
   },
   languageTests: {
-    tableIndex: 4, // 테이블 4: 어학 정보
+    tableIndex: 3, // 테이블 3: 어학 정보 (기존 table4에서 변경)
     headerRowIndex: 1,
     dataStartRowIndex: 2, // row 2~4
     dataEndRowIndex: 4,
@@ -184,7 +182,7 @@ export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
     maxCount: 3,
   },
   careers: {
-    tableIndex: 3, // 테이블 3: 경력사항
+    tableIndex: 2, // 테이블 2: 경력사항 (기존 table3에서 변경)
     headerRowIndex: 1,
     dataStartRowIndex: 2, // row 2~6
     // (2~6,2): 회사명
@@ -200,7 +198,7 @@ export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
     maxCount: 5,
   },
   education: {
-    tableIndex: 2, // 테이블 2: 학력사항
+    tableIndex: 1, // 테이블 1: 학력사항 (기존 table2에서 변경)
     headerRowIndex: 1,
     dataStartRowIndex: 2, // row 2~7
     // (2~7,2): 학교명
@@ -214,7 +212,7 @@ export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
     maxCount: 6,
   },
   overseasTraining: {
-    tableIndex: 4, // 테이블 4: 해외연수
+    tableIndex: 3, // 테이블 3: 해외연수 (기존 table4에서 변경)
     headerRowIndex: 5,
     dataStartRowIndex: 6, // row 6~8
     dataEndRowIndex: 8,
@@ -227,7 +225,7 @@ export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
     maxCount: 3,
   },
   awards: {
-    tableIndex: 4, // 테이블 4: 수상경력
+    tableIndex: 3, // 테이블 3: 수상경력 (기존 table4에서 변경)
     headerRowIndex: 5,
     dataStartRowIndex: 6, // row 6~8
     dataEndRowIndex: 8,
@@ -240,7 +238,7 @@ export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
     maxCount: 3,
   },
   selfIntroduction: {
-    tableIndex: 5, // 테이블 5: 자기소개서
+    tableIndex: 4, // 테이블 4: 자기소개서 (기존 table5에서 변경)
     answers: [
       { rowIndex: 1, cellIndex: 1 }, // 자기소개서 답안 1
       { rowIndex: 3, cellIndex: 1 }, // 자기소개서 답안 2
@@ -249,7 +247,7 @@ export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
     ],
   },
   careerDetails: {
-    tableIndex: 6, // 테이블 6: 경력기술 상세
+    tableIndex: 5, // 테이블 5: 경력기술 상세 (기존 table6에서 변경)
     blocks: [
       { headerRowIndex: 1, dataRowIndex: 2, detailRowIndex: 4 }, // 첫 번째 경력 (row 1~4)
       { headerRowIndex: 5, dataRowIndex: 6, detailRowIndex: 8 }, // 두 번째 경력 (row 5~8)
@@ -437,17 +435,14 @@ export function mapResumeDataToApplicationData(
     const desiredSalaryPos = resolveCellPosition(tables, basicInfo.tableIndex, basicInfo.desiredSalary);
     applicationData.desiredSalary = desiredSalaryPos ? safeGetCellValue(tables, basicInfo.tableIndex, desiredSalaryPos.rowIndex, desiredSalaryPos.cellIndex) : undefined;
     
-    // 병역 정보 (여러 셀)
+    // 병역 정보 (단일 셀: 필/미필/면제/해당없음)
     if (basicInfo.militaryService) {
       const milRow = basicInfo.militaryService.rowIndex;
       const milStart = basicInfo.militaryService.cellIndexStart;
       const milEnd = basicInfo.militaryService.cellIndexEnd;
-      const milValues: string[] = [];
-      for (let i = milStart; i <= milEnd; i++) {
-        const val = safeGetCellValue(tables, basicInfo.tableIndex, milRow, i);
-        if (val) milValues.push(val);
-      }
-      applicationData.militaryService = milValues.length > 0 ? milValues.join(' ') : undefined;
+      // 단일 셀만 읽기
+      const milValue = safeGetCellValue(tables, basicInfo.tableIndex, milRow, milStart);
+      applicationData.militaryService = milValue || undefined;
     }
   }
   
