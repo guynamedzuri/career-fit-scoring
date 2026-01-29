@@ -323,9 +323,32 @@ def parse_career_entries(block: str) -> list:
             end_raw = m.group(2)
             rest = m.group(3)
             # 회사명 · 직무 (첫 줄)
+            # 예: "스테코(삼성계열사) PKG 설비 파트 · 사원/팀원 8년차 · 생산기술"
+            # → company: "스테코(삼성계열사)", role: "PKG 설비 파트 · 사원/팀원 8년차 · 생산기술"
             parts = rest.split("·", 1)
-            company = parts[0].strip() if parts else ""
-            role = parts[1].strip() if len(parts) > 1 else ""
+            company_full = parts[0].strip() if parts else ""
+            role_rest = parts[1].strip() if len(parts) > 1 else ""
+            
+            # company에서 괄호로 끝나는 부분까지만 추출 (예: "스테코(삼성계열사)")
+            # 괄호가 있으면 괄호까지, 없으면 첫 단어만
+            company_match = re.match(r"^([^(]+(?:\([^)]+\))?)", company_full)
+            if company_match:
+                company = company_match.group(1).strip()
+                # 나머지 부분(부서명 등)은 role 앞에 추가
+                remaining = company_full[len(company):].strip()
+                if remaining:
+                    role = remaining + (" · " + role_rest if role_rest else "")
+                else:
+                    role = role_rest
+            else:
+                # 괄호 패턴이 없으면 첫 단어만 company로
+                company_parts = company_full.split(None, 1)
+                company = company_parts[0] if company_parts else ""
+                remaining = company_parts[1] if len(company_parts) > 1 else ""
+                if remaining:
+                    role = remaining + (" · " + role_rest if role_rest else "")
+                else:
+                    role = role_rest
             # 다음 줄에 "N개월" 또는 "N년 N개월", 연봉/근무지역/퇴사사유 있을 수 있음
             duration = ""
             desc_lines = []
@@ -435,19 +458,31 @@ def parse_education_entries(block: str) -> list:
 
 # --- 자격/어학/수상 ---
 def parse_certification_entries(block: str) -> list:
-    """자격증/어학/수상 라인: YYYY.MM  자격명  발급기관 형태만 수집 (경력/학력 문단이 섞이지 않도록)."""
+    """자격증/어학/수상 라인: YYYY.MM  자격명  합격여부/등급/점수  시행처 형태만 수집."""
     entries = []
     for line in block.split("\n"):
         line = line.strip()
         if not line or len(line) < 5:
             continue
-        # YYYY.MM  자격명  발급기관 (날짜로 시작하는 라인만 자격으로 인정)
+        # YYYY.MM  자격명  합격여부/등급/점수  시행처 (날짜로 시작하는 라인만 자격으로 인정)
         m = re.match(r"(\d{4}\.\d{2})\s+(.+?)\s+([^\d].+)$", line)
         if m:
+            issuer_full = m.group(3).strip()
+            # issuer를 공백으로 split (3개 이상 공백 또는 탭으로 구분)
+            # 앞부분: 합격여부/등급/점수, 뒷부분: 시행처/언어종류
+            issuer_parts = re.split(r"\s{3,}|\t+", issuer_full)
+            if len(issuer_parts) >= 2:
+                grade_status = issuer_parts[0].strip()
+                issuer_org = " ".join(issuer_parts[1:]).strip()
+            else:
+                # 구분이 명확하지 않으면 전체를 issuer로, grade는 빈 문자열
+                grade_status = ""
+                issuer_org = issuer_full
             entries.append({
                 "date": m.group(1),
                 "name": m.group(2).strip(),
-                "issuer": m.group(3).strip(),
+                "grade": grade_status,
+                "issuer": issuer_org,
             })
     return entries
 
@@ -467,13 +502,38 @@ def parse_employment_preference(block: str) -> dict:
 
 # --- 포트폴리오: 파일명 나열 ---
 def parse_portfolio(block: str) -> list:
-    """첨부 파일명만 추출."""
+    """첨부 파일명만 추출. 라벨과 파일명이 같은 라인에 있어도 파일명만 추출."""
     names = []
     for line in block.split("\n"):
         line = line.strip()
+        if not line:
+            continue
+        # 파일 확장자로 끝나는 경우
         if line.endswith((".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx")):
-            names.append(line)
-    return names
+            # "포트폴리오                  운전면허증.jpg" 같은 경우 파일명만 추출
+            # 라벨(포트폴리오, 자격증 등) 제거
+            parts = re.split(r"\s{3,}", line)  # 3개 이상 공백으로 분리
+            for part in parts:
+                part = part.strip()
+                if part.endswith((".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx")):
+                    # 라벨 키워드 제거
+                    cleaned = re.sub(r"^(포트폴리오|자격증|증명서)\s*", "", part, flags=re.IGNORECASE).strip()
+                    if cleaned:
+                        names.append(cleaned)
+                    break
+            else:
+                # 분리되지 않았으면 전체 라인 사용 (라벨 제거)
+                cleaned = re.sub(r"^(포트폴리오|자격증|증명서)\s*", "", line, flags=re.IGNORECASE).strip()
+                if cleaned:
+                    names.append(cleaned)
+    # 중복 제거
+    seen = set()
+    unique_names = []
+    for name in names:
+        if name not in seen:
+            seen.add(name)
+            unique_names.append(name)
+    return unique_names
 
 
 def parse_pdf_resume(pdf_path: str, pdftotext_exe: Optional[str] = None) -> dict:
@@ -516,9 +576,6 @@ def parse_pdf_resume(pdf_path: str, pdftotext_exe: Optional[str] = None) -> dict
     pref_block = sections.get("employment_preference", "")
     employment_pref = parse_employment_preference(pref_block) if pref_block else {}
 
-    portfolio_block = sections.get("portfolio", "")
-    portfolio_files = parse_portfolio(portfolio_block) if portfolio_block else []
-
     self_intro = sections.get("self_introduction", "").strip() or ""
 
     return {
@@ -528,7 +585,6 @@ def parse_pdf_resume(pdf_path: str, pdftotext_exe: Optional[str] = None) -> dict
         "education": edu_entries,
         "certifications": certs,
         "employmentPreference": employment_pref,
-        "portfolio": portfolio_files,
         "selfIntroduction": self_intro,
     }
 
