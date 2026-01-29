@@ -258,7 +258,14 @@ function App() {
               selectedFolder={selectedFolder}
               onFolderChange={setSelectedFolder}
               documentType={jobMetadata?.documentType ?? 'docx'}
-              onJobMetadataChange={(meta) => setJobMetadata(prev => ({ ...prev, ...meta }))}
+              onJobMetadataChange={(meta) => {
+                const prevDocumentType = jobMetadata?.documentType;
+                setJobMetadata(prev => ({ ...prev, ...meta }));
+                // documentType이 변경되면 선택된 파일 목록도 초기화
+                if (meta.documentType && prevDocumentType && meta.documentType !== prevDocumentType) {
+                  setSelectedFiles([]);
+                }
+              }}
               onUserPromptChange={setUserPrompt}
               onExecute={handleConfigExecute}
               loadedData={loadedData}

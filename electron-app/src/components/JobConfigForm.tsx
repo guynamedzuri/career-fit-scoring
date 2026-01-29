@@ -156,11 +156,20 @@ export default function JobConfigForm({
     }
   }, [propDocumentType]);
 
-  // documentType 변경 시 상위에 알림
+  // documentType 변경 시 상위에 알림 및 폴더 경로 초기화
   useEffect(() => {
     if (onDocumentTypeChange) onDocumentTypeChange(documentType);
     if (onJobMetadataChange) onJobMetadataChange({ documentType });
-  }, [documentType, onDocumentTypeChange, onJobMetadataChange]);
+    
+    // documentType이 변경되면 폴더 경로 초기화
+    if (selectedFolder) {
+      setSelectedFolder('');
+      if (onFolderChange) {
+        onFolderChange('');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [documentType]); // selectedFolder, onFolderChange는 의존성에서 제외 (무한 루프 방지)
 
   // 전체 자격증 데이터 로드
   const loadAllCertifications = async (): Promise<Array<{ name: string; code?: string }>> => {
