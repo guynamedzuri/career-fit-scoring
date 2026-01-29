@@ -7,10 +7,11 @@ contextBridge.exposeInMainWorld('electron', {
   parseOfficialCertificates: (fileContent: string) => ipcRenderer.invoke('parse-official-certificates', fileContent),
   parseAdditionalNationalCertificates: (content: string) => ipcRenderer.invoke('parse-additional-national-certificates', content),
   getAdditionalNationalCertificates: () => ipcRenderer.invoke('get-additional-national-certificates'),
-  getDocxFiles: (folderPath: string) => ipcRenderer.invoke('get-docx-files', folderPath),
+  getDocxFiles: (folderPath: string, documentType?: 'docx' | 'pdf') => ipcRenderer.invoke('get-docx-files', folderPath, documentType),
   aiCheckResume: (data: { applicationData: any; userPrompt: any; fileName: string }) =>
     ipcRenderer.invoke('ai-check-resume', data),
-  processResume: (filePath: string) => ipcRenderer.invoke('process-resume', filePath),
+  processResume: (filePath: string, documentType?: 'docx' | 'pdf') =>
+    ipcRenderer.invoke('process-resume', filePath, documentType),
   loadCache: (folderPath: string, filePaths: string[]) =>
     ipcRenderer.invoke('load-cache', folderPath, filePaths),
   saveCache: (folderPath: string, results: Array<{ filePath: string; fileName: string; data: any }>) =>

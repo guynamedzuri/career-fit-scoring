@@ -435,7 +435,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         );
         
         try {
-          const result = await window.electron!.processResume(filePath);
+          const result = await window.electron!.processResume(filePath, jobMetadata?.documentType ?? 'docx');
           
           if (result.success) {
             // 점수 계산 (나중에 구현)
@@ -510,7 +510,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         onProcessingChange(false);
       }
     }
-  }, [selectedFiles, selectedFolder, onProcessingChange, onProgressChange]);
+  }, [selectedFiles, selectedFolder, jobMetadata?.documentType, onProcessingChange, onProgressChange]);
 
   // 검색 및 정렬된 결과
   const filteredAndSortedResults = useMemo(() => {

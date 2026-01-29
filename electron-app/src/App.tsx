@@ -274,6 +274,7 @@ function App() {
           <div className="app-right-panel">
             <ResumeFileList 
               folderPath={selectedFolder}
+              documentType={jobMetadata?.documentType ?? 'docx'}
               onSelectionChange={handleSelectedFilesChange}
             />
           </div>

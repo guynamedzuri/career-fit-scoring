@@ -1442,27 +1442,34 @@ function getFileMetadata(filePath: string): { size: number; mtime: number } | nu
   }
 }
 
-// 폴더 내 DOCX 파일 목록 가져오기 IPC 핸들러
-ipcMain.handle('get-docx-files', async (event, folderPath: string) => {
+// 폴더 내 이력서 파일 목록 가져오기 IPC 핸들러 (documentType: 'docx' | 'pdf')
+ipcMain.handle('get-docx-files', async (event, folderPath: string, documentType?: 'docx' | 'pdf') => {
   try {
     if (!folderPath || !fs.existsSync(folderPath)) {
       return [];
     }
     
+    const extToMatch = documentType === 'pdf' ? '.pdf' : '.docx';
     const files = fs.readdirSync(folderPath);
-    const docxFiles = files
+    const resumeFiles = files
       .filter(file => {
         const ext = path.extname(file).toLowerCase();
-        return ext === '.docx';
+        if (ext !== extToMatch) return false;
+        // PDF 모드일 때는 파일명(확장자 제외)이 '_이력서'로 끝나는 것만
+        if (documentType === 'pdf') {
+          const base = path.basename(file, ext);
+          return base.endsWith('_이력서');
+        }
+        return true;
       })
       .map(file => ({
         name: file,
         path: path.join(folderPath, file),
       }));
     
-    return docxFiles;
+    return resumeFiles;
   } catch (error) {
-    console.error('[Get DOCX Files] Error:', error);
+    console.error('[Get Resume Files] Error:', error);
     return [];
   }
 });
@@ -2039,24 +2046,144 @@ ipcMain.handle('read-official-certificates', async () => {
   }
 });
 
-// 이력서 처리 IPC 핸들러
-ipcMain.handle('process-resume', async (event, filePath: string) => {
+/** PDF 파싱 결과를 applicationData 형식으로 변환 */
+function mapPdfResumeToApplicationData(pdfResult: any): any {
+  const app: any = {};
+  const basic = pdfResult.basicInfo || {};
+  const careers = pdfResult.careers || [];
+  const education = pdfResult.education || [];
+  const certifications = pdfResult.certifications || [];
+
+  app.name = basic.name;
+  if (basic.birthYear) app.birthDate = `${basic.birthYear}-01-01`;
+  app.email = basic.email;
+  app.phone = basic.phone;
+  app.address = basic.address;
+  app.desiredSalary = basic.desiredSalary;
+  app.lastSalary = basic.lastSalary;
+  app.residence = basic.residence;
+
+  careers.forEach((c: any, i: number) => {
+    const idx = i + 1;
+    app[`careerCompanyName${idx}`] = c.company;
+    app[`careerSalary${idx}`] = c.salary;
+    app[`careerStartDate${idx}`] = c.startDate;
+    app[`careerEndDate${idx}`] = c.endDate;
+    app[`careerDepartment${idx}`] = c.role;
+    app[`careerPosition${idx}`] = c.role;
+  });
+
+  education.forEach((e: any, i: number) => {
+    const idx = i + 1;
+    app[`universityName${idx}`] = e.school;
+    app[`universityMajor${idx}_1`] = e.major;
+    app[`universityGraduationType${idx}`] = e.degree;
+    app[`educationStartDate${idx}`] = e.startDate;
+    app[`educationEndDate${idx}`] = e.endDate;
+  });
+
+  certifications.forEach((c: any, i: number) => {
+    const idx = i + 1;
+    app[`certificateName${idx}`] = c.name || c.raw;
+    app[`certificateIssuer${idx}`] = c.issuer;
+  });
+
+  return app;
+}
+
+// 이력서 처리 IPC 핸들러 (documentType: 'docx' | 'pdf', 기본값 docx)
+ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 'docx' | 'pdf') => {
   try {
-    // career-fit-scoring 모듈이 로드되지 않았으면 로드
+    const isPdf = documentType === 'pdf';
+
+    if (isPdf) {
+      // PDF: parse_pdf_resume.py 실행 후 applicationData로 매핑
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
+
+      const scriptPaths = [
+        path.join(__dirname, '..', '..', 'scripts', 'parse_pdf_resume.py'),
+        path.join(__dirname, '..', 'scripts', 'parse_pdf_resume.py'),
+        path.join(process.cwd(), 'scripts', 'parse_pdf_resume.py'),
+        path.join(app.getAppPath(), 'scripts', 'parse_pdf_resume.py'),
+        path.join(app.getAppPath(), '..', 'scripts', 'parse_pdf_resume.py'),
+      ];
+      let scriptPath: string | null = null;
+      for (const p of scriptPaths) {
+        if (fs.existsSync(p)) {
+          scriptPath = p;
+          break;
+        }
+      }
+      if (!scriptPath) {
+        throw new Error('parse_pdf_resume.py 스크립트를 찾을 수 없습니다.');
+      }
+      const isWindows = process.platform === 'win32';
+      const pythonCmd = isWindows ? 'python' : 'python3';
+      const command = `"${pythonCmd}" "${scriptPath}" "${filePath}"`;
+      writeLog(`[Process Resume PDF] ${command}`, 'info');
+      const { stdout, stderr } = await execAsync(command, { maxBuffer: 10 * 1024 * 1024, timeout: 60000 });
+      if (stderr && stderr.trim()) writeLog(`[Process Resume PDF] stderr: ${stderr}`, 'warn');
+
+      let pdfResult: any;
+      try {
+        pdfResult = JSON.parse(stdout);
+      } catch (e: any) {
+        writeLog(`[Process Resume PDF] JSON parse error: ${e.message}`, 'error');
+        throw new Error('PDF 파싱 결과를 읽을 수 없습니다.');
+      }
+      if (pdfResult.error) {
+        throw new Error(pdfResult.error);
+      }
+
+      const applicationData = mapPdfResumeToApplicationData(pdfResult);
+      const basic = pdfResult.basicInfo || {};
+      const careers = pdfResult.careers || [];
+      const name = applicationData.name || basic.name;
+      const birthDate = applicationData.birthDate;
+      const age = birthDate ? calculateAge(birthDate) : (basic.age ?? undefined);
+      const lastCompany = applicationData.careerCompanyName1 ?? (careers[0] && careers[0].company);
+      const lastSalary = applicationData.careerSalary1 ?? basic.lastSalary ?? (careers[0] && careers[0].salary);
+      const residence = applicationData.residence ?? basic.residence;
+
+      const searchableText = [
+        name,
+        lastCompany,
+        applicationData.universityName1,
+        applicationData.certificateName1,
+        applicationData.certificateName2,
+        applicationData.certificateName3,
+      ].filter(Boolean).join(' ');
+
+      return {
+        success: true,
+        applicationData,
+        name,
+        age,
+        lastCompany,
+        lastSalary,
+        residence,
+        searchableText,
+        photoPath: undefined,
+      };
+    }
+
+    // DOCX 경로
     if (!extractTablesFromDocx || !mapResumeDataToApplicationData) {
       writeLog('[Process Resume] Loading career-fit-scoring module...', 'info');
       await loadCareerFitScoring();
     }
-    
+
     if (!extractTablesFromDocx) {
       const errorMsg = '[Process Resume] extractTablesFromDocx is not available';
       writeLog(errorMsg, 'error');
       throw new Error(errorMsg);
     }
-    
+
     // DOCX 파일에서 테이블 추출
     const tables = await extractTablesFromDocx(filePath);
-    
+
     // 매핑 설정으로 applicationData 변환
     const applicationData = mapResumeDataToApplicationData(tables);
     

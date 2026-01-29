@@ -8,18 +8,20 @@ interface DocxFile {
 
 interface ResumeFileListProps {
   folderPath: string;
+  /** 문서 형식: DOCX면 .docx만, PDF면 .pdf만 목록에 표시 */
+  documentType?: 'docx' | 'pdf';
   onSelectionChange?: (selectedFiles: DocxFile[]) => void;
 }
 
 declare global {
   interface Window {
     electron?: {
-      getDocxFiles: (folderPath: string) => Promise<DocxFile[]>;
+      getDocxFiles: (folderPath: string, documentType?: 'docx' | 'pdf') => Promise<DocxFile[]>;
     };
   }
 }
 
-export default function ResumeFileList({ folderPath, onSelectionChange }: ResumeFileListProps) {
+export default function ResumeFileList({ folderPath, documentType = 'docx', onSelectionChange }: ResumeFileListProps) {
   const [files, setFiles] = useState<DocxFile[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -35,7 +37,7 @@ export default function ResumeFileList({ folderPath, onSelectionChange }: Resume
     let isCancelled = false;
 
     setLoading(true);
-    window.electron.getDocxFiles(folderPath)
+    window.electron.getDocxFiles(folderPath, documentType)
       .then((docxFiles) => {
         if (isCancelled) return;
         
@@ -64,7 +66,7 @@ export default function ResumeFileList({ folderPath, onSelectionChange }: Resume
       isCancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [folderPath]); // onSelectionChange를 의존성에서 제거하여 무한 루프 방지
+  }, [folderPath, documentType]); // onSelectionChange를 의존성에서 제거하여 무한 루프 방지
 
   // 선택 상태 변경 시 부모 컴포넌트에 알림 (파일 로드가 아닌 경우만)
   useEffect(() => {

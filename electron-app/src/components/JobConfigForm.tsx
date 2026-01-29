@@ -651,7 +651,7 @@ export default function JobConfigForm({
         {/* 이력서 폴더 선택 */}
         <div className="form-group">
           <label className="form-label">이력서 폴더 *</label>
-          <p className="field-hint">{documentType === 'docx' ? 'DOCX 이력서 파일들이 있는 폴더를 선택하세요.' : 'PDF 이력서 파일들이 있는 폴더를 선택하세요. (PDF 모드는 별도 파싱 적용 예정)'}</p>
+          <p className="field-hint">{documentType === 'docx' ? 'DOCX 이력서 파일들이 있는 폴더를 선택하세요.' : 'PDF 이력서 파일들이 있는 폴더를 선택하세요. (파일명이 _이력서.pdf로 끝나는 PDF만 목록에 표시됩니다.)'}</p>
           <div className={`folder-select-wrapper ${validationErrors.folder ? 'error' : ''}`}>
             <input
               type="text"
