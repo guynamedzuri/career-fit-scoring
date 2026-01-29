@@ -105,14 +105,20 @@ npm run build:linux
 
 ### PDF 이력서 파싱 (임베디드 파이썬)
 
-PDF 모드에서는 **임베디드 파이썬**(`python-embed`)을 우선 사용합니다. PDF 텍스트 추출을 위해 **pymupdf**가 필요하므로, **빌드 전에** 아래 명령을 한 번 실행해 두세요.
+PDF 모드에서는 **임베디드 파이썬**(`python-embed`)을 우선 사용합니다. PDF 텍스트 추출은 **pdftotext(poppler) → pdfminer.six → PyMuPDF** 순으로 시도하며, **pdftotext**가 있으면 레이아웃/순서가 가장 안정적입니다.
+
+#### Windows에서 pdftotext 쓰기 (권장)
+
+[poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases) 릴리스에서 아카이브를 받아 압축 해제한 뒤, `bin` 폴더를 시스템 PATH에 추가하면 **pdftotext**를 사용할 수 있습니다. (예: [v25.12.0-0](https://github.com/oschwartz10612/poppler-windows/releases/tag/v25.12.0-0))
+
+#### pdftotext 없을 때 (pip으로 추출기만 설치)
 
 - **경로**: 프로젝트 루트 `career-fit-scoring` (python-embed 폴더가 있는 위치)
 - **명령**:
-  - Windows: `python-embed\python.exe -m pip install pymupdf`
-  - macOS/Linux: `python-embed/python3 -m pip install pymupdf` (또는 해당 폴더의 python 실행 파일 경로)
+  - Windows: `python-embed\python.exe -m pip install pdfminer.six` 또는 `pymupdf`
+  - macOS/Linux: `python-embed/python3 -m pip install pdfminer.six` 또는 `pymupdf`
 
-이후 `electron-app`에서 빌드하면 `python-embed` 폴더가 그대로 `resources`에 복사되므로, 설치된 pymupdf가 포함된 상태로 배포됩니다.
+이후 `electron-app`에서 빌드하면 `python-embed` 폴더가 그대로 `resources`에 복사되므로, 설치된 패키지가 포함된 상태로 배포됩니다.
 
 ## 주요 기능
 
