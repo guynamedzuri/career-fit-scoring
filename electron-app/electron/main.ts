@@ -2078,7 +2078,8 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
 
   careers.forEach((c: any, i: number) => {
     const idx = i + 1;
-    app[`careerCompanyName${idx}`] = c.company;
+    // PDF 파서(career entries)에서 회사/부서 필드를 companyNameAndDepartment로 제공
+    app[`careerCompanyName${idx}`] = c.companyNameAndDepartment ?? c.company;
     app[`careerSalary${idx}`] = c.salary;
     app[`careerStartDate${idx}`] = c.startDate;
     app[`careerEndDate${idx}`] = c.endDate;
@@ -2106,7 +2107,9 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
     if (!name && !c.date) continue;
     certIdx++;
     app[`certificateName${certIdx}`] = name || '';
-    app[`certificateIssuer${certIdx}`] = c.issuer || '';
+    // grade(합격/등급/점수) + issuer(시행처/언어) 정보를 applicationData에서도 최대한 보존
+    const issuerText = [c.grade, c.issuer].filter(Boolean).join(' ').trim();
+    app[`certificateIssuer${certIdx}`] = issuerText || '';
     if (c.date) app[`certificateDate${certIdx}`] = c.date;
   }
 
@@ -2196,7 +2199,10 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       const birthDate = applicationData.birthDate;
       const ageNum = birthDate ? calculateAge(birthDate) : (basic.age != null ? Number(basic.age) : undefined);
       const age = ageNum != null && !Number.isNaN(ageNum) ? ageNum : undefined;
-      const lastCompany = applicationData.careerCompanyName1 ?? (careers[0] && careers[0].company) ?? undefined;
+      const lastCompany =
+        applicationData.careerCompanyName1 ??
+        (careers[0] && (careers[0].companyNameAndDepartment ?? careers[0].company)) ??
+        undefined;
       const lastSalary = applicationData.careerSalary1 ?? basic.lastSalary ?? (careers[0] && careers[0].salary) ?? undefined;
       const residence = applicationData.residence ?? basic.residence ?? undefined;
 
