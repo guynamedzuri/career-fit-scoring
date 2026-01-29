@@ -382,7 +382,7 @@ def parse_career_entries(block: str) -> list:
             entries.append({
                 "startDate": start_date,
                 "endDate": "재직중" if end_raw == "재직중" else end_raw,
-                "company": company,
+                "companyNameAndDepartment": company,
                 "role": role,
                 "duration": duration,
                 "description": description,
