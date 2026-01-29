@@ -132,19 +132,23 @@ def parse_header_block(block: str) -> dict:
     idx_skill = block.find("나의 스킬")
 
     def _accept_name(word: str) -> bool:
-        if not word or any(word.startswith(x) or x in word for x in NAME_BLOCK):
+        if not word or word == "스킬":
+            return False
+        if any(word.startswith(x) or x in word for x in NAME_BLOCK):
             return False
         return bool(re.match(r"^[\uac00-\ud7a3]{2,4}$", word) or re.match(r"^[A-Za-z]{2,20}$", word))
 
+    # 나의 스킬 이전에 나오는 모든 "XXX 경력" / "XXX 신입" 후보를 모은 뒤, 첫 번째 유효한 이름만 사용
+    candidates = []
     for pattern in (r"([^\s]+)\s+경력\s*$", r"([^\s]+)\s+신입\s*$"):
         for m in re.finditer(pattern, block, re.MULTILINE):
-            name = m.group(1).strip()
             if idx_skill != -1 and m.start() > idx_skill:
                 continue
-            if _accept_name(name):
-                info["name"] = name
-                break
-        if info.get("name"):
+            candidates.append((m.start(), m.group(1).strip()))
+    candidates.sort(key=lambda x: x[0])
+    for _, name in candidates:
+        if _accept_name(name):
+            info["name"] = name
             break
 
     # 남/여, 1991 (34세)
