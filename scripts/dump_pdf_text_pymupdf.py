@@ -28,8 +28,6 @@ def dump_text_in_order(pdf_path: str) -> None:
                         # bbox = span.get("bbox", (0,0,0,0))
                         # print(f"[{bi}] {t}  # bbox={bbox}")
                         print(t)
-        if page_num == 0:
-            break  # 1페이지만 (전체 보려면 이 break 제거)
     doc.close()
 
 
