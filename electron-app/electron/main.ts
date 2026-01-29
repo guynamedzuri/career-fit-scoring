@@ -2246,6 +2246,21 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       } catch (e: any) {
         writeLog('[Process Resume PDF] Embed 경로 확인 실패, 시스템 Python 사용: ' + (e?.message || ''), 'info');
       }
+      // 개발환경: 번들 pdftotext 없으면 프로젝트 루트(career-fit-scoring) poppler-windows 사용 (CLI와 동일 추출)
+      if (!pdftotextArg) {
+        const devPaths = [
+          path.join(__dirname, '..', '..', '..', 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext'),
+          path.join(process.cwd(), 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext'),
+          path.join(process.cwd(), '..', 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext'),
+        ];
+        for (const p of devPaths) {
+          if (fs.existsSync(p)) {
+            pdftotextArg = ` --pdftotext "${p}"`;
+            writeLog('[Process Resume PDF] 개발환경 pdftotext 사용: ' + p, 'info');
+            break;
+          }
+        }
+      }
       const command = `"${pythonCmd}" "${scriptPath}"${pdftotextArg} "${filePath}"`;
       writeLog('[Process Resume PDF] ' + command, 'info');
       const execOpts: any = { maxBuffer: 10 * 1024 * 1024, timeout: 60000 };
