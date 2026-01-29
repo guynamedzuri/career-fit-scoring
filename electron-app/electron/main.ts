@@ -2064,6 +2064,8 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
   const careers = pdfResult.careers || [];
   const education = pdfResult.education || [];
   const certifications = pdfResult.certifications || [];
+  const employmentPreference = pdfResult.employmentPreference || {};
+  const selfIntroduction = pdfResult.selfIntroduction || '';
 
   app.name = basic.name;
   if (basic.birthYear) app.birthDate = `${basic.birthYear}-01-01`;
@@ -2086,6 +2088,8 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
     app[`careerDepartment${idx}`] = c.role;
     app[`careerPosition${idx}`] = c.role;
     app[`careerJobType${idx}`] = c.role;
+    // DOCX 스키마의 경력기술서(careerDetailDescriptionN)에 가깝게, PDF의 description을 채워줌
+    if (c.description) app[`careerDetailDescription${idx}`] = String(c.description);
   });
 
   education.forEach((e: any, i: number) => {
@@ -2107,10 +2111,24 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
     if (!name && !c.date) continue;
     certIdx++;
     app[`certificateName${certIdx}`] = name || '';
-    // grade(합격/등급/점수) + issuer(시행처/언어) 정보를 applicationData에서도 최대한 보존
-    const issuerText = [c.grade, c.issuer].filter(Boolean).join(' ').trim();
-    app[`certificateIssuer${certIdx}`] = issuerText || '';
+    // DOCX 스키마와 동일하게 grade/issuer를 분리해 저장
+    if (c.grade) app[`certificateGrade${certIdx}`] = String(c.grade);
+    if (c.issuer) app[`certificateIssuer${certIdx}`] = String(c.issuer);
     if (c.date) app[`certificateDate${certIdx}`] = c.date;
+  }
+
+  // 병역: DOCX는 militaryService(단일 셀)에 들어가는 경우가 많아, PDF도 최소한 합쳐서 채움
+  if (employmentPreference.militaryStatus || employmentPreference.militaryDetail || employmentPreference.militaryPeriod) {
+    const ms = [employmentPreference.militaryStatus, employmentPreference.militaryDetail, employmentPreference.militaryPeriod]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    if (ms) app.militaryService = ms;
+  }
+
+  // 자기소개서: DOCX는 selfIntroduction1~4를 사용하므로 PDF는 1번에 채움
+  if (selfIntroduction && String(selfIntroduction).trim()) {
+    app.selfIntroduction1 = String(selfIntroduction).trim();
   }
 
   return app;
