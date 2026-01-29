@@ -2046,7 +2046,18 @@ ipcMain.handle('read-official-certificates', async () => {
   }
 });
 
-/** PDF 파싱 결과를 applicationData 형식으로 변환 */
+/** 주소 문자열로 거주지 분류 (DOCX 쪽 classifyResidence와 동일 규칙) */
+function classifyResidenceFromAddress(address: string | undefined): string | undefined {
+  if (!address || typeof address !== 'string') return undefined;
+  const a = address.toLowerCase();
+  if (a.includes('시흥') || a.includes('시흥시')) return '시흥';
+  if (a.includes('안산') || a.includes('안산시')) return '안산';
+  if (a.includes('서울') || a.includes('서울시') || a.includes('서울특별시')) return '서울';
+  if (a.includes('경기') || a.includes('경기도') || a.includes('인천') || a.includes('수원') || a.includes('성남') || a.includes('고양') || a.includes('용인') || a.includes('부천') || a.includes('안양') || a.includes('평택') || a.includes('의정부') || a.includes('광명') || a.includes('과천') || a.includes('구리') || a.includes('남양주') || a.includes('오산') || a.includes('의왕') || a.includes('이천') || a.includes('하남') || a.includes('화성')) return '수도권';
+  return '지방';
+}
+
+/** PDF 파싱 결과를 applicationData 형식으로 변환 (DOCX/ResultView 필드명과 맞춤) */
 function mapPdfResumeToApplicationData(pdfResult: any): any {
   const app: any = {};
   const basic = pdfResult.basicInfo || {};
@@ -2061,7 +2072,9 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
   app.address = basic.address;
   app.desiredSalary = basic.desiredSalary;
   app.lastSalary = basic.lastSalary;
-  app.residence = basic.residence;
+  app.residence = basic.residence != null ? basic.residence : classifyResidenceFromAddress(basic.address);
+  if (basic.supportField) app.supportField = basic.supportField;
+  if (basic.applicationDate) app.applicationDate = basic.applicationDate;
 
   careers.forEach((c: any, i: number) => {
     const idx = i + 1;
@@ -2071,6 +2084,7 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
     app[`careerEndDate${idx}`] = c.endDate;
     app[`careerDepartment${idx}`] = c.role;
     app[`careerPosition${idx}`] = c.role;
+    app[`careerJobType${idx}`] = c.role;
   });
 
   education.forEach((e: any, i: number) => {
@@ -2080,12 +2094,15 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
     app[`universityGraduationType${idx}`] = e.degree;
     app[`educationStartDate${idx}`] = e.startDate;
     app[`educationEndDate${idx}`] = e.endDate;
+    const degreeType = (e.school && String(e.school).indexOf('고등') >= 0) ? '고등학교' : (e.degree || '');
+    if (degreeType) app[`universityDegreeType${idx}`] = degreeType;
   });
 
   certifications.forEach((c: any, i: number) => {
     const idx = i + 1;
     app[`certificateName${idx}`] = c.name || c.raw;
     app[`certificateIssuer${idx}`] = c.issuer;
+    if (c.date) app[`certificateDate${idx}`] = c.date;
   });
 
   return app;
@@ -2158,12 +2175,18 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       const applicationData = mapPdfResumeToApplicationData(pdfResult);
       const basic = pdfResult.basicInfo || {};
       const careers = pdfResult.careers || [];
-      const name = applicationData.name || basic.name;
+      // 테이블용: name (파일명 폴백), age(숫자), lastCompany, lastSalary, residence
+      let name = applicationData.name || basic.name;
+      if (!name && filePath) {
+        const base = path.basename(filePath, '.pdf').replace(/_이력서$/, '');
+        name = base.split('_')[0] || base || undefined;
+      }
       const birthDate = applicationData.birthDate;
-      const age = birthDate ? calculateAge(birthDate) : (basic.age ?? undefined);
-      const lastCompany = applicationData.careerCompanyName1 ?? (careers[0] && careers[0].company);
-      const lastSalary = applicationData.careerSalary1 ?? basic.lastSalary ?? (careers[0] && careers[0].salary);
-      const residence = applicationData.residence ?? basic.residence;
+      const ageNum = birthDate ? calculateAge(birthDate) : (basic.age != null ? Number(basic.age) : undefined);
+      const age = ageNum != null && !Number.isNaN(ageNum) ? ageNum : undefined;
+      const lastCompany = applicationData.careerCompanyName1 ?? (careers[0] && careers[0].company) ?? undefined;
+      const lastSalary = applicationData.careerSalary1 ?? basic.lastSalary ?? (careers[0] && careers[0].salary) ?? undefined;
+      const residence = applicationData.residence ?? basic.residence ?? undefined;
 
       const searchableText = [
         name,
