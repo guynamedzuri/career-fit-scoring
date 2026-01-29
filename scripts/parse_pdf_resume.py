@@ -127,10 +127,21 @@ def parse_header_block(block: str) -> dict:
     if m:
         info["applicationDate"] = m.group(1).strip()
 
-    # "홍길동 경력" 형태에서 이름 (블록 어디든)
-    m = re.search(r"([^\s]+)\s+경력\s*$", block, re.MULTILINE)
-    if m:
-        info["name"] = m.group(1).strip()
+    # "홍길동 경력" 형태에서 이름 (나의 스킬 이전 라인만, 잘못된 매칭 제외)
+    NAME_BLOCK = ("스킬", "소프트스킬", "경력", "학력", "나의", "-", "소프트스킬입니다", "입니다")
+    name_candidates = re.finditer(r"([^\s]+)\s+경력\s*$", block, re.MULTILINE)
+    idx_skill = block.find("나의 스킬")
+    for m in name_candidates:
+        name = m.group(1).strip()
+        if not name or any(name.startswith(x) or x in name for x in NAME_BLOCK):
+            continue
+        # "나의 스킬" 이후에 나오는 "XXX 경력"은 무시 (표 헤더 등)
+        if idx_skill != -1 and m.start() > idx_skill:
+            continue
+        # 한글 2~4자 또는 영문 이름만 허용 (숫자/특수만 있으면 제외)
+        if re.match(r"^[\uac00-\ud7a3]{2,4}$", name) or re.match(r"^[A-Za-z]{2,20}$", name):
+            info["name"] = name
+            break
 
     # 남/여, 1991 (34세)
     m = re.search(r"(남|여)\s*,\s*(\d{4})\s*\((\d+)세\)", text)
@@ -346,13 +357,13 @@ def parse_education_entries(block: str) -> list:
 
 # --- 자격/어학/수상 ---
 def parse_certification_entries(block: str) -> list:
-    """자격증/어학/수상 라인: 이름  날짜  발급기관 형태."""
+    """자격증/어학/수상 라인: YYYY.MM  자격명  발급기관 형태만 수집 (경력/학력 문단이 섞이지 않도록)."""
     entries = []
     for line in block.split("\n"):
         line = line.strip()
-        if not line or len(line) < 2:
+        if not line or len(line) < 5:
             continue
-        # YYYY.MM  자격명  발급기관  또는  자격명  YYYY.MM  발급기관
+        # YYYY.MM  자격명  발급기관 (날짜로 시작하는 라인만 자격으로 인정)
         m = re.match(r"(\d{4}\.\d{2})\s+(.+?)\s+([^\d].+)$", line)
         if m:
             entries.append({
@@ -360,10 +371,6 @@ def parse_certification_entries(block: str) -> list:
                 "name": m.group(2).strip(),
                 "issuer": m.group(3).strip(),
             })
-        else:
-            parts = line.split()
-            if len(parts) >= 2:
-                entries.append({"raw": line})
     return entries
 
 

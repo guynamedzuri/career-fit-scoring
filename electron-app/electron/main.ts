@@ -2098,12 +2098,17 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
     if (degreeType) app[`universityDegreeType${idx}`] = degreeType;
   });
 
-  certifications.forEach((c: any, i: number) => {
-    const idx = i + 1;
-    app[`certificateName${idx}`] = c.name || c.raw;
-    app[`certificateIssuer${idx}`] = c.issuer;
-    if (c.date) app[`certificateDate${idx}`] = c.date;
-  });
+  // 자격: date+name 있는 항목만 매핑 (경력/학력이 cert로 섞인 경우 방지), 최대 10개
+  let certIdx = 0;
+  for (const c of certifications) {
+    if (certIdx >= 10) break;
+    const name = c.name || (c.raw && c.date ? c.raw : undefined);
+    if (!name && !c.date) continue;
+    certIdx++;
+    app[`certificateName${certIdx}`] = name || '';
+    app[`certificateIssuer${certIdx}`] = c.issuer || '';
+    if (c.date) app[`certificateDate${certIdx}`] = c.date;
+  }
 
   return app;
 }
