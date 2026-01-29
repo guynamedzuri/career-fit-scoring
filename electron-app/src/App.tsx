@@ -16,7 +16,7 @@ function App() {
   }>({});
   const [selectedFolder, setSelectedFolder] = useState<string>('');
   const [selectedFiles, setSelectedFiles] = useState<Array<{ name: string; path: string }>>([]);
-  const [jobMetadata, setJobMetadata] = useState<any>(null);
+  const [jobMetadata, setJobMetadata] = useState<{ documentType?: 'docx' | 'pdf' } | null>(null);
   const [showSaveLoadModal, setShowSaveLoadModal] = useState<boolean>(false);
   const [userPrompt, setUserPrompt] = useState<any>(null);
   const [loadedData, setLoadedData] = useState<any>(null);
@@ -257,7 +257,8 @@ function App() {
               setValidationErrors={setValidationErrors}
               selectedFolder={selectedFolder}
               onFolderChange={setSelectedFolder}
-              onJobMetadataChange={setJobMetadata}
+              documentType={jobMetadata?.documentType ?? 'docx'}
+              onJobMetadataChange={(meta) => setJobMetadata(prev => ({ ...prev, ...meta }))}
               onUserPromptChange={setUserPrompt}
               onExecute={handleConfigExecute}
               loadedData={loadedData}

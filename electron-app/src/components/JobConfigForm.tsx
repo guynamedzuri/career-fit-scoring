@@ -63,6 +63,10 @@ interface JobConfigFormProps {
   }) => void;
   onExecute?: () => void;
   loadedData?: any;
+  /** 문서 형식: DOCX(현재 지원) / PDF(별도 파싱 예정) */
+  documentType?: 'docx' | 'pdf';
+  onDocumentTypeChange?: (type: 'docx' | 'pdf') => void;
+  onJobMetadataChange?: (meta: { documentType?: 'docx' | 'pdf' }) => void;
 }
 
 export default function JobConfigForm({ 
@@ -72,8 +76,12 @@ export default function JobConfigForm({
   onFolderChange, 
   onUserPromptChange, 
   onExecute,
-  loadedData
+  loadedData,
+  documentType: propDocumentType,
+  onDocumentTypeChange,
+  onJobMetadataChange,
 }: JobConfigFormProps) {
+  const [documentType, setDocumentType] = useState<'docx' | 'pdf'>(propDocumentType || 'docx');
   const [selectedFolder, setSelectedFolder] = useState<string>(propSelectedFolder || '');
   const [jobDescription, setJobDescription] = useState<string>('');
   const [requiredQualifications, setRequiredQualifications] = useState<string>('');
@@ -140,6 +148,19 @@ export default function JobConfigForm({
       setSelectedFolder(propSelectedFolder);
     }
   }, [propSelectedFolder]);
+
+  // prop으로 받은 documentType이 변경되면 내부 state 업데이트
+  useEffect(() => {
+    if (propDocumentType !== undefined && propDocumentType !== documentType) {
+      setDocumentType(propDocumentType);
+    }
+  }, [propDocumentType]);
+
+  // documentType 변경 시 상위에 알림
+  useEffect(() => {
+    if (onDocumentTypeChange) onDocumentTypeChange(documentType);
+    if (onJobMetadataChange) onJobMetadataChange({ documentType });
+  }, [documentType, onDocumentTypeChange, onJobMetadataChange]);
 
   // 전체 자격증 데이터 로드
   const loadAllCertifications = async (): Promise<Array<{ name: string; code?: string }>> => {
@@ -596,10 +617,32 @@ export default function JobConfigForm({
   return (
     <div className="job-config-form">
       <div className="form-section">
-        {/* DOCX 폴더 선택 */}
+        {/* 문서 형식 선택 (DOCX / PDF) */}
+        <div className="form-group document-type-switch-wrapper">
+          <label className="form-label">이력서 문서 형식</label>
+          <p className="field-hint">분석할 이력서 파일 형식을 선택하세요. PDF는 표준화된 양식 기준으로 별도 파싱됩니다.</p>
+          <div className="document-type-switch">
+            <button
+              type="button"
+              className={`document-type-option ${documentType === 'docx' ? 'active' : ''}`}
+              onClick={() => setDocumentType('docx')}
+            >
+              DOCX
+            </button>
+            <button
+              type="button"
+              className={`document-type-option ${documentType === 'pdf' ? 'active' : ''}`}
+              onClick={() => setDocumentType('pdf')}
+            >
+              PDF
+            </button>
+          </div>
+        </div>
+
+        {/* 이력서 폴더 선택 */}
         <div className="form-group">
           <label className="form-label">이력서 폴더 *</label>
-          <p className="field-hint">DOCX 이력서 파일들이 있는 폴더를 선택하세요.</p>
+          <p className="field-hint">{documentType === 'docx' ? 'DOCX 이력서 파일들이 있는 폴더를 선택하세요.' : 'PDF 이력서 파일들이 있는 폴더를 선택하세요. (PDF 모드는 별도 파싱 적용 예정)'}</p>
           <div className={`folder-select-wrapper ${validationErrors.folder ? 'error' : ''}`}>
             <input
               type="text"
