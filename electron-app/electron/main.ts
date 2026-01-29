@@ -2869,7 +2869,14 @@ function formatResumeDataForAI(applicationData: any): string {
 
   // 기본 정보
   if (applicationData.name) text += `이름: ${applicationData.name}\n`;
-  if (applicationData.birthDate) text += `생년월일: ${applicationData.birthDate}\n`;
+  if (applicationData.birthDate) {
+    text += `생년월일: ${applicationData.birthDate}\n`;
+    // 만 나이 계산 및 추가
+    const age = calculateAge(applicationData.birthDate);
+    if (age !== undefined) {
+      text += `만 나이: ${age}세\n`;
+    }
+  }
   if (applicationData.email) text += `이메일: ${applicationData.email}\n`;
   if (applicationData.phone) text += `전화번호: ${applicationData.phone}\n`;
   text += '\n';
