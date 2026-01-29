@@ -93,6 +93,9 @@ win:
     # .env를 resources 루트에 복사 (런타임에서 안정적으로 찾기 위함)
     - from: ../.env
       to: .env
+    # certificate_official.txt를 resources 루트에 복사 (런타임에서 안정적으로 찾기 위함)
+    - from: ../certificate_official.txt
+      to: certificate_official.txt
     # Python 스크립트를 extraResources로 복사 (resources/scripts에 위치)
     - from: ../scripts
       to: scripts

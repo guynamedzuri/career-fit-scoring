@@ -1943,11 +1943,28 @@ ipcMain.handle('read-official-certificates', async () => {
     }
     
     // 프로젝트 루트를 찾지 못한 경우, 여러 경로 시도
+    // packaged 환경에서의 경로 확보
+    const exeDir = (() => {
+      try {
+        return app?.getPath ? path.dirname(app.getPath('exe')) : null;
+      } catch {
+        return null;
+      }
+    })();
     const appPath = app.getAppPath();
+    const resourcesPath = (process as any).resourcesPath ? (process as any).resourcesPath : null;
+    
     const possiblePaths = [
       // 빌드된 앱의 resources/app 경로 (files에 포함된 파일들)
       path.join(appPath, 'certificate_official.txt'),
       path.join(appPath, '..', 'certificate_official.txt'),
+      // resources 루트 (extraResources로 복사된 파일들)
+      resourcesPath ? path.join(resourcesPath, 'certificate_official.txt') : null,
+      resourcesPath ? path.join(resourcesPath, 'app', 'certificate_official.txt') : null,
+      resourcesPath ? path.join(resourcesPath, 'app.asar', 'certificate_official.txt') : null,
+      // exe 디렉토리 기반 경로
+      exeDir ? path.join(exeDir, 'certificate_official.txt') : null,
+      exeDir ? path.join(exeDir, 'resources', 'certificate_official.txt') : null,
       // __dirname 기반 경로
       path.join(__dirname, '../../..', 'certificate_official.txt'),
       path.join(__dirname, '../..', 'certificate_official.txt'),
@@ -1957,7 +1974,7 @@ ipcMain.handle('read-official-certificates', async () => {
       path.join(process.cwd(), '..', 'certificate_official.txt'),
       path.join(process.cwd(), '../..', 'certificate_official.txt'),
       path.join(process.cwd(), '../../..', 'certificate_official.txt'),
-    ];
+    ].filter((p): p is string => p !== null);
     
     console.log('[Official Certs IPC] Trying fallback paths:');
     for (const filePath of possiblePaths) {
