@@ -12,3 +12,5 @@ __pycache__/
 # 빌드된 JavaScript 파일들 (TypeScript 컴파일 결과)
 src/**/*.js
 !src/server/**/*.js
+# Poppler Windows 바이너리 (Installer 빌드 시 다운로드하여 사용, ~20MB)
+poppler-windows/

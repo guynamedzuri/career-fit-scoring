@@ -107,9 +107,22 @@ npm run build:linux
 
 PDF 모드에서는 **임베디드 파이썬**(`python-embed`)을 우선 사용합니다. PDF 텍스트 추출은 **pdftotext(poppler) → pdfminer.six → PyMuPDF** 순으로 시도하며, **pdftotext**가 있으면 레이아웃/순서가 가장 안정적입니다.
 
-#### Windows에서 pdftotext 쓰기 (권장)
+#### Windows 설치본: Poppler 번들 포함
 
-[poppler-windows](https://github.com/oschwartz10612/poppler-windows/releases) 릴리스에서 아카이브를 받아 압축 해제한 뒤, `bin` 폴더를 시스템 PATH에 추가하면 **pdftotext**를 사용할 수 있습니다. (예: [v25.12.0-0](https://github.com/oschwartz10612/poppler-windows/releases/tag/v25.12.0-0))
+배포용 Windows 설치 프로그램에는 **Poppler 바이너리(bin 폴더, 약 20MB)**가 포함됩니다. 최종 사용자는 Poppler를 따로 설치하거나 PATH를 수정할 필요가 없습니다.
+
+#### Windows Installer 빌드 시 Poppler 포함하기
+
+Installer 빌드 전에 프로젝트 루트에 Poppler Windows 바이너리를 두면 빌드 시 `resources/poppler-windows/bin`으로 복사됩니다.
+
+1. [poppler-windows 릴리스](https://github.com/oschwartz10612/poppler-windows/releases) (예: [v25.12.0-0](https://github.com/oschwartz10612/poppler-windows/releases/tag/v25.12.0-0))에서 ZIP 다운로드
+2. 압축 해제 후 `bin`이 `프로젝트루트/poppler-windows/bin`에 오도록 배치  
+   - ZIP 내부 경로: `Release-25.12.0-0/poppler-25.12.0/Library/bin`  
+   - **Library** 폴더 전체를 프로젝트 루트에 **poppler-windows** 로 복사하면 됨  
+     (즉, `Release-25.12.0-0/poppler-25.12.0/Library` → `프로젝트루트/poppler-windows`)
+3. `electron-app`에서 `npm run build:win:installer` 실행
+
+Poppler를 번들하지 않으려면 `electron-app/electron-builder.yml`의 `extraResources`에서 `poppler-windows` 블록을 제거하거나 주석 처리하면 됩니다. 그 경우 설치본에서는 pdfminer.six 또는 PyMuPDF(pip 설치)에 의존합니다.
 
 #### pdftotext 없을 때 (pip으로 추출기만 설치)
 

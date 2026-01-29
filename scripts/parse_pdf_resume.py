@@ -5,6 +5,7 @@ PDF 이력서 1개를 구조 기반으로 파싱하여 JSON으로 출력하는 �
 
 사용법:
     python3 scripts/parse_pdf_resume.py <pdf_path>
+    python3 scripts/parse_pdf_resume.py --pdftotext /path/to/pdftotext.exe <pdf_path>
 
 의존: pdftotext (poppler) / pdfminer.six / PyMuPDF 중 하나.
       추출 순서: pdftotext → pdfminer.six → PyMuPDF (레이아웃 품질 우선).
@@ -15,12 +16,14 @@ import re
 import json
 import subprocess
 from pathlib import Path
+from typing import Optional
 
 
-def _extract_with_pdftotext(pdf_path: str) -> str:
-    """pdftotext -layout 로 텍스트 추출 (poppler 필요)."""
+def _extract_with_pdftotext(pdf_path: str, pdftotext_exe: Optional[str] = None) -> str:
+    """pdftotext -layout 로 텍스트 추출 (poppler 필요). pdftotext_exe가 있으면 해당 실행 파일 사용."""
+    cmd = [pdftotext_exe or "pdftotext", "-layout", "-enc", "UTF-8", pdf_path, "-"]
     result = subprocess.run(
-        ["pdftotext", "-layout", "-enc", "UTF-8", pdf_path, "-"],
+        cmd,
         capture_output=True,
         text=True,
         timeout=30,
@@ -55,10 +58,10 @@ def _extract_with_pymupdf(pdf_path: str) -> str:
         doc.close()
 
 
-def extract_text_with_layout(pdf_path: str) -> str:
+def extract_text_with_layout(pdf_path: str, pdftotext_exe: Optional[str] = None) -> str:
     """PDF에서 레이아웃 유사 텍스트 추출. pdftotext → pdfminer.six → PyMuPDF 순으로 시도."""
     try:
-        return _extract_with_pdftotext(pdf_path)
+        return _extract_with_pdftotext(pdf_path, pdftotext_exe)
     except FileNotFoundError:
         pass
     try:
@@ -422,9 +425,9 @@ def parse_portfolio(block: str) -> list:
     return names
 
 
-def parse_pdf_resume(pdf_path: str) -> dict:
+def parse_pdf_resume(pdf_path: str, pdftotext_exe: Optional[str] = None) -> dict:
     """PDF 한 개를 파싱해 구조화된 dict 반환."""
-    text = extract_text_with_layout(pdf_path)
+    text = extract_text_with_layout(pdf_path, pdftotext_exe)
     sections = split_into_sections(text)
 
     header_block = sections.get("header", "")
@@ -474,15 +477,23 @@ def parse_pdf_resume(pdf_path: str) -> dict:
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(json.dumps({"error": "Usage: python3 parse_pdf_resume.py <pdf_path>"}, ensure_ascii=False, indent=2))
+    args = sys.argv[1:]
+    pdftotext_exe = None
+    if args and args[0] == "--pdftotext":
+        if len(args) < 3:
+            print(json.dumps({"error": "Usage: parse_pdf_resume.py [--pdftotext PATH] <pdf_path>"}, ensure_ascii=False, indent=2))
+            sys.exit(1)
+        pdftotext_exe = args[1]
+        args = args[2:]
+    if not args:
+        print(json.dumps({"error": "Usage: parse_pdf_resume.py [--pdftotext PATH] <pdf_path>"}, ensure_ascii=False, indent=2))
         sys.exit(1)
-    pdf_path = sys.argv[1]
+    pdf_path = args[0]
     if not Path(pdf_path).exists():
         print(json.dumps({"error": f"File not found: {pdf_path}"}, ensure_ascii=False, indent=2))
         sys.exit(1)
     try:
-        data = parse_pdf_resume(pdf_path)
+        data = parse_pdf_resume(pdf_path, pdftotext_exe)
         print(json.dumps(data, ensure_ascii=False, indent=2))
     except Exception as e:
         print(json.dumps({"error": str(e)}, ensure_ascii=False, indent=2))

@@ -2143,23 +2143,30 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       }
       const isWindows = process.platform === 'win32';
       let pythonCmd = isWindows ? 'python' : 'python3';
+      let pdftotextArg = '';
       // 임베디드 파이썬 우선 사용 (DOCX 사진 추출과 동일 경로)
       try {
         if (app && app.getPath) {
           const exePath = app.getPath('exe');
-          const resourcesPath = path.dirname(exePath);
-          const embedPython = path.join(resourcesPath, 'resources', 'python-embed', isWindows ? 'python.exe' : 'python3');
+          const appRoot = path.dirname(exePath);
+          const embedPython = path.join(appRoot, 'resources', 'python-embed', isWindows ? 'python.exe' : 'python3');
           if (fs.existsSync(embedPython)) {
             pythonCmd = embedPython;
             writeLog('[Process Resume PDF] Embeddable Python 사용: ' + pythonCmd, 'info');
           } else {
             writeLog('[Process Resume PDF] Embeddable Python 없음, 시스템 Python 사용', 'info');
           }
+          // 번들 Poppler pdftotext 우선 사용 (extraResources/poppler-windows/bin)
+          const bundledPdftotext = path.join(appRoot, 'resources', 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext');
+          if (fs.existsSync(bundledPdftotext)) {
+            pdftotextArg = ` --pdftotext "${bundledPdftotext}"`;
+            writeLog('[Process Resume PDF] 번들 pdftotext 사용: ' + bundledPdftotext, 'info');
+          }
         }
       } catch (e: any) {
         writeLog('[Process Resume PDF] Embed 경로 확인 실패, 시스템 Python 사용: ' + (e?.message || ''), 'info');
       }
-      const command = `"${pythonCmd}" "${scriptPath}" "${filePath}"`;
+      const command = `"${pythonCmd}" "${scriptPath}"${pdftotextArg} "${filePath}"`;
       writeLog('[Process Resume PDF] ' + command, 'info');
       const execOpts: any = { maxBuffer: 10 * 1024 * 1024, timeout: 60000 };
       execOpts.env = { ...process.env, PYTHONIOENCODING: 'utf-8' };

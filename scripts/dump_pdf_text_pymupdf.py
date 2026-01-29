@@ -1,42 +1,49 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-PyMuPDF로 PDF 텍스트를 추출 순서(텍스트 객체 순서)대로 출력.
-사용: pip install pymupdf 후  python3 scripts/dump_pdf_text_pymupdf.py pdf_resume/강동화_이력서.pdf
+pdftotext(poppler)로 PDF 텍스트를 -layout 기준으로 추출해 출력.
+로컬 Poppler 설치/번들 동작 확인용.
+
+사용:
+  python3 scripts/dump_pdf_text_pymupdf.py <pdf_path>
+  python3 scripts/dump_pdf_text_pymupdf.py --pdftotext poppler-windows/bin/pdftotext.exe <pdf_path>
 """
 import sys
+import subprocess
 from pathlib import Path
-
-try:
-    import fitz
-except ImportError:
-    print("PyMuPDF 필요: pip install pymupdf", file=sys.stderr)
-    sys.exit(1)
+from typing import Optional
 
 
-def dump_text_in_order(pdf_path: str) -> None:
-    doc = fitz.open(pdf_path)
-    for page_num, page in enumerate(doc):
-        print(f"=== Page {page_num + 1} ===")
-        blocks = page.get_text("dict")["blocks"]
-        for bi, block in enumerate(blocks):
-            for line in block.get("lines", []):
-                for span in line.get("spans", []):
-                    t = span.get("text", "").strip()
-                    if t:
-                        # 옵션: bbox로 위치도 보려면 아래 주석 해제
-                        # bbox = span.get("bbox", (0,0,0,0))
-                        # print(f"[{bi}] {t}  # bbox={bbox}")
-                        print(t)
-    doc.close()
+def dump_text_with_pdftotext(pdf_path: str, pdftotext_exe: Optional[str] = None) -> None:
+    """pdftotext -layout -enc UTF-8 로 텍스트 추출 후 stdout에 출력."""
+    cmd = [pdftotext_exe or "pdftotext", "-layout", "-enc", "UTF-8", pdf_path, "-"]
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if result.returncode != 0:
+        err = (result.stderr or result.stdout or "").strip()
+        print(f"pdftotext failed (exit {result.returncode}): {err}", file=sys.stderr)
+        sys.exit(1)
+    print(result.stdout or "", end="")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python3 dump_pdf_text_pymupdf.py <pdf_path>", file=sys.stderr)
+    args = sys.argv[1:]
+    pdftotext_exe = None
+    if args and args[0] == "--pdftotext":
+        if len(args) < 3:
+            print("Usage: dump_pdf_text_pymupdf.py [--pdftotext PATH] <pdf_path>", file=sys.stderr)
+            sys.exit(1)
+        pdftotext_exe = args[1]
+        args = args[2:]
+    if not args:
+        print("Usage: dump_pdf_text_pymupdf.py [--pdftotext PATH] <pdf_path>", file=sys.stderr)
         sys.exit(1)
-    path = sys.argv[1]
+    path = args[0]
     if not Path(path).exists():
         print(f"File not found: {path}", file=sys.stderr)
         sys.exit(1)
-    dump_text_in_order(path)
+    dump_text_with_pdftotext(path, pdftotext_exe)
