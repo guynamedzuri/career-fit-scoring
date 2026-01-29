@@ -26,6 +26,8 @@ def _extract_with_pdftotext(pdf_path: str, pdftotext_exe: Optional[str] = None) 
         cmd,
         capture_output=True,
         text=True,
+        encoding='utf-8',
+        errors='replace',  # 인코딩 오류 시 대체 문자로 처리
         timeout=30,
     )
     if result.returncode != 0:
