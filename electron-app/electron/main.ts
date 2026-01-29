@@ -2057,78 +2057,137 @@ function classifyResidenceFromAddress(address: string | undefined): string | und
   return '지방';
 }
 
-/** PDF 파싱 결과를 applicationData 형식으로 변환 (DOCX/ResultView 필드명과 맞춤) */
+/** DOCX와 동일한 applicationData 키 구조. 없는 값은 "" */
+function emptyAppKeys(): Record<string, string> {
+  const app: Record<string, string> = {};
+  const empty = (prefix: string, count: number, suffix = '') => {
+    for (let i = 1; i <= count; i++) app[`${prefix}${i}${suffix}`] = '';
+  };
+  app.name = '';
+  app.nameEnglish = '';
+  app.birthDate = '';
+  app.email = '';
+  app.phone = '';
+  app.address = '';
+  app.residence = '';
+  app.desiredSalary = '';
+  app.lastSalary = '';
+  app.militaryService = '';
+  app.supportField = '';
+  app.applicationDate = '';
+  empty('educationStartDate', 6);
+  empty('educationEndDate', 6);
+  empty('universityName', 6);
+  empty('universityMajor', 6, '_1');
+  empty('universityGPA', 6);
+  empty('universityGPAMax', 6);
+  empty('universityLocation', 6);
+  empty('universityGraduationType', 6);
+  empty('universityDegreeType', 6);
+  empty('careerCompanyName', 5);
+  empty('careerStartDate', 5);
+  empty('careerEndDate', 5);
+  empty('careerDepartment', 5);
+  empty('careerPosition', 5);
+  empty('careerJobType', 5);
+  empty('careerSalary', 5);
+  empty('careerEmploymentStatus', 5);
+  empty('careerDetailStartDate', 4);
+  empty('careerDetailEndDate', 4);
+  empty('careerDetailCompanyName', 4);
+  empty('careerDetailDepartment', 4);
+  empty('careerDetailPosition', 4);
+  empty('careerDetailSalary', 4);
+  empty('careerDetailReason', 4);
+  empty('careerDetailDescription', 4);
+  for (let i = 1; i <= 10; i++) {
+    app[`certificateName${i}`] = '';
+    app[`certificateGrade${i}`] = '';
+    app[`certificateIssuer${i}`] = '';
+    app[`certificateDate${i}`] = '';
+  }
+  empty('selfIntroduction', 4);
+  return app;
+}
+
+/** PDF 파싱 결과를 applicationData 형식으로 변환 (DOCX와 동일 키, 없으면 "") */
 function mapPdfResumeToApplicationData(pdfResult: any): any {
-  const app: any = {};
+  const app = emptyAppKeys();
   const basic = pdfResult.basicInfo || {};
   const careers = pdfResult.careers || [];
   const education = pdfResult.education || [];
   const certifications = pdfResult.certifications || [];
   const employmentPreference = pdfResult.employmentPreference || {};
-  const selfIntroduction = pdfResult.selfIntroduction || '';
+  const selfIntroduction = (pdfResult.selfIntroduction || '').trim();
 
-  app.name = basic.name;
-  if (basic.birthYear) app.birthDate = `${basic.birthYear}-01-01`;
-  app.email = basic.email;
-  app.phone = basic.phone;
-  app.address = basic.address;
-  app.desiredSalary = basic.desiredSalary;
-  app.lastSalary = basic.lastSalary;
-  app.residence = basic.residence != null ? basic.residence : classifyResidenceFromAddress(basic.address);
-  if (basic.supportField) app.supportField = basic.supportField;
-  if (basic.applicationDate) app.applicationDate = basic.applicationDate;
+  // 기본 정보
+  app.name = basic.name != null ? String(basic.name) : '';
+  app.nameEnglish = basic.nameEnglish != null ? String(basic.nameEnglish) : '';
+  app.birthDate = basic.birthYear ? `${basic.birthYear}-01-01` : (basic.birthDate != null ? String(basic.birthDate) : '');
+  app.email = basic.email != null ? String(basic.email) : '';
+  app.phone = basic.phone != null ? String(basic.phone) : '';
+  app.address = basic.address != null ? String(basic.address) : '';
+  app.residence = basic.residence != null ? String(basic.residence) : (basic.address ? classifyResidenceFromAddress(basic.address) : '') || '';
+  app.desiredSalary = basic.desiredSalary != null ? String(basic.desiredSalary) : '';
+  app.lastSalary = basic.lastSalary != null ? String(basic.lastSalary) : '';
+  app.militaryService = employmentPreference.militaryStatus || employmentPreference.militaryDetail || employmentPreference.militaryPeriod
+    ? [employmentPreference.militaryStatus, employmentPreference.militaryDetail, employmentPreference.militaryPeriod].filter(Boolean).join(' ').trim()
+    : '';
+  app.supportField = basic.supportField != null ? String(basic.supportField) : '';
+  app.applicationDate = basic.applicationDate != null ? String(basic.applicationDate) : '';
 
+  // 경력 (1~5) + 경력기술 상세
   careers.forEach((c: any, i: number) => {
+    if (i >= 5) return;
     const idx = i + 1;
-    // PDF 파서(career entries)에서 회사/부서 필드를 companyNameAndDepartment로 제공
-    app[`careerCompanyName${idx}`] = c.companyNameAndDepartment ?? c.company;
-    app[`careerSalary${idx}`] = c.salary;
-    app[`careerStartDate${idx}`] = c.startDate;
-    app[`careerEndDate${idx}`] = c.endDate;
-    app[`careerDepartment${idx}`] = c.role;
-    app[`careerPosition${idx}`] = c.role;
-    app[`careerJobType${idx}`] = c.role;
-    // DOCX 스키마의 경력기술서(careerDetailDescriptionN)에 가깝게, PDF의 description을 채워줌
-    if (c.description) app[`careerDetailDescription${idx}`] = String(c.description);
+    const company = c.companyNameAndDepartment ?? c.company ?? '';
+    app[`careerCompanyName${idx}`] = String(company);
+    app[`careerStartDate${idx}`] = c.startDate != null ? String(c.startDate) : '';
+    app[`careerEndDate${idx}`] = c.endDate != null ? String(c.endDate) : '';
+    app[`careerDepartment${idx}`] = c.role != null ? String(c.role) : '';
+    app[`careerPosition${idx}`] = c.role != null ? String(c.role) : '';
+    app[`careerJobType${idx}`] = c.role != null ? String(c.role) : '';
+    app[`careerSalary${idx}`] = c.salary != null ? String(c.salary) : '';
+    app[`careerEmploymentStatus${idx}`] = c.leaveReason != null ? String(c.leaveReason) : '';
+    app[`careerDetailStartDate${idx}`] = c.startDate != null ? String(c.startDate) : '';
+    app[`careerDetailEndDate${idx}`] = c.endDate != null ? String(c.endDate) : '';
+    app[`careerDetailCompanyName${idx}`] = String(company);
+    app[`careerDetailDepartment${idx}`] = c.role != null ? String(c.role) : '';
+    app[`careerDetailPosition${idx}`] = c.role != null ? String(c.role) : '';
+    app[`careerDetailSalary${idx}`] = c.salary != null ? String(c.salary) : '';
+    app[`careerDetailReason${idx}`] = c.leaveReason != null ? String(c.leaveReason) : '';
+    app[`careerDetailDescription${idx}`] = c.description != null ? String(c.description) : '';
   });
 
+  // 학력 (1~6)
   education.forEach((e: any, i: number) => {
+    if (i >= 6) return;
     const idx = i + 1;
-    app[`universityName${idx}`] = e.school;
-    app[`universityMajor${idx}_1`] = e.major;
-    app[`universityGraduationType${idx}`] = e.degree;
-    app[`educationStartDate${idx}`] = e.startDate;
-    app[`educationEndDate${idx}`] = e.endDate;
+    app[`educationStartDate${idx}`] = e.startDate != null ? String(e.startDate) : '';
+    app[`educationEndDate${idx}`] = e.endDate != null ? String(e.endDate) : '';
+    app[`universityName${idx}`] = e.school != null ? String(e.school) : '';
+    app[`universityMajor${idx}_1`] = e.major != null ? String(e.major) : '';
+    app[`universityGPA${idx}`] = e.gpa != null ? String(e.gpa) : '';
+    app[`universityGPAMax${idx}`] = '';
+    app[`universityLocation${idx}`] = '';
+    app[`universityGraduationType${idx}`] = e.degree != null ? String(e.degree) : '';
     const degreeType = (e.school && String(e.school).indexOf('고등') >= 0) ? '고등학교' : (e.degree || '');
-    if (degreeType) app[`universityDegreeType${idx}`] = degreeType;
+    app[`universityDegreeType${idx}`] = degreeType ? String(degreeType) : '';
   });
 
-  // 자격: date+name 있는 항목만 매핑 (경력/학력이 cert로 섞인 경우 방지), 최대 10개
-  let certIdx = 0;
-  for (const c of certifications) {
-    if (certIdx >= 10) break;
-    const name = c.name || (c.raw && c.date ? c.raw : undefined);
-    if (!name && !c.date) continue;
-    certIdx++;
-    app[`certificateName${certIdx}`] = name || '';
-    // DOCX 스키마와 동일하게 grade/issuer를 분리해 저장
-    if (c.grade) app[`certificateGrade${certIdx}`] = String(c.grade);
-    if (c.issuer) app[`certificateIssuer${certIdx}`] = String(c.issuer);
-    if (c.date) app[`certificateDate${certIdx}`] = c.date;
-  }
+  // 자격증 (1~10): PDF certifications → certificateNameN, certificateGradeN, certificateIssuerN, certificateDateN
+  certifications.forEach((c: any, i: number) => {
+    if (i >= 10) return;
+    const idx = i + 1;
+    app[`certificateName${idx}`] = c.name != null ? String(c.name) : '';
+    app[`certificateGrade${idx}`] = c.grade != null ? String(c.grade) : '';
+    app[`certificateIssuer${idx}`] = c.issuer != null ? String(c.issuer) : '';
+    app[`certificateDate${idx}`] = c.date != null ? String(c.date) : '';
+  });
 
-  // 병역: DOCX는 militaryService(단일 셀)에 들어가는 경우가 많아, PDF도 최소한 합쳐서 채움
-  if (employmentPreference.militaryStatus || employmentPreference.militaryDetail || employmentPreference.militaryPeriod) {
-    const ms = [employmentPreference.militaryStatus, employmentPreference.militaryDetail, employmentPreference.militaryPeriod]
-      .filter(Boolean)
-      .join(' ')
-      .trim();
-    if (ms) app.militaryService = ms;
-  }
-
-  // 자기소개서: DOCX는 selfIntroduction1~4를 사용하므로 PDF는 1번에 채움
-  if (selfIntroduction && String(selfIntroduction).trim()) {
-    app.selfIntroduction1 = String(selfIntroduction).trim();
+  // 자기소개서 (1~4): PDF는 하나만 있으면 selfIntroduction1에
+  if (selfIntroduction) {
+    app.selfIntroduction1 = selfIntroduction;
   }
 
   return app;
@@ -2214,7 +2273,7 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
         const base = path.basename(filePath, '.pdf').replace(/_이력서$/, '');
         name = base.split('_')[0] || base || undefined;
       }
-      const birthDate = applicationData.birthDate;
+      const birthDate = applicationData.birthDate ?? (basic.birthYear ? `${basic.birthYear}-01-01` : undefined);
       const ageNum = birthDate ? calculateAge(birthDate) : (basic.age != null ? Number(basic.age) : undefined);
       const age = ageNum != null && !Number.isNaN(ageNum) ? ageNum : undefined;
       const lastCompany =
@@ -2222,7 +2281,10 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
         (careers[0] && (careers[0].companyNameAndDepartment ?? careers[0].company)) ??
         undefined;
       const lastSalary = applicationData.careerSalary1 ?? basic.lastSalary ?? (careers[0] && careers[0].salary) ?? undefined;
-      const residence = applicationData.residence ?? basic.residence ?? undefined;
+      const residence =
+        applicationData.residence ??
+        basic.residence ??
+        (basic.address || applicationData.address ? classifyResidenceFromAddress(basic.address || applicationData.address) : undefined);
 
       const searchableText = [
         name,

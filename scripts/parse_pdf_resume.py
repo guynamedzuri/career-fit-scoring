@@ -173,6 +173,10 @@ def split_into_sections(full_text: str) -> dict:
         # 첫 번째 블록은 header로 처리 (명확한 섹션이 아니면)
         if idx == 0 and section_name == "unknown":
             section_name = "header"
+        # 첫 블록은 항상 basicInfo(이름/나이/주소 등) 추출용으로 header에도 넣음
+        # (첫 블록이 "나의 스킬" 등으로 skills로 분류돼도 상단에 이름·생년·주소가 있음)
+        if idx == 0:
+            sections["header"] = block
         
         # 이미 같은 이름의 섹션이 있으면 병합 (예: 여러 경력 항목)
         if section_name in sections:
