@@ -127,20 +127,24 @@ def parse_header_block(block: str) -> dict:
     if m:
         info["applicationDate"] = m.group(1).strip()
 
-    # "홍길동 경력" 형태에서 이름 (나의 스킬 이전 라인만, 잘못된 매칭 제외)
+    # "홍길동 경력" 또는 "PRASETYO 신입" 형태에서 이름 (나의 스킬 이전 라인만, 잘못된 매칭 제외)
     NAME_BLOCK = ("스킬", "소프트스킬", "경력", "학력", "나의", "-", "소프트스킬입니다", "입니다")
-    name_candidates = re.finditer(r"([^\s]+)\s+경력\s*$", block, re.MULTILINE)
     idx_skill = block.find("나의 스킬")
-    for m in name_candidates:
-        name = m.group(1).strip()
-        if not name or any(name.startswith(x) or x in name for x in NAME_BLOCK):
-            continue
-        # "나의 스킬" 이후에 나오는 "XXX 경력"은 무시 (표 헤더 등)
-        if idx_skill != -1 and m.start() > idx_skill:
-            continue
-        # 한글 2~4자 또는 영문 이름만 허용 (숫자/특수만 있으면 제외)
-        if re.match(r"^[\uac00-\ud7a3]{2,4}$", name) or re.match(r"^[A-Za-z]{2,20}$", name):
-            info["name"] = name
+
+    def _accept_name(word: str) -> bool:
+        if not word or any(word.startswith(x) or x in word for x in NAME_BLOCK):
+            return False
+        return bool(re.match(r"^[\uac00-\ud7a3]{2,4}$", word) or re.match(r"^[A-Za-z]{2,20}$", word))
+
+    for pattern in (r"([^\s]+)\s+경력\s*$", r"([^\s]+)\s+신입\s*$"):
+        for m in re.finditer(pattern, block, re.MULTILINE):
+            name = m.group(1).strip()
+            if idx_skill != -1 and m.start() > idx_skill:
+                continue
+            if _accept_name(name):
+                info["name"] = name
+                break
+        if info.get("name"):
             break
 
     # 남/여, 1991 (34세)
