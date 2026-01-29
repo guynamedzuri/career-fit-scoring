@@ -1,3 +1,4 @@
-# PDF 이력서 파싱용 (Windows에서 pdftotext 없을 때)
+# PDF 이력서 파싱용 (pdftotext 없을 때, 레이아웃/순서 안정적으로 쓰려면 pdfminer.six 권장)
 # pip install -r requirements-pdf.txt
+pdfminer.six>=20221105
 pymupdf>=1.23.0

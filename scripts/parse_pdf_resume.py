@@ -6,8 +6,8 @@ PDF 이력서 1개를 구조 기반으로 파싱하여 JSON으로 출력하는 �
 사용법:
     python3 scripts/parse_pdf_resume.py <pdf_path>
 
-의존: pdftotext (poppler-utils) 또는 PyMuPDF (pip install pymupdf)
-      Windows에서 pdftotext가 없으면 PyMuPDF 사용 권장.
+의존: pdftotext (poppler) / pdfminer.six / PyMuPDF 중 하나.
+      추출 순서: pdftotext → pdfminer.six → PyMuPDF (레이아웃 품질 우선).
 """
 
 import sys
@@ -30,8 +30,20 @@ def _extract_with_pdftotext(pdf_path: str) -> str:
     return result.stdout or ""
 
 
+def _extract_with_pdfminer(pdf_path: str) -> str:
+    """pdfminer.six로 레이아웃 유지 텍스트 추출 (구분자/순서가 안정적)."""
+    from pdfminer.high_level import extract_text as pdfminer_extract_text
+    from pdfminer.layout import LAParams
+    laparams = LAParams(
+        line_margin=0.3,
+        word_margin=0.1,
+        char_margin=2.0,
+    )
+    return pdfminer_extract_text(pdf_path, laparams=laparams) or ""
+
+
 def _extract_with_pymupdf(pdf_path: str) -> str:
-    """PyMuPDF(fitz)로 텍스트 추출 (Windows 등 pdftotext 없을 때)."""
+    """PyMuPDF(fitz)로 텍스트 추출 (폴백)."""
     import fitz
     doc = fitz.open(pdf_path)
     try:
@@ -44,19 +56,23 @@ def _extract_with_pymupdf(pdf_path: str) -> str:
 
 
 def extract_text_with_layout(pdf_path: str) -> str:
-    """PDF에서 레이아웃 유사 텍스트 추출. pdftotext 우선, 없으면 PyMuPDF."""
+    """PDF에서 레이아웃 유사 텍스트 추출. pdftotext → pdfminer.six → PyMuPDF 순으로 시도."""
     try:
         return _extract_with_pdftotext(pdf_path)
     except FileNotFoundError:
         pass
     try:
+        return _extract_with_pdfminer(pdf_path)
+    except ImportError:
+        pass
+    try:
         return _extract_with_pymupdf(pdf_path)
     except ImportError:
-        raise RuntimeError(
-            "PDF 텍스트 추출에 pdftotext(poppler) 또는 PyMuPDF가 필요합니다. "
-            "Windows: 'pip install pymupdf' 실행 후 다시 시도하세요. "
-            "또는 poppler for Windows 설치 후 pdftotext를 PATH에 추가하세요."
-        )
+        pass
+    raise RuntimeError(
+        "PDF 텍스트 추출에 pdftotext(poppler), pdfminer.six, PyMuPDF 중 하나가 필요합니다. "
+        "예: pip install pdfminer.six 또는 pip install pymupdf"
+    )
 
 
 # --- 섹션 분할 (헤더 라벨 기준) ---
