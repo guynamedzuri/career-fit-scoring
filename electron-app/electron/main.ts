@@ -2264,7 +2264,37 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
         throw new Error(pdfResult.error);
       }
 
+      // 디버그: Python 파싱 원본 결과 저장
+      try {
+        const resumeDir = path.dirname(filePath);
+        const debugDir = path.join(resumeDir, 'debug');
+        if (!fs.existsSync(debugDir)) {
+          fs.mkdirSync(debugDir, { recursive: true });
+        }
+        const baseName = path.basename(filePath, path.extname(filePath));
+        const pythonDebugPath = path.join(debugDir, `${baseName}_python.json`);
+        fs.writeFileSync(pythonDebugPath, JSON.stringify(pdfResult, null, 2), 'utf-8');
+        writeLog(`[Debug] Python 파싱 결과 저장: ${pythonDebugPath}`, 'info');
+      } catch (debugError: any) {
+        writeLog(`[Debug] Python 결과 저장 실패: ${debugError.message}`, 'warn');
+      }
+
       const applicationData = mapPdfResumeToApplicationData(pdfResult);
+
+      // 디버그: Electron 재매핑 결과 저장
+      try {
+        const resumeDir = path.dirname(filePath);
+        const debugDir = path.join(resumeDir, 'debug');
+        if (!fs.existsSync(debugDir)) {
+          fs.mkdirSync(debugDir, { recursive: true });
+        }
+        const baseName = path.basename(filePath, path.extname(filePath));
+        const electronDebugPath = path.join(debugDir, `${baseName}_electron.json`);
+        fs.writeFileSync(electronDebugPath, JSON.stringify(applicationData, null, 2), 'utf-8');
+        writeLog(`[Debug] Electron 매핑 결과 저장: ${electronDebugPath}`, 'info');
+      } catch (debugError: any) {
+        writeLog(`[Debug] Electron 결과 저장 실패: ${debugError.message}`, 'warn');
+      }
       const basic = pdfResult.basicInfo || {};
       const careers = pdfResult.careers || [];
       // 테이블용: name (파일명 폴백), age(숫자), lastCompany, lastSalary, residence
