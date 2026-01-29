@@ -2120,10 +2120,28 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
         throw new Error('parse_pdf_resume.py 스크립트를 찾을 수 없습니다.');
       }
       const isWindows = process.platform === 'win32';
-      const pythonCmd = isWindows ? 'python' : 'python3';
+      let pythonCmd = isWindows ? 'python' : 'python3';
+      // 임베디드 파이썬 우선 사용 (DOCX 사진 추출과 동일 경로)
+      try {
+        if (app && app.getPath) {
+          const exePath = app.getPath('exe');
+          const resourcesPath = path.dirname(exePath);
+          const embedPython = path.join(resourcesPath, 'resources', 'python-embed', isWindows ? 'python.exe' : 'python3');
+          if (fs.existsSync(embedPython)) {
+            pythonCmd = embedPython;
+            writeLog('[Process Resume PDF] Embeddable Python 사용: ' + pythonCmd, 'info');
+          } else {
+            writeLog('[Process Resume PDF] Embeddable Python 없음, 시스템 Python 사용', 'info');
+          }
+        }
+      } catch (e: any) {
+        writeLog('[Process Resume PDF] Embed 경로 확인 실패, 시스템 Python 사용: ' + (e?.message || ''), 'info');
+      }
       const command = `"${pythonCmd}" "${scriptPath}" "${filePath}"`;
-      writeLog(`[Process Resume PDF] ${command}`, 'info');
-      const { stdout, stderr } = await execAsync(command, { maxBuffer: 10 * 1024 * 1024, timeout: 60000 });
+      writeLog('[Process Resume PDF] ' + command, 'info');
+      const execOpts: any = { maxBuffer: 10 * 1024 * 1024, timeout: 60000 };
+      execOpts.env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
+      const { stdout, stderr } = await execAsync(command, execOpts);
       if (stderr && stderr.trim()) writeLog(`[Process Resume PDF] stderr: ${stderr}`, 'warn');
 
       let pdfResult: any;

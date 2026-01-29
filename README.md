@@ -103,6 +103,17 @@ npm run build:mac
 npm run build:linux
 ```
 
+### PDF 이력서 파싱 (임베디드 파이썬)
+
+PDF 모드에서는 **임베디드 파이썬**(`python-embed`)을 우선 사용합니다. PDF 텍스트 추출을 위해 **pymupdf**가 필요하므로, **빌드 전에** 아래 명령을 한 번 실행해 두세요.
+
+- **경로**: 프로젝트 루트 `career-fit-scoring` (python-embed 폴더가 있는 위치)
+- **명령**:
+  - Windows: `python-embed\python.exe -m pip install pymupdf`
+  - macOS/Linux: `python-embed/python3 -m pip install pymupdf` (또는 해당 폴더의 python 실행 파일 경로)
+
+이후 `electron-app`에서 빌드하면 `python-embed` 폴더가 그대로 `resources`에 복사되므로, 설치된 pymupdf가 포함된 상태로 배포됩니다.
+
 ## 주요 기능
 
 ### 1. 채용 공고 설정 (Job Config)

@@ -5,9 +5,9 @@ PDF 이력서 1개를 구조 기반으로 파싱하여 JSON으로 출력하는 �
 
 사용법:
     python3 scripts/parse_pdf_resume.py <pdf_path>
-    python3 scripts/parse_pdf_resume.py pdf_resume/강동화_이력서.pdf
 
-의존: pdftotext (poppler-utils)
+의존: pdftotext (poppler-utils) 또는 PyMuPDF (pip install pymupdf)
+      Windows에서 pdftotext가 없으면 PyMuPDF 사용 권장.
 """
 
 import sys
@@ -17,9 +17,8 @@ import subprocess
 from pathlib import Path
 
 
-# --- pdftotext 추출 ---
-def extract_text_with_layout(pdf_path: str) -> str:
-    """pdftotext -layout 로 텍스트 추출."""
+def _extract_with_pdftotext(pdf_path: str) -> str:
+    """pdftotext -layout 로 텍스트 추출 (poppler 필요)."""
     result = subprocess.run(
         ["pdftotext", "-layout", "-enc", "UTF-8", pdf_path, "-"],
         capture_output=True,
@@ -29,6 +28,35 @@ def extract_text_with_layout(pdf_path: str) -> str:
     if result.returncode != 0:
         raise RuntimeError(f"pdftotext failed: {result.stderr or result.stdout}")
     return result.stdout or ""
+
+
+def _extract_with_pymupdf(pdf_path: str) -> str:
+    """PyMuPDF(fitz)로 텍스트 추출 (Windows 등 pdftotext 없을 때)."""
+    import fitz
+    doc = fitz.open(pdf_path)
+    try:
+        parts = []
+        for page in doc:
+            parts.append(page.get_text("text"))
+        return "\n".join(parts)
+    finally:
+        doc.close()
+
+
+def extract_text_with_layout(pdf_path: str) -> str:
+    """PDF에서 레이아웃 유사 텍스트 추출. pdftotext 우선, 없으면 PyMuPDF."""
+    try:
+        return _extract_with_pdftotext(pdf_path)
+    except FileNotFoundError:
+        pass
+    try:
+        return _extract_with_pymupdf(pdf_path)
+    except ImportError:
+        raise RuntimeError(
+            "PDF 텍스트 추출에 pdftotext(poppler) 또는 PyMuPDF가 필요합니다. "
+            "Windows: 'pip install pymupdf' 실행 후 다시 시도하세요. "
+            "또는 poppler for Windows 설치 후 pdftotext를 PATH에 추가하세요."
+        )
 
 
 # --- 섹션 분할 (헤더 라벨 기준) ---
