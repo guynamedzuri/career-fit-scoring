@@ -80,7 +80,7 @@ def extract_text_with_layout(pdf_path: str, pdftotext_exe: Optional[str] = None)
     )
 
 
-# --- 섹션 분할 (헤더 라벨 기준) ---
+# --- 섹션 분할 (연속 빈 줄 기준) ---
 SECTION_HEADERS = [
     "경력 총 ",
     "학력 ",
@@ -91,46 +91,95 @@ SECTION_HEADERS = [
 ]
 
 
+def _identify_section_name(block: str) -> str:
+    """블록 내용을 보고 섹션 이름을 추론. 헤더 라벨 우선, 없으면 내용 패턴으로 판단."""
+    block_lower = block.lower()
+    lines = block.split("\n")
+    first_lines = "\n".join(lines[:5])  # 처음 5줄만 확인
+    
+    # 헤더 라벨 확인
+    for h in SECTION_HEADERS:
+        if h in first_lines:
+            if "경력 총" in h or "경력" in h:
+                return "career_summary"
+            elif "학력" in h:
+                return "education_header"
+            elif "자격" in h or "어학" in h or "수상" in h:
+                return "certifications"
+            elif "취업우대" in h:
+                return "employment_preference"
+            elif "포트폴리오" in h:
+                return "portfolio"
+            elif "자기소개" in h:
+                return "self_introduction"
+    
+    # 헤더가 없으면 내용 패턴으로 추론
+    if "나의 스킬" in first_lines or "스킬" in first_lines:
+        return "skills"
+    # 경력 패턴: 날짜 범위 (예: "2017.08 ~ 재직중", "2014.10 ~ 2016.09")
+    if re.search(r"\d{4}\.\d{2}\s*~\s*(재직중|\d{4}\.\d{2})", block):
+        return "career_summary"
+    # 학력 패턴: 학교명 + 졸업/재학
+    if re.search(r"(학교|대학교|대학|고등학교|중학교|초등학교).*(졸업|재학|중퇴)", block):
+        return "education_header"
+    # 자격증 패턴: 자격증명 + 합격/취득
+    if re.search(r"(기능사|기사|산업기사|자격증|면허|OPIC|TOEIC|TOEFL).*(합격|취득|최종합격)", block):
+        return "certifications"
+    # 자기소개서 패턴: 긴 문단들
+    if len(block) > 500 and not re.search(r"\d{4}\.\d{2}", block[:200]):
+        return "self_introduction"
+    
+    return "unknown"
+
+
 def split_into_sections(full_text: str) -> dict:
-    """전체 텍스트를 섹션별로 나눔. 헤더 라인을 기준으로 블록 분리."""
+    """전체 텍스트를 섹션별로 나눔. 연속 빈 줄(3개 이상)을 기준으로 블록 분리."""
     sections = {}
     lines = full_text.split("\n")
-    current_section = "header"  # 최상단 ~ 첫 번째 섹션 전
-    current_lines = []
-
-    for line in lines:
-        line_stripped = line.strip()
-        matched_header = None
-        for h in SECTION_HEADERS:
-            if h in line_stripped or line_stripped == h.strip():
-                matched_header = h.strip()
-                break
-        if matched_header:
-            if current_section:
-                sections[current_section] = "\n".join(current_lines).strip()
-            # 정규화된 키 (공백/특수문자 제거)
-            key = re.sub(r"\s+", "_", matched_header).strip("_")
-            if key.startswith("경력_총"):
-                key = "career_summary"
-            elif "학력" in key:
-                key = "education_header"
-            elif "자격" in key or "어학" in key or "수상" in key:
-                key = "certifications"
-            elif "취업우대" in key:
-                key = "employment_preference"
-            elif "포트폴리오" in key:
-                key = "portfolio"
-            elif "자기소개" in key:
-                key = "self_introduction"
-            else:
-                key = key[:50]
-            current_section = key
-            current_lines = [line]
+    
+    # 연속 빈 줄 기준으로 블록 분리
+    blocks = []
+    current_block = []
+    consecutive_empty = 0
+    MIN_EMPTY_LINES = 3  # 3개 이상의 연속 빈 줄이면 섹션 경계
+    
+    for i, line in enumerate(lines):
+        is_empty = not line.strip()
+        
+        if is_empty:
+            consecutive_empty += 1
+            if consecutive_empty >= MIN_EMPTY_LINES:
+                # 연속 빈 줄이 충분히 많으면 이전 블록 저장하고 새 블록 시작
+                if current_block:
+                    blocks.append("\n".join(current_block).strip())
+                    current_block = []
+                consecutive_empty = 0
+                continue
+        else:
+            consecutive_empty = 0
+        
+        current_block.append(line)
+    
+    # 마지막 블록 추가
+    if current_block:
+        blocks.append("\n".join(current_block).strip())
+    
+    # 각 블록을 섹션으로 분류
+    for idx, block in enumerate(blocks):
+        if not block:
             continue
-        current_lines.append(line)
-
-    if current_section:
-        sections[current_section] = "\n".join(current_lines).strip()
+        section_name = _identify_section_name(block)
+        
+        # 첫 번째 블록은 header로 처리 (명확한 섹션이 아니면)
+        if idx == 0 and section_name == "unknown":
+            section_name = "header"
+        
+        # 이미 같은 이름의 섹션이 있으면 병합 (예: 여러 경력 항목)
+        if section_name in sections:
+            sections[section_name] += "\n\n" + block
+        else:
+            sections[section_name] = block
+    
     return sections
 
 
@@ -435,18 +484,24 @@ def parse_pdf_resume(pdf_path: str, pdftotext_exe: Optional[str] = None) -> dict
     header_block = sections.get("header", "")
     basic = parse_header_block(header_block)
 
-    # basicInfo 아래 요약 표(경력 총, 희망연봉, 직전 연봉)는 "나의 스킬" 이전 또는 경력 섹션 상단에 있음
+    # basicInfo 아래 요약 표(경력 총, 희망연봉, 직전 연봉)는 header 블록 또는 career 섹션 상단에 있음
     career_block = sections.get("career_summary", "") or ""
-    summary_region = text[: text.find("나의 스킬")] if "나의 스킬" in text else text[: text.find("경력 총") or len(text)]
+    summary_region = header_block  # header 블록에서 요약 정보 추출
     summary = parse_summary_table_from_career_block(summary_region)
     summary.update(parse_summary_table_from_career_block(career_block))  # career 블록에도 있으면 덮어씀
     for k, v in summary.items():
         if v and (k not in basic or not basic.get(k)):
             basic[k] = v
 
-    # 스킬 라인은 헤더 블록에 있을 수 있음
-    skill_match = re.search(r"나의 스킬\s*\n(.+?)(?=경력 총|\Z)", text, re.DOTALL)
-    skills_text = skill_match.group(1).strip() if skill_match else ""
+    # 스킬: skills 섹션에서 추출, 없으면 header에서 찾기
+    skills_block = sections.get("skills", "")
+    if skills_block:
+        # "나의 스킬" 헤더 제거하고 내용만
+        skills_text = re.sub(r"^나의\s*스킬\s*\n?", "", skills_block, flags=re.MULTILINE).strip()
+    else:
+        # 헤더 블록에서 찾기 (하위 호환)
+        skill_match = re.search(r"나의\s*스킬\s*\n(.+?)(?=경력\s*총|\Z)", header_block, re.DOTALL)
+        skills_text = skill_match.group(1).strip() if skill_match else ""
     skills = [s.strip() for s in re.split(r"\s{2,}", skills_text) if s.strip()]
 
     careers = parse_career_entries(career_block)
