@@ -137,7 +137,9 @@ export default function ResumeFileList({ folderPath, documentType = 'docx', onSe
         <div className="resume-file-list-loading">파일 목록을 불러오는 중...</div>
       ) : files.length === 0 ? (
         <div className="resume-file-list-empty">
-          {folderPath ? 'DOCX 파일이 없습니다.' : '폴더를 선택해주세요.'}
+          {folderPath
+            ? (documentType === 'pdf' ? 'PDF 파일이 없습니다.' : 'DOCX 파일이 없습니다.')
+            : '폴더를 선택해주세요.'}
         </div>
       ) : (
         <div className="resume-file-list-items">
