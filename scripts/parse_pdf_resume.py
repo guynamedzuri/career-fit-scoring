@@ -322,33 +322,10 @@ def parse_career_entries(block: str) -> list:
             start_date = m.group(1)
             end_raw = m.group(2)
             rest = m.group(3)
-            # 회사명 · 직무 (첫 줄)
-            # 예: "스테코(삼성계열사) PKG 설비 파트 · 사원/팀원 8년차 · 생산기술"
-            # → company: "스테코(삼성계열사)", role: "PKG 설비 파트 · 사원/팀원 8년차 · 생산기술"
+            # 첫 번째 ' · '를 구분자로: 앞 = 회사이름/부서 통째로, 뒤 = 직무(role)
             parts = rest.split("·", 1)
-            company_full = parts[0].strip() if parts else ""
-            role_rest = parts[1].strip() if len(parts) > 1 else ""
-            
-            # company에서 괄호로 끝나는 부분까지만 추출 (예: "스테코(삼성계열사)")
-            # 괄호가 있으면 괄호까지, 없으면 첫 단어만
-            company_match = re.match(r"^([^(]+(?:\([^)]+\))?)", company_full)
-            if company_match:
-                company = company_match.group(1).strip()
-                # 나머지 부분(부서명 등)은 role 앞에 추가
-                remaining = company_full[len(company):].strip()
-                if remaining:
-                    role = remaining + (" · " + role_rest if role_rest else "")
-                else:
-                    role = role_rest
-            else:
-                # 괄호 패턴이 없으면 첫 단어만 company로
-                company_parts = company_full.split(None, 1)
-                company = company_parts[0] if company_parts else ""
-                remaining = company_parts[1] if len(company_parts) > 1 else ""
-                if remaining:
-                    role = remaining + (" · " + role_rest if role_rest else "")
-                else:
-                    role = role_rest
+            company = parts[0].strip() if parts else ""
+            role = parts[1].strip() if len(parts) > 1 else ""
             # 다음 줄에 "N개월" 또는 "N년 N개월", 연봉/근무지역/퇴사사유 있을 수 있음
             duration = ""
             desc_lines = []
