@@ -14,3 +14,5 @@ src/**/*.js
 !src/server/**/*.js
 # Poppler Windows 바이너리 (Installer 빌드 시 다운로드하여 사용, ~20MB)
 poppler-windows/
+# Linux 등에서 폴더 전체 파싱용 독립 스크립트 (git 미포함)
+scripts/parse_all_pdfs_standalone.py
