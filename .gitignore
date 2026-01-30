@@ -16,3 +16,7 @@ src/**/*.js
 poppler-windows/
 # Linux 등에서 폴더 전체 파싱용 독립 스크립트 (git 미포함)
 scripts/parse_all_pdfs_standalone.py
+# PDF 원본·파싱 결과·디버그 (로컬/테스트용, common_headers.json만 커밋)
+pdf_resume/*.pdf
+pdf_resume/parsed/
+pdf_resume/debug/

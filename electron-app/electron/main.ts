@@ -2261,7 +2261,14 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
           }
         }
       }
-      const command = `"${pythonCmd}" "${scriptPath}"${pdftotextArg} "${filePath}"`;
+      const resumeDir = path.dirname(filePath);
+      const debugDir = path.join(resumeDir, 'debug');
+      if (!fs.existsSync(debugDir)) {
+        fs.mkdirSync(debugDir, { recursive: true });
+      }
+      const debugDirArg = ` --debug-dir "${debugDir}"`;
+      const corpusHeadersArg = ' --use-corpus-headers';
+      const command = `"${pythonCmd}" "${scriptPath}"${pdftotextArg}${debugDirArg}${corpusHeadersArg} "${filePath}"`;
       writeLog('[Process Resume PDF] ' + command, 'info');
       const execOpts: any = { maxBuffer: 10 * 1024 * 1024, timeout: 60000 };
       execOpts.env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
@@ -2279,14 +2286,9 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
         throw new Error(pdfResult.error);
       }
 
-      // 디버그: Python 파싱 원본 결과 저장
+      const baseName = path.basename(filePath, path.extname(filePath));
+      // 디버그: Python 파싱 원본 결과 저장 (2단계 최종 = _python.json, 1·2단계 중간은 --debug-dir로 Python이 저장)
       try {
-        const resumeDir = path.dirname(filePath);
-        const debugDir = path.join(resumeDir, 'debug');
-        if (!fs.existsSync(debugDir)) {
-          fs.mkdirSync(debugDir, { recursive: true });
-        }
-        const baseName = path.basename(filePath, path.extname(filePath));
         const pythonDebugPath = path.join(debugDir, `${baseName}_python.json`);
         fs.writeFileSync(pythonDebugPath, JSON.stringify(pdfResult, null, 2), 'utf-8');
         writeLog(`[Debug] Python 파싱 결과 저장: ${pythonDebugPath}`, 'info');
@@ -2296,14 +2298,8 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
 
       const applicationData = mapPdfResumeToApplicationData(pdfResult);
 
-      // 디버그: Electron 재매핑 결과 저장
+      // 디버그: Electron 재매핑 결과 저장 (3단계 = applicationData → _electron.json)
       try {
-        const resumeDir = path.dirname(filePath);
-        const debugDir = path.join(resumeDir, 'debug');
-        if (!fs.existsSync(debugDir)) {
-          fs.mkdirSync(debugDir, { recursive: true });
-        }
-        const baseName = path.basename(filePath, path.extname(filePath));
         const electronDebugPath = path.join(debugDir, `${baseName}_electron.json`);
         fs.writeFileSync(electronDebugPath, JSON.stringify(applicationData, null, 2), 'utf-8');
         writeLog(`[Debug] Electron 매핑 결과 저장: ${electronDebugPath}`, 'info');

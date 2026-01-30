@@ -3,9 +3,21 @@
 """
 PDF 이력서 1개를 구조 기반으로 파싱하여 JSON으로 출력하는 스크립트.
 
+파싱 3단계:
+  1단계: pdftotext(poppler) 등으로 PDF → raw 텍스트 추출
+  2단계: 정규/섹션 분할로 블록·섹션 식별 후 basicInfo/careers/education 등 파싱
+  3단계: (Electron 쪽) 파싱 결과를 DOCX와 동일한 applicationData·resumeText 형태로 재매핑
+
+비교 관측용: --debug-dir DIR 지정 시 해당 폴더에 다음 파일을 저장합니다.
+  <basename>.stage1_raw.txt   : 1단계 추출 원문 (첫 줄에 # engine: pdftotext|pdfminer|pymupdf)
+  <basename>.stage1_meta.json : 1단계 메타 (engine, charCount)
+  <basename>.stage2_sections.json : 2단계 중간 (blocks, sections, 블록별 할당 섹션명)
+  (2단계 최종·3단계 결과는 Electron이 같은 폴더에 _python.json, _electron.json으로 저장)
+
 사용법:
     python3 scripts/parse_pdf_resume.py <pdf_path>
     python3 scripts/parse_pdf_resume.py --pdftotext /path/to/pdftotext.exe <pdf_path>
+    python3 scripts/parse_pdf_resume.py [--pdftotext PATH] --debug-dir ./debug <pdf_path>
 
 의존: pdftotext (poppler) / pdfminer.six / PyMuPDF 중 하나.
       추출 순서: pdftotext → pdfminer.six → PyMuPDF (레이아웃 품질 우선).
@@ -60,18 +72,24 @@ def _extract_with_pymupdf(pdf_path: str) -> str:
         doc.close()
 
 
-def extract_text_with_layout(pdf_path: str, pdftotext_exe: Optional[str] = None) -> str:
-    """PDF에서 레이아웃 유사 텍스트 추출. pdftotext → pdfminer.six → PyMuPDF 순으로 시도."""
+def extract_text_with_layout(
+    pdf_path: str, pdftotext_exe: Optional[str] = None
+) -> tuple[str, str]:
+    """PDF에서 레이아웃 유사 텍스트 추출. pdftotext → pdfminer.six → PyMuPDF 순으로 시도.
+    반환: (추출된_문자열, 사용된_엔진명 'pdftotext'|'pdfminer'|'pymupdf')."""
     try:
-        return _extract_with_pdftotext(pdf_path, pdftotext_exe)
+        text = _extract_with_pdftotext(pdf_path, pdftotext_exe)
+        return (text, "pdftotext")
     except FileNotFoundError:
         pass
     try:
-        return _extract_with_pdfminer(pdf_path)
+        text = _extract_with_pdfminer(pdf_path)
+        return (text, "pdfminer")
     except ImportError:
         pass
     try:
-        return _extract_with_pymupdf(pdf_path)
+        text = _extract_with_pymupdf(pdf_path)
+        return (text, "pymupdf")
     except ImportError:
         pass
     raise RuntimeError(
@@ -80,7 +98,7 @@ def extract_text_with_layout(pdf_path: str, pdftotext_exe: Optional[str] = None)
     )
 
 
-# --- 섹션 분할 (연속 빈 줄 기준) ---
+# --- 섹션 분할 (연속 빈 줄 기준 vs 공통 헤더 리스트) ---
 SECTION_HEADERS = [
     "경력 총 ",
     "학력 ",
@@ -89,6 +107,26 @@ SECTION_HEADERS = [
     "포트폴리오 및 기타문서",
     "자기소개서",
 ]
+
+# 공통 헤더(코퍼스 추출) 문자열 → 내부 섹션명
+CORPUS_HEADER_TO_SECTION = {
+    "경력 총": "career_summary",
+    "경력": "career_summary",
+    "학력 고등학교 졸업": "education_header",
+    "학력 고등학교": "education_header",
+    "학력": "education_header",
+    "나의 스킬": "skills",
+    "나의": "skills",
+    "자격/어학/수상": "certifications",
+    "취업우대사항": "employment_preference",
+    "자기소개서": "self_introduction",
+    "지원분야": "header",
+    "입사지원일": "header",
+    "주소": "header",
+    "연봉": "header",
+    "희망연봉": "header",
+    "포트폴리오": "portfolio",
+}
 
 
 def _identify_section_name(block: str) -> str:
@@ -133,9 +171,131 @@ def _identify_section_name(block: str) -> str:
     return "unknown"
 
 
+def load_section_headers_from_corpus(
+    json_path: Optional[str] = None,
+) -> Optional[list[dict] | list[str]]:
+    """common_headers.json 에서 section_headers 로드.
+    section_headers_with_trailing 이 있으면 [{text, trailing_min_empty_lines}, ...] 반환,
+    없으면 기존 section_headers (문자열 리스트) 반환. 없으면 None."""
+    if json_path is None:
+        json_path = ""
+        for base in (Path(__file__).resolve().parent.parent, Path.cwd()):
+            for sub in ("pdf_resume", "scripts"):
+                p = base / sub / "common_headers.json"
+                if p.exists():
+                    json_path = str(p)
+                    break
+            if json_path:
+                break
+    if not json_path or not Path(json_path).exists():
+        return None
+    try:
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        with_trailing = data.get("section_headers_with_trailing")
+        if with_trailing and isinstance(with_trailing, list):
+            return with_trailing
+        headers = data.get("section_headers")
+        if headers and isinstance(headers, list):
+            return headers
+    except Exception:
+        pass
+    return None
+
+
+def split_into_sections_by_headers(
+    full_text: str, headers: list[dict] | list[str]
+) -> tuple[dict[str, str], list[str], list[str]]:
+    """공통 헤더 리스트로 구간 분할. 헤더 문자열 + 그 뒤 줄넘김/공백까지 하나의 패턴으로 보면
+    본문의 같은 단어(표 행 등)와 구분 가능. 반환: (sections, blocks, block_section_names)."""
+    lines = full_text.split("\n")
+    # 헤더가 dict 리스트면 trailing_min_empty_lines 조건 사용 (헤더+뒤 줄넘김까지 하나의 패턴)
+    use_trailing = bool(
+        headers and len(headers) > 0 and isinstance(headers[0], dict)
+    )
+    if use_trailing:
+        sorted_headers = sorted(
+            (h for h in headers if isinstance(h, dict) and h.get("text")),
+            key=lambda h: (-len(h["text"]), h["text"]),
+        )
+    else:
+        plain = [h for h in headers if isinstance(h, str)]
+        sorted_headers = sorted(
+            ({"text": h, "trailing_min_empty_lines": 0} for h in set(plain)),
+            key=lambda h: (-len(h["text"]), h["text"]),
+        )
+    # (라인 인덱스, 매칭된 헤더 텍스트) — 한 줄에 하나만, trailing 조건 만족 시에만
+    hits: list[tuple[int, str]] = []
+    for i, raw in enumerate(lines):
+        line = raw.strip()
+        if not line:
+            continue
+        for h in sorted_headers:
+            text = h["text"]
+            if not line.startswith(text):
+                continue
+            if use_trailing and h.get("trailing_min_empty_lines", 0) > 0:
+                # 이 줄 뒤에 빈 줄이 최소 N개 이어지는지 확인 (표 행이면 0개)
+                # 자격/어학/수상·자격: PDF에서 헤더 다음이 폼피드(\f)+날짜로 바로 오는 경우가 있어 빈 줄 0개도 인정
+                required = h["trailing_min_empty_lines"]
+                if text.strip() == "자격/어학/수상":
+                    required = 0
+                elif text.strip() == "자격":
+                    required = min(required, 1)
+                j = i + 1
+                empty_count = 0
+                while j < len(lines):
+                    if lines[j].strip():
+                        break
+                    empty_count += 1
+                    j += 1
+                if empty_count < required:
+                    continue
+            hits.append((i, text))
+            break
+    hits.sort(key=lambda x: x[0])
+    sections: dict[str, str] = {}
+    blocks: list[str] = []
+    block_section_names: list[str] = []
+    if not hits:
+        # 공통 헤더가 하나도 없으면 전체를 header 로
+        sections["header"] = full_text.strip()
+        blocks.append(full_text.strip())
+        block_section_names.append("header")
+        return sections, blocks, block_section_names
+    # 첫 헤더 이전 = 상단(header)
+    if hits:
+        first_idx = hits[0][0]
+        if first_idx > 0:
+            header_block = "\n".join(lines[:first_idx]).strip()
+            if header_block:
+                sections["header"] = header_block
+                blocks.append(header_block)
+                block_section_names.append("header")
+    for k, (idx, header) in enumerate(hits):
+        section_name = CORPUS_HEADER_TO_SECTION.get(
+            header.strip(), "unknown"
+        )
+        end_idx = hits[k + 1][0] if k + 1 < len(hits) else len(lines)
+        # 헤더 라인 포함 (예: "경력 총 16년 9개월" 이 career_summary 에 들어가도록)
+        content_lines = lines[idx:end_idx]
+        content = "\n".join(content_lines).strip()
+        if not content:
+            continue
+        if section_name in sections:
+            sections[section_name] += "\n\n" + content
+        else:
+            sections[section_name] = content
+        blocks.append(content)
+        block_section_names.append(section_name)
+    return sections, blocks, block_section_names
+
+
 def split_into_sections(full_text: str):
-    """전체 텍스트를 섹션별로 나눔. 연속 빈 줄(3개 이상)을 기준으로 블록 분리. (sections, blocks) 반환."""
+    """전체 텍스트를 섹션별로 나눔. 연속 빈 줄(3개 이상)을 기준으로 블록 분리.
+    반환: (sections, blocks, block_section_names). block_section_names[i]는 blocks[i]에 할당된 섹션명."""
     sections = {}
+    block_section_names = []  # blocks와 동일 순서로 섹션명
     lines = full_text.split("\n")
     
     # 연속 빈 줄 기준으로 블록 분리
@@ -167,25 +327,25 @@ def split_into_sections(full_text: str):
     
     # 각 블록을 섹션으로 분류
     for idx, block in enumerate(blocks):
-        if not block:
-            continue
-        section_name = _identify_section_name(block)
-        
+        section_name = _identify_section_name(block) if block else "empty"
         # 첫 번째 블록은 header로 처리 (명확한 섹션이 아니면)
         if idx == 0 and section_name == "unknown":
             section_name = "header"
         # 첫 블록은 항상 basicInfo(이름/나이/주소 등) 추출용으로 header에도 넣음
         # (첫 블록이 "나의 스킬" 등으로 skills로 분류돼도 상단에 이름·생년·주소가 있음)
-        if idx == 0:
+        if idx == 0 and block:
             sections["header"] = block
-        
+
+        block_section_names.append(section_name)
+        if not block:
+            continue
         # 이미 같은 이름의 섹션이 있으면 병합 (예: 여러 경력 항목)
         if section_name in sections:
             sections[section_name] += "\n\n" + block
         else:
             sections[section_name] = block
-    
-    return sections, blocks
+
+    return sections, blocks, block_section_names
 
 
 # --- 헤더 블록에서 기본 정보 추출 ---
@@ -261,6 +421,11 @@ def parse_header_block(block: str) -> dict:
                 if _accept_name(line_stripped):
                     info["name"] = line_stripped
                     break
+    # 이름 폴백: 자격증 확인서 등 "성명     홍길동" 형식
+    if "name" not in info or not info["name"]:
+        m_name = re.search(r"성명\s+([\uac00-\ud7a3A-Za-z]{2,20})(?:\s|$)", text)
+        if m_name and _accept_name(m_name.group(1).strip()):
+            info["name"] = m_name.group(1).strip()
 
     # 남/여, 1991 (34세)
     m = re.search(r"(남|여)\s*,\s*(\d{4})\s*\((\d+)세\)", text)
@@ -268,6 +433,22 @@ def parse_header_block(block: str) -> dict:
         info["gender"] = m.group(1)
         info["birthYear"] = m.group(2)
         info["age"] = int(m.group(3))
+    # 폴백: "남,"/"여," 없이 "1998 (27세)" 형태만 있는 경우 (홍순철 등)
+    if "birthYear" not in info or "age" not in info:
+        m2 = re.search(r"\b(19[5-9]\d|20[0-1]\d)\s*\((\d{1,2})세\)", text)
+        if m2:
+            if "birthYear" not in info:
+                info["birthYear"] = m2.group(1)
+            if "age" not in info:
+                try:
+                    info["age"] = int(m2.group(2))
+                except ValueError:
+                    pass
+    # 폴백: 자격증 확인서 등 "생년월일    1999년 10월 10일" (연도만 추출, 나이는 미기재)
+    if "birthYear" not in info:
+        m3 = re.search(r"생년월일\s+(\d{4})년", text)
+        if m3:
+            info["birthYear"] = m3.group(1)
 
     # 이메일
     m = re.search(r"이메일\s+(\S+@\S+)", text)
@@ -277,8 +458,10 @@ def parse_header_block(block: str) -> dict:
     m = re.search(r"(?:휴대폰|전화번호)\s+(\d{2,3}[-\s]?\d{3,4}[-\s]?\d{4})", text)
     if m:
         info["phone"] = re.sub(r"\s+", "", m.group(1))
-    # 주소 (괄호 숫자로 시작하는 우편 형식)
-    m = re.search(r"주소\s+\(?\d{5}\)?\s*([^\n]+?)(?=\s+경력\s|$)", text)
+    # 주소: 5자리 우편 (괄호 선택) 또는 3-3 형식 (괄호 필수, 전화번호 xxx-xxxx-xxxx와 구분)
+    m = re.search(
+        r"주소\s+(?:\(?\d{5}\)?|\(\d{3}-\d{3}\))\s*([^\n]+?)(?=\s+경력\s|$)", text
+    )
     if m:
         info["address"] = m.group(1).strip()
     # 주소 대체: "주소 " 다음 한 줄
@@ -290,14 +473,24 @@ def parse_header_block(block: str) -> dict:
     if info.get("address"):
         info["residence"] = _classify_residence(info["address"])
 
-    # 경력 총 N년 N개월 / 희망연봉 / 직전 연봉 (basicInfo 아래 요약 표가 헤더에 있을 때)
+    # 경력 총 N년 N개월 (표에서 학력/경력 순서가 바뀌어도 경력 열 값만 쓰기)
     m = re.search(r"경력\s*총\s*(\d+년\s*\d*개월)", text)
     if m:
         info["totalCareer"] = m.group(1).strip()
     if "totalCareer" not in info:
-        m = re.search(r"총\s*(\d+년\s*\d*개월)", text)
-        if m:
-            info["totalCareer"] = m.group(1).strip()
+        # 학력 먼저인 표: "총 4년"(학력)이 "총 6년 3개월"(경력)보다 앞에 있으면, "경력" 뒤의 "총 N년"만 쓴다
+        career_pos = text.find("경력")
+        if career_pos >= 0:
+            m_after = re.search(
+                r"총\s*(\d+년\s*\d*개월)",
+                text[career_pos:],
+            )
+            if m_after:
+                info["totalCareer"] = m_after.group(1).strip()
+        if "totalCareer" not in info:
+            m = re.search(r"총\s*(\d+년\s*\d*개월)", text)
+            if m:
+                info["totalCareer"] = m.group(1).strip()
     m = re.search(r"희망연봉\s*[:\s]*([0-9,]+)\s*만원", text)
     if m:
         info["desiredSalary"] = m.group(1).strip() + "만원"
@@ -328,14 +521,20 @@ def parse_summary_table_from_career_block(block: str) -> dict:
     """경력 섹션 상단 요약 표(경력 총, 희망연봉, 직전 연봉)에서 basicInfo 보강용 필드 추출."""
     out = {}
     text = block.replace("\n", " ")
-    # 경력 총 N년 N개월 (요약 표 또는 섹션 제목)
+    # 경력 총 N년 N개월 (표에서 학력/경력 순서 바뀌어도 경력 열 값만)
     m = re.search(r"경력\s*총\s*(\d+년\s*\d*개월)", text)
     if m:
         out["totalCareer"] = m.group(1).strip()
     if "totalCareer" not in out:
-        m = re.search(r"총\s*(\d+년\s*\d*개월)", text)
-        if m:
-            out["totalCareer"] = m.group(1).strip()
+        career_pos = text.find("경력")
+        if career_pos >= 0:
+            m_after = re.search(r"총\s*(\d+년\s*\d*개월)", text[career_pos:])
+            if m_after:
+                out["totalCareer"] = m_after.group(1).strip()
+        if "totalCareer" not in out:
+            m = re.search(r"총\s*(\d+년\s*\d*개월)", text)
+            if m:
+                out["totalCareer"] = m.group(1).strip()
     # 희망연봉: 요약 표 1행(회사내규에 따름) / 2행(직전 연봉 : N만원)
     m = re.search(r"희망연봉\s*[:\s]*([0-9,]+)\s*만원", text)
     if m:
@@ -494,22 +693,23 @@ def parse_education_entries(block: str) -> list:
 def parse_certification_entries(block: str) -> list:
     """자격증/어학/수상 라인: YYYY.MM  자격명  합격여부/등급/점수  시행처 형태만 수집."""
     entries = []
-    for line in block.split("\n"):
-        line = line.strip()
+    for raw_line in block.split("\n"):
+        # 폼피드·제어문자 제거 후 한 줄로
+        line = re.sub(r"[\f\r]+", " ", raw_line).strip()
         if not line or len(line) < 5:
+            continue
+        # "자격/어학/수상" 헤더 라인 스킵
+        if line.startswith("자격") and ("어학" in line or "수상" in line) and len(line) < 30:
             continue
         # YYYY.MM  자격명  합격여부/등급/점수  시행처 (날짜로 시작하는 라인만 자격으로 인정)
         m = re.match(r"(\d{4}\.\d{2})\s+(.+?)\s+([^\d].+)$", line)
         if m:
             issuer_full = m.group(3).strip()
-            # issuer를 공백으로 split (3개 이상 공백 또는 탭으로 구분)
-            # 앞부분: 합격여부/등급/점수, 뒷부분: 시행처/언어종류
             issuer_parts = re.split(r"\s{3,}|\t+", issuer_full)
             if len(issuer_parts) >= 2:
                 grade_status = issuer_parts[0].strip()
                 issuer_org = " ".join(issuer_parts[1:]).strip()
             else:
-                # 구분이 명확하지 않으면 전체를 issuer로, grade는 빈 문자열
                 grade_status = ""
                 issuer_org = issuer_full
             entries.append({
@@ -518,6 +718,18 @@ def parse_certification_entries(block: str) -> list:
                 "grade": grade_status,
                 "issuer": issuer_org,
             })
+            continue
+        # 날짜 + 자격명만 있는 라인 (합격/시행처 없음). 경력 형식(YYYY.MM ~ ...) 제외
+        m2 = re.match(r"(\d{4}\.\d{2})\s+(.+)", line)
+        if m2:
+            rest = m2.group(2).strip()
+            if rest and " ~ " not in rest and not re.match(r"^\d{4}\.\d{2}", rest):
+                entries.append({
+                    "date": m2.group(1),
+                    "name": rest,
+                    "grade": "",
+                    "issuer": "",
+                })
     return entries
 
 
@@ -570,10 +782,61 @@ def parse_portfolio(block: str) -> list:
     return unique_names
 
 
-def parse_pdf_resume(pdf_path: str, pdftotext_exe: Optional[str] = None) -> dict:
-    """PDF 한 개를 파싱해 구조화된 dict 반환."""
-    text = extract_text_with_layout(pdf_path, pdftotext_exe)
-    sections, blocks = split_into_sections(text)
+def _write_debug_stage1(debug_dir: str, base_name: str, raw_text: str, engine: str) -> None:
+    """1단계(pdftotext 등 추출) 출력: raw 텍스트 + 사용 엔진."""
+    import os
+    os.makedirs(debug_dir, exist_ok=True)
+    raw_path = os.path.join(debug_dir, f"{base_name}.stage1_raw.txt")
+    with open(raw_path, "w", encoding="utf-8") as f:
+        f.write(f"# engine: {engine}\n")
+        f.write(raw_text)
+    meta_path = os.path.join(debug_dir, f"{base_name}.stage1_meta.json")
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump({"engine": engine, "charCount": len(raw_text)}, f, ensure_ascii=False, indent=2)
+
+
+def _write_debug_stage2(
+    debug_dir: str, base_name: str, blocks: list, block_section_names: list, sections: dict
+) -> None:
+    """2단계(정규/섹션 분할) 중간 출력: 블록별 텍스트와 할당된 섹션명."""
+    import os
+    os.makedirs(debug_dir, exist_ok=True)
+    out = {
+        "blocks": [
+            {"section": name, "text": block}
+            for block, name in zip(blocks, block_section_names)
+        ],
+        "sections_keys": list(sections.keys()),
+        "sections": {k: v for k, v in sections.items()},
+    }
+    path = os.path.join(debug_dir, f"{base_name}.stage2_sections.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=2)
+
+
+def parse_pdf_resume(
+    pdf_path: str,
+    pdftotext_exe: Optional[str] = None,
+    debug_dir: Optional[str] = None,
+    use_corpus_headers: bool = False,
+) -> dict:
+    """PDF 한 개를 파싱해 구조화된 dict 반환.
+    debug_dir이 있으면 1단계(raw 텍스트), 2단계(섹션/블록) 중간 결과를 해당 폴더에 저장.
+    use_corpus_headers=True 이면 common_headers.json 의 section_headers 로 구간 구분 (헤더=구간 시작).
+    참고: 같은 헤더(예: 학력)가 표와 본문에 둘 다 나오면 구간이 조기 끊길 수 있음. 기본은 연속 빈 줄 기준 분할."""
+    text, engine = extract_text_with_layout(pdf_path, pdftotext_exe)
+    corpus_headers = load_section_headers_from_corpus() if use_corpus_headers else None
+    if corpus_headers:
+        sections, blocks, block_section_names = split_into_sections_by_headers(
+            text, corpus_headers
+        )
+    else:
+        sections, blocks, block_section_names = split_into_sections(text)
+
+    if debug_dir:
+        base_name = Path(pdf_path).stem
+        _write_debug_stage1(debug_dir, base_name, text, engine)
+        _write_debug_stage2(debug_dir, base_name, blocks, block_section_names, sections)
 
     # basicInfo: 첫 블록만 있으면 이름/이메일/주소가 둘째 블록에 있어 빈 basic이 됨 → 첫 두 블록 합쳐서 추출
     header_for_basic = "\n\n".join(blocks[:2]) if len(blocks) >= 2 else (blocks[0] if blocks else "")
@@ -628,21 +891,39 @@ def parse_pdf_resume(pdf_path: str, pdftotext_exe: Optional[str] = None) -> dict
 def main():
     args = sys.argv[1:]
     pdftotext_exe = None
-    if args and args[0] == "--pdftotext":
-        if len(args) < 3:
-            print(json.dumps({"error": "Usage: parse_pdf_resume.py [--pdftotext PATH] <pdf_path>"}, ensure_ascii=False, indent=2))
-            sys.exit(1)
-        pdftotext_exe = args[1]
-        args = args[2:]
+    debug_dir = None
+    use_corpus_headers = False
+    while args:
+        if args[0] == "--pdftotext" and len(args) >= 3:
+            pdftotext_exe = args[1]
+            args = args[2:]
+        elif args[0] == "--debug-dir" and len(args) >= 2:
+            debug_dir = args[1]
+            args = args[2:]
+        elif args[0] == "--use-corpus-headers":
+            use_corpus_headers = True
+            args = args[1:]
+        else:
+            break
     if not args:
-        print(json.dumps({"error": "Usage: parse_pdf_resume.py [--pdftotext PATH] <pdf_path>"}, ensure_ascii=False, indent=2))
+        print(
+            json.dumps(
+                {
+                    "error": "Usage: parse_pdf_resume.py [--pdftotext PATH] [--debug-dir DIR] [--use-corpus-headers] <pdf_path>"
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         sys.exit(1)
     pdf_path = args[0]
     if not Path(pdf_path).exists():
         print(json.dumps({"error": f"File not found: {pdf_path}"}, ensure_ascii=False, indent=2))
         sys.exit(1)
     try:
-        data = parse_pdf_resume(pdf_path, pdftotext_exe)
+        data = parse_pdf_resume(
+            pdf_path, pdftotext_exe, debug_dir, use_corpus_headers
+        )
         print(json.dumps(data, ensure_ascii=False, indent=2))
     except Exception as e:
         print(json.dumps({"error": str(e)}, ensure_ascii=False, indent=2))
