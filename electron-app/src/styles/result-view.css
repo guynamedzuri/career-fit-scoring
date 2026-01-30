@@ -394,9 +394,10 @@
 }
 
 .cell-company {
-  flex: 0 1 auto;
-  min-width: 100px;
-  max-width: 120px;
+  width: 150px;
+  min-width: 150px;
+  max-width: 150px;
+  flex-shrink: 0;
   text-align: left;
   justify-content: flex-start;
   overflow: hidden;
