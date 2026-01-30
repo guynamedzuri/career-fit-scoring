@@ -113,15 +113,16 @@ def _identify_section_name(block: str) -> str:
             elif "자기소개" in h:
                 return "self_introduction"
     
-    # 헤더가 없으면 내용 패턴으로 추론
+    # 헤더가 없으면 내용 패턴으로 추론 (학력을 경력보다 먼저 확인: 경력 없는 이력서에서 학력 블록이 날짜만으로 경력으로 오인되는 것 방지)
     if "나의 스킬" in first_lines or "스킬" in first_lines:
         return "skills"
-    # 경력 패턴: 날짜 범위 (예: "2017.08 ~ 재직중", "2014.10 ~ 2016.09")
-    if re.search(r"\d{4}\.\d{2}\s*~\s*(재직중|\d{4}\.\d{2})", block):
-        return "career_summary"
-    # 학력 패턴: 학교명 + 졸업/재학
-    if re.search(r"(학교|대학교|대학|고등학교|중학교|초등학교).*(졸업|재학|중퇴)", block):
+    # 학력 패턴: "학력" 키워드 또는 학교명 + 졸업/재학 (경력 패턴보다 먼저)
+    if "학력" in first_lines or re.search(r"(학교|대학교|대학|고등학교|중학교|초등학교).*(졸업|재학|중퇴)", block):
         return "education_header"
+    # 경력 패턴: 날짜 범위 (예: "2017.08 ~ 재직중") + 회사/직무 느낌 (학력은 날짜+학교라 여기서 제외)
+    if re.search(r"\d{4}\.\d{2}\s*~\s*(재직중|\d{4}\.\d{2})", block):
+        # 학력과 겹치지 않도록: "고등학교"/"대학교"/"대학"이 있으면 학력으로 이미 위에서 처리됨. 남은 건 경력
+        return "career_summary"
     # 자격증 패턴: 자격증명 + 합격/취득
     if re.search(r"(기능사|기사|산업기사|자격증|면허|OPIC|TOEIC|TOEFL).*(합격|취득|최종합격)", block):
         return "certifications"
