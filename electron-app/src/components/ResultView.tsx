@@ -1503,7 +1503,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               <div className="table-cell cell-company">
                 {result.status === 'completed' && result.lastCompany ? (
                   <div className="company-info">
-                    <span className="company-name">{result.lastCompany}</span>
+                    <span className="company-name" title={result.lastCompany}>{result.lastCompany}</span>
                     {result.lastSalary && (
                       <span className="company-salary">({result.lastSalary})</span>
                     )}

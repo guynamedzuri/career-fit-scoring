@@ -394,10 +394,12 @@
 }
 
 .cell-company {
-  flex: 1;
-  min-width: 150px;
+  flex: 0 1 auto;
+  min-width: 120px;
+  max-width: 200px;
   text-align: left;
   justify-content: flex-start;
+  overflow: hidden;
 }
 
 .cell-residence {
@@ -754,12 +756,19 @@
   flex-direction: column;
   gap: 0.125rem;
   align-items: flex-start;
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
 }
 
 .company-name {
   font-size: 0.875rem;
   color: #111827;
   font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 
 .company-salary {
