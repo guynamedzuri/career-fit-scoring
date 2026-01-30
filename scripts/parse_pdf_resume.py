@@ -132,8 +132,8 @@ def _identify_section_name(block: str) -> str:
     return "unknown"
 
 
-def split_into_sections(full_text: str) -> dict:
-    """전체 텍스트를 섹션별로 나눔. 연속 빈 줄(3개 이상)을 기준으로 블록 분리."""
+def split_into_sections(full_text: str):
+    """전체 텍스트를 섹션별로 나눔. 연속 빈 줄(3개 이상)을 기준으로 블록 분리. (sections, blocks) 반환."""
     sections = {}
     lines = full_text.split("\n")
     
@@ -184,7 +184,7 @@ def split_into_sections(full_text: str) -> dict:
         else:
             sections[section_name] = block
     
-    return sections
+    return sections, blocks
 
 
 # --- 헤더 블록에서 기본 정보 추출 ---
@@ -572,10 +572,12 @@ def parse_portfolio(block: str) -> list:
 def parse_pdf_resume(pdf_path: str, pdftotext_exe: Optional[str] = None) -> dict:
     """PDF 한 개를 파싱해 구조화된 dict 반환."""
     text = extract_text_with_layout(pdf_path, pdftotext_exe)
-    sections = split_into_sections(text)
+    sections, blocks = split_into_sections(text)
 
+    # basicInfo: 첫 블록만 있으면 이름/이메일/주소가 둘째 블록에 있어 빈 basic이 됨 → 첫 두 블록 합쳐서 추출
+    header_for_basic = "\n\n".join(blocks[:2]) if len(blocks) >= 2 else (blocks[0] if blocks else "")
+    basic = parse_header_block(header_for_basic)
     header_block = sections.get("header", "")
-    basic = parse_header_block(header_block)
 
     # basicInfo 아래 요약 표(경력 총, 희망연봉, 직전 연봉)는 header 블록 또는 career 섹션 상단에 있음
     career_block = sections.get("career_summary", "") or ""
