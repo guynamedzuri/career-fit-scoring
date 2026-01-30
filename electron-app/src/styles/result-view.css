@@ -395,8 +395,8 @@
 
 .cell-company {
   flex: 0 1 auto;
-  min-width: 120px;
-  max-width: 200px;
+  min-width: 100px;
+  max-width: 120px;
   text-align: left;
   justify-content: flex-start;
   overflow: hidden;
@@ -769,6 +769,37 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
+}
+
+.company-name-wrap {
+  position: relative;
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.company-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  background: #1f2937;
+  color: #fff;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.08s ease;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.company-name-wrap:hover .company-tooltip {
+  opacity: 1;
 }
 
 .company-salary {
