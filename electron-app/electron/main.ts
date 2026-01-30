@@ -2237,10 +2237,16 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
             writeLog('[Process Resume PDF] Embeddable Python 없음, 시스템 Python 사용', 'info');
           }
           // 번들 Poppler pdftotext 우선 사용 (extraResources/poppler-windows/bin)
-          const bundledPdftotext = path.join(appRoot, 'resources', 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext');
-          if (fs.existsSync(bundledPdftotext)) {
-            pdftotextArg = ` --pdftotext "${bundledPdftotext}"`;
-            writeLog('[Process Resume PDF] 번들 pdftotext 사용: ' + bundledPdftotext, 'info');
+          const bundledCandidates = [
+            path.join(appRoot, 'resources', 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext'),
+            ...(process.resourcesPath ? [path.join(process.resourcesPath, 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext')] : []),
+          ];
+          for (const bundledPdftotext of bundledCandidates) {
+            if (bundledPdftotext && fs.existsSync(bundledPdftotext)) {
+              pdftotextArg = ` --pdftotext "${bundledPdftotext}"`;
+              writeLog('[Process Resume PDF] 번들 pdftotext 사용: ' + bundledPdftotext, 'info');
+              break;
+            }
           }
         }
       } catch (e: any) {
@@ -2265,6 +2271,12 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       const debugDir = path.join(resumeDir, 'debug');
       if (!fs.existsSync(debugDir)) {
         fs.mkdirSync(debugDir, { recursive: true });
+      }
+      if (!pdftotextArg) {
+        writeLog('[Process Resume PDF] pdftotext 없음 → 추출 및 AI 분석 건너뜀', 'warn');
+        throw new Error(
+          'PDF 추출에 pdftotext(poppler)가 필요합니다. pdftotext가 없어 추출 및 AI 분석을 건너뜁니다. 빌드 시 프로젝트 루트에 poppler-windows를 포함한 뒤 재빌드해 주세요.'
+        );
       }
       const debugDirArg = ` --debug-dir "${debugDir}"`;
       const corpusHeadersArg = ' --use-corpus-headers';
