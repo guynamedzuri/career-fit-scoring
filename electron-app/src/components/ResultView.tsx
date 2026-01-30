@@ -715,10 +715,28 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           compareA = gradeA;
           compareB = gradeB;
           break;
-        case 'totalScore':
-          compareA = a.totalScore;
-          compareB = b.totalScore;
+        case 'totalScore': {
+          // 필수사항 불만족(X)은 내부 점수와 관계없이 항상 아래로 (내림차순 시)
+          const isRequiredFail = (r: typeof a) =>
+            userPrompt?.requiredQualifications?.trim() &&
+            r.aiChecked &&
+            r.aiReport &&
+            typeof r.aiReport === 'object' &&
+            (r.aiReport as { evaluations?: { requiredQual?: string } }).evaluations?.requiredQual === 'X';
+          const failA = isRequiredFail(a);
+          const failB = isRequiredFail(b);
+          if (failA && !failB) {
+            compareA = -1;
+            compareB = b.totalScore;
+          } else if (!failA && failB) {
+            compareA = a.totalScore;
+            compareB = -1;
+          } else {
+            compareA = a.totalScore;
+            compareB = b.totalScore;
+          }
           break;
+        }
         case 'status':
           // 후보자 상태 우선, 없으면 처리 상태
           const candidateStatusOrder = { pending: 1, review: 2, rejected: 3 };
