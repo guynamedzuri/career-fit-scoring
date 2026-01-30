@@ -188,8 +188,24 @@ def split_into_sections(full_text: str) -> dict:
 
 
 # --- 헤더 블록에서 기본 정보 추출 ---
+def _classify_residence(address: str) -> str:
+    """주소 문자열에서 거주지 분류 (서울/수도권/시흥/안산/지방)."""
+    if not address or not isinstance(address, str):
+        return ""
+    a = address.strip()
+    if "시흥" in a or "시흥시" in a:
+        return "시흥"
+    if "안산" in a or "안산시" in a:
+        return "안산"
+    if "서울" in a or "서울시" in a or "서울특별시" in a:
+        return "서울"
+    if any(x in a for x in ("경기", "경기도", "인천", "수원", "성남", "고양", "용인", "부천", "안양", "평택", "의정부", "광명", "과천", "구리", "남양주", "오산", "의왕", "이천", "하남", "화성", "분당", "판교")):
+        return "수도권"
+    return "지방"
+
+
 def parse_header_block(block: str) -> dict:
-    """상단 블록에서 이름, 성별, 생년, 나이, 이메일, 휴대폰, 주소, 지원분야, 입사지원일 추출."""
+    """상단 블록에서 이름, 성별, 생년, 나이, 이메일, 휴대폰, 주소, 지원분야, 입사지원일, 직전연봉, 거주지 추출."""
     info = {}
     text = block.replace("\n", " ")
 
@@ -214,7 +230,7 @@ def parse_header_block(block: str) -> dict:
 
     # 나의 스킬 이전에 나오는 모든 "XXX 경력" / "XXX 신입" 후보를 모은 뒤, 첫 번째 유효한 이름만 사용
     candidates = []
-    for pattern in (r"([^\s]+)\s+경력\s*$", r"([^\s]+)\s+신입\s*$"):
+    for pattern in (r"([^\s]+)\s+경력\s*$", r"([^\s]+)\s+신입\s*$", r"([^\s]+)\s+경력\s", r"([^\s]+)\s+신입\s"):
         for m in re.finditer(pattern, block, re.MULTILINE):
             if idx_skill != -1 and m.start() > idx_skill:
                 continue
@@ -224,6 +240,26 @@ def parse_header_block(block: str) -> dict:
         if _accept_name(name):
             info["name"] = name
             break
+    # 이름 폴백: "남," / "여," 바로 앞 줄에서 2~4 한글 또는 영문 이름 추출
+    if "name" not in info or not info["name"]:
+        lines = block.split("\n")
+        for i, line in enumerate(lines):
+            line_stripped = line.strip()
+            if re.match(r"^(남|여)\s*,\s*\d{4}", line_stripped):
+                if i > 0:
+                    prev = lines[i - 1].strip()
+                    if _accept_name(prev):
+                        info["name"] = prev
+                    else:
+                        # "강동화 경력" 형태면 앞 단어만
+                        first_word = prev.split(None, 1)[0] if prev else ""
+                        if _accept_name(first_word):
+                            info["name"] = first_word
+                break
+            if re.match(r"^[\uac00-\ud7a3]{2,4}$", line_stripped) or re.match(r"^[A-Za-z]{2,20}$", line_stripped):
+                if _accept_name(line_stripped):
+                    info["name"] = line_stripped
+                    break
 
     # 남/여, 1991 (34세)
     m = re.search(r"(남|여)\s*,\s*(\d{4})\s*\((\d+)세\)", text)
@@ -249,6 +285,9 @@ def parse_header_block(block: str) -> dict:
         m = re.search(r"주소\s+([^\n]+)", block)
         if m:
             info["address"] = m.group(1).strip()
+    # 거주지: 주소에서 분류 (서울/수도권/시흥/안산/지방)
+    if info.get("address"):
+        info["residence"] = _classify_residence(info["address"])
 
     # 경력 총 N년 N개월 / 희망연봉 / 직전 연봉 (basicInfo 아래 요약 표가 헤더에 있을 때)
     m = re.search(r"경력\s*총\s*(\d+년\s*\d*개월)", text)
@@ -266,9 +305,18 @@ def parse_header_block(block: str) -> dict:
         idx_last = text.find("직전 연봉")
         if idx_desired != -1 and (idx_last == -1 or idx_desired < idx_last):
             info["desiredSalary"] = "회사내규에 따름"
-    m = re.search(r"직전\s*연봉\s*:\s*([^\s원]+만원?)", text)
+    # 직전 연봉: "직전 연봉 : 3,800 만원" (공백 허용)
+    m = re.search(r"직전\s*연봉\s*:\s*([0-9,]+)\s*만\s*원", text)
     if m:
-        info["lastSalary"] = m.group(1).strip() + ("원" if "원" in m.group(1) else "만원")
+        info["lastSalary"] = m.group(1).strip() + "만원"
+    if "lastSalary" not in info:
+        m = re.search(r"직전\s*연봉\s*:\s*([0-9,]+)\s*만원", text)
+        if m:
+            info["lastSalary"] = m.group(1).strip() + "만원"
+    if "lastSalary" not in info:
+        m = re.search(r"직전\s*연봉\s*:\s*([^\s원]+만원?)", text)
+        if m:
+            info["lastSalary"] = m.group(1).strip().rstrip("원") + ("만원" if "만" in m.group(1) else "만원")
     if "lastSalary" not in info and "회사내규에 따름" in text:
         info["lastSalary"] = "회사내규에 따름"
 
@@ -297,9 +345,13 @@ def parse_summary_table_from_career_block(block: str) -> dict:
         if idx_desired != -1 and (idx_last == -1 or idx_desired < idx_last):
             out["desiredSalary"] = "회사내규에 따름"
     # 직전 연봉 (요약 표 2행, "3,800 만원"처럼 공백 허용)
-    m = re.search(r"직전\s*연봉\s*:\s*([0-9,]+)\s*만원", text)
+    m = re.search(r"직전\s*연봉\s*:\s*([0-9,]+)\s*만\s*원", text)
     if m:
         out["lastSalary"] = m.group(1).strip() + "만원"
+    if "lastSalary" not in out:
+        m = re.search(r"직전\s*연봉\s*:\s*([0-9,]+)\s*만원", text)
+        if m:
+            out["lastSalary"] = m.group(1).strip() + "만원"
     if "lastSalary" not in out and "회사내규에 따름" in text:
         out["lastSalary"] = "회사내규에 따름"
     return out
