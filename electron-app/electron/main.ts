@@ -2236,17 +2236,23 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
           } else {
             writeLog('[Process Resume PDF] Embeddable Python 없음, 시스템 Python 사용', 'info');
           }
-          // 번들 Poppler pdftotext 우선 사용 (extraResources/poppler-windows/bin)
+          // 번들 Poppler pdftotext (extraResources → resources/poppler-windows/bin)
+          // win-unpacked 기준: win-unpacked/resources/poppler-windows/bin/pdftotext.exe
           const bundledCandidates = [
             path.join(appRoot, 'resources', 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext'),
             ...(process.resourcesPath ? [path.join(process.resourcesPath, 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext')] : []),
-          ];
+            path.join(appRoot, '..', 'resources', 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext'),
+          ].filter(Boolean);
           for (const bundledPdftotext of bundledCandidates) {
             if (bundledPdftotext && fs.existsSync(bundledPdftotext)) {
               pdftotextArg = ` --pdftotext "${bundledPdftotext}"`;
               writeLog('[Process Resume PDF] 번들 pdftotext 사용: ' + bundledPdftotext, 'info');
               break;
             }
+          }
+          if (!pdftotextArg) {
+            writeLog('[Process Resume PDF] 번들 pdftotext 미발견. 시도 경로: ' + bundledCandidates.join(' | '), 'warn');
+            writeLog('[Process Resume PDF] exePath=' + exePath + ', appRoot=' + appRoot + ', resourcesPath=' + (process.resourcesPath ?? 'undefined'), 'warn');
           }
         }
       } catch (e: any) {
