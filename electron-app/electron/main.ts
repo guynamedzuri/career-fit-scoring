@@ -3219,16 +3219,10 @@ ${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length 
       writeLog(`[AI Check] 등급별 조건 평가 정보가 없습니다 (${data.fileName})`, 'warn');
     }
     
-    // gradeEvaluations는 로그에만 출력하고 인터페이스에는 포함하지 않음
-    // 인터페이스로 반환할 때는 gradeEvaluations를 제거
-    const reportForInterface = result.report && typeof result.report === 'object' ? { ...result.report } : result.report;
-    if (reportForInterface && typeof reportForInterface === 'object' && 'gradeEvaluations' in reportForInterface) {
-      delete (reportForInterface as any).gradeEvaluations;
-    }
-    
+    // gradeEvaluations는 AI Comment(등급별 판정·근거) 표시를 위해 report에 포함하여 반환
     return {
       ...result,
-      report: reportForInterface,
+      report: result.report,
     };
   } catch (error) {
     console.error('[AI Check] Error:', error);

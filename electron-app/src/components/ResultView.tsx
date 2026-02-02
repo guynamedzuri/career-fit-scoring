@@ -165,6 +165,7 @@ interface ScoringResult {
       preferredQual?: string;
       certification?: string;
     };
+    gradeEvaluations?: Record<string, { satisfied?: boolean; reason?: string }>; // 등급별 판정·근거 (최상/상/중/하/최하)
   };
   aiReportParsed?: boolean; // AI 보고서가 JSON으로 파싱되었는지 여부
   aiChecked?: boolean; // AI 검사 완료 여부
@@ -2179,6 +2180,30 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                     <div className="ai-report-section">
                       <h4 className="ai-report-section-title">평가 요약</h4>
                       <p className="ai-report-summary">{currentAiReport.summary}</p>
+                    </div>
+                  )}
+                  
+                  {currentAiReport.gradeEvaluations && typeof currentAiReport.gradeEvaluations === 'object' && (
+                    <div className="ai-report-section ai-report-grade-evaluations">
+                      <h4 className="ai-report-section-title">등급별 판정 및 근거</h4>
+                      <div className="grade-evaluations-list">
+                        {['최상', '상', '중', '하', '최하'].map((gradeName, index) => {
+                          const labels: Record<string, string> = { '최상': 'A (최상)', '상': 'B (상)', '중': 'C (중)', '하': 'D (하)', '최하': 'E (최하)' };
+                          const ev = (currentAiReport.gradeEvaluations as Record<string, { satisfied?: boolean; reason?: string }>)?.[gradeName];
+                          if (!ev) return null;
+                          const satisfied = ev.satisfied ? '✓ 만족' : '✗ 불만족';
+                          const reason = (ev.reason || '').trim() || '—';
+                          return (
+                            <div key={gradeName} className="grade-evaluation-item">
+                              <div className="grade-evaluation-header">
+                                <span className="grade-evaluation-name">{labels[gradeName] ?? gradeName}</span>
+                                <span className={`grade-evaluation-verdict ${ev.satisfied ? 'satisfied' : 'unsatisfied'}`}>{satisfied}</span>
+                              </div>
+                              <p className="grade-evaluation-reason">{reason}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                   
