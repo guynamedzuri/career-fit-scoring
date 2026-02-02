@@ -219,7 +219,7 @@ interface ResultViewProps {
   selectedFolder: string; // 캐시를 위해 폴더 경로 필요
   onBack: () => void;
   onProcessingChange?: (processing: boolean) => void;
-  onProgressChange?: (progress: { current: number; total: number; currentFile: string; estimatedTimeRemainingMs?: number }) => void;
+  onProgressChange?: (progress: { current: number; total: number; currentFile: string; estimatedTimeRemainingMs?: number; phase?: 'parsing' | 'ai'; concurrency?: number }) => void;
   jobMetadata?: any; // App.tsx에서 전달하는 jobMetadata
 }
 
@@ -237,6 +237,9 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showAiReportModal, setShowAiReportModal] = useState(false);
+  const [showPromptsModal, setShowPromptsModal] = useState(false);
+  const [promptsPreview, setPromptsPreview] = useState<{ systemPrompt: string; userPromptText: string } | null>(null);
+  const [promptsPreviewError, setPromptsPreviewError] = useState<string | null>(null);
   const [currentAiReport, setCurrentAiReport] = useState<string | {
     grade: string;
     summary: string;
@@ -433,11 +436,14 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         // 전체 진행률을 progress로 변환 (파싱 50% + AI 50%)
         const totalSteps = totalFiles * 2; // 파싱 단계 + AI 단계
         const completedSteps = parsingCompleted + aiCompleted;
+        const phase: 'parsing' | 'ai' = parsingCompleted < totalFiles ? 'parsing' : 'ai';
         const totalProgress = {
           current: completedSteps,
           total: totalSteps,
           currentFile: currentFile || '',
           estimatedTimeRemainingMs,
+          phase,
+          concurrency: phase === 'parsing' ? 4 : 3,
         };
         
         if (onProgressChange) {
@@ -984,7 +990,6 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       }));
       
       const initialProgress = { current: 0, total: needsAnalysis.length, currentFile: '', estimatedTimeRemainingMs: undefined };
-      console.log('[AI Analysis] Setting initial progress:', initialProgress);
       setAiProgress(initialProgress);
       
       // 전체 진행률 업데이트 (파싱 완료 + AI 시작)
@@ -994,13 +999,12 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         total: totalSteps,
         currentFile: '',
         estimatedTimeRemainingMs: undefined,
+        phase: 'ai' as const,
+        concurrency: 3,
       };
       
       if (onProgressChange) {
-        console.log('[AI Analysis] Calling onProgressChange with:', initialTotalProgress);
         onProgressChange(initialTotalProgress);
-      } else {
-        console.warn('[AI Analysis] onProgressChange is not available!');
       }
       if (onProcessingChange) {
         onProcessingChange(true);
@@ -1067,7 +1071,14 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           const estimatedMs = avgMs > 0 ? avgMs * Math.ceil(remaining / AI_CONCURRENCY) : undefined;
           setAiProgress({ current: aiCompletedCount, total: needsAnalysis.length, currentFile: result.fileName, estimatedTimeRemainingMs: estimatedMs });
           setOverallProgress(prev => {
-            const totalProgress = { current: totalFiles + aiCompletedCount, total: totalSteps, currentFile: result.fileName, estimatedTimeRemainingMs: estimatedMs };
+            const totalProgress = {
+              current: totalFiles + aiCompletedCount,
+              total: totalSteps,
+              currentFile: result.fileName,
+              estimatedTimeRemainingMs: estimatedMs,
+              phase: 'ai' as const,
+              concurrency: 3,
+            };
             if (onProgressChange) onProgressChange(totalProgress);
             return { ...prev, aiCompleted: aiCompletedCount, currentFile: result.fileName, estimatedTimeRemainingMs: estimatedMs };
           });
@@ -1276,6 +1287,35 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           <span className="job-info-label">대상:</span>
           <span className="job-info-value">{selectedFiles.length}명</span>
         </div>
+        <button
+          type="button"
+          className="prompts-preview-btn"
+          onClick={async () => {
+            setPromptsPreviewError(null);
+            setPromptsPreview(null);
+            setShowPromptsModal(true);
+            if (!window.electron?.getAiPromptsPreview || !userPrompt) {
+              setPromptsPreviewError('userPrompt가 없거나 프롬프트 미리보기를 사용할 수 없습니다.');
+              return;
+            }
+            try {
+              const firstWithData = results.find(r => r.applicationData);
+              const res = await window.electron.getAiPromptsPreview({
+                userPrompt,
+                applicationData: firstWithData?.applicationData,
+              });
+              if (res.success && res.systemPrompt != null && res.userPromptText != null) {
+                setPromptsPreview({ systemPrompt: res.systemPrompt, userPromptText: res.userPromptText });
+              } else {
+                setPromptsPreviewError((res as { error?: string }).error || '프롬프트를 불러오지 못했습니다.');
+              }
+            } catch (e) {
+              setPromptsPreviewError(e instanceof Error ? e.message : '알 수 없는 오류');
+            }
+          }}
+        >
+          프롬프트 보기
+        </button>
       </div>
 
       {/* 검색 + 필터 + 상태 이동 */}
@@ -2180,6 +2220,47 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                 </div>
               ) : (
                 <pre className="ai-report-text">{typeof currentAiReport === 'string' ? currentAiReport : JSON.stringify(currentAiReport, null, 2)}</pre>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI 프롬프트 미리보기 모달 */}
+      {showPromptsModal && (
+        <div className="status-modal-overlay" onClick={() => { setShowPromptsModal(false); setPromptsPreview(null); setPromptsPreviewError(null); }}>
+          <div className="prompts-preview-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="status-modal-header">
+              <h3>AI 프롬프트 미리보기</h3>
+              <button className="status-modal-close" onClick={() => { setShowPromptsModal(false); setPromptsPreview(null); setPromptsPreviewError(null); }}>
+                ✕
+              </button>
+            </div>
+            <div className="prompts-preview-content">
+              {promptsPreviewError && (
+                <div className="prompts-preview-error">{promptsPreviewError}</div>
+              )}
+              {promptsPreview && (
+                <>
+                  <div className="prompts-preview-section">
+                    <h4 className="prompts-preview-label">System prompt</h4>
+                    <textarea
+                      className="prompts-preview-textarea"
+                      readOnly
+                      value={promptsPreview.systemPrompt}
+                      rows={12}
+                    />
+                  </div>
+                  <div className="prompts-preview-section">
+                    <h4 className="prompts-preview-label">User prompt</h4>
+                    <textarea
+                      className="prompts-preview-textarea"
+                      readOnly
+                      value={promptsPreview.userPromptText}
+                      rows={16}
+                    />
+                  </div>
+                </>
               )}
             </div>
           </div>

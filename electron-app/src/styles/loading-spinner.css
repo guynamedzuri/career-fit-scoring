@@ -78,6 +78,13 @@
   text-align: center;
 }
 
+.loading-spinner-phase {
+  font-size: 0.875rem;
+  color: #6b7280;
+  text-align: center;
+  margin-top: -0.5rem;
+}
+
 /* 프로그레스 바 스타일 */
 .loading-spinner-progress {
   width: 100%;

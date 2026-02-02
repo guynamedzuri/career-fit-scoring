@@ -3006,6 +3006,136 @@ async function callAIAndParse(
   }
 }
 
+/** userPrompt 정규화 및 AI 프롬프트( system / user ) 생성. resumeText 없으면 플레이스홀더 사용. */
+function buildAiPrompts(
+  userPrompt: {
+    jobDescription: string;
+    requiredQualifications: string;
+    preferredQualifications: string;
+    requiredCertifications: string[];
+    gradeCriteria: Record<string, string>;
+    scoringWeights?: Record<string, number>;
+  },
+  resumeText: string
+): { systemPrompt: string; userPromptText: string } {
+  const systemPrompt = `당신은 채용 담당자입니다. 이력서의 경력을 분석하여 업무 내용과의 적합도를 평가하고 등급을 부여해야 합니다.
+
+등급 체계:
+- 최상: ${userPrompt.gradeCriteria?.최상 || '하위 등급의 모든 조건을 만족하는 경우'}
+- 상: ${userPrompt.gradeCriteria?.상 || '중 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
+- 중: ${userPrompt.gradeCriteria?.중 || '하 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
+- 하: ${userPrompt.gradeCriteria?.하 || '기본 조건을 만족하는 경우'}
+- 최하: ${userPrompt.gradeCriteria?.최하 || '기본 조건을 만족하지 못하는 경우'}
+
+응답 형식:
+반드시 다음 JSON 형식으로만 응답해야 합니다. 다른 텍스트나 설명은 포함하지 마세요:
+{
+  "grade": "최상|상|중|하|최하 중 하나",
+  "summary": "이력서 전체를 종합적으로 평가한 요약 (등급 근거가 아닌 전체적인 평가 내용)",
+  "strengths": ["강점1", "강점2", "강점3", "강점4", "강점5"],
+  "weaknesses": ["약점1", "약점2", "약점3", "약점4", "약점5"],
+  "opinion": "2-3문단으로 작성한 종합 의견 (등급 근거가 아닌 전체적인 평가 의견)",
+  "evaluations": {
+    "careerFit": "◎|○|X|- 중 하나 (경력 적합도: ◎=매우 적합, ○=적합, X=부적합, -=경력 없음)",
+    "requiredQual": "◎|X 중 하나 (필수사항 만족여부: ◎=만족, X=불만족) - 필수 요구사항이 있는 경우에만 평가",
+    "preferredQual": "◎|○|X 중 하나 (우대사항 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 우대 사항이 있는 경우에만 평가",
+    "certification": "◎|○|X 중 하나 (자격증 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 필수 자격증이 있는 경우에만 평가"
+  },
+  "gradeEvaluations": {
+    "최상": {
+      "satisfied": true|false,
+      "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
+    },
+    "상": {
+      "satisfied": true|false,
+      "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
+    },
+    "중": {
+      "satisfied": true|false,
+      "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
+    },
+    "하": {
+      "satisfied": true|false,
+      "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
+    },
+    "최하": {
+      "satisfied": true|false,
+      "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
+    }
+  }
+}
+
+중요 사항:
+1. 반드시 유효한 JSON 형식으로만 응답하고, JSON 외의 다른 텍스트는 포함하지 마세요.
+2. summary와 opinion은 등급 근거가 아닌 이력서 전체에 대한 종합 평가여야 합니다. 등급 근거는 gradeEvaluations.reason에만 작성하세요.
+3. gradeEvaluations 객체에는 각 등급(최상, 상, 중, 하, 최하)의 조건을 만족하는지 여부(satisfied)와 그 근거(reason)를 반드시 포함해야 합니다. reason은 해당 등급의 조건과 이력서 내용을 구체적으로 비교한 설명이어야 합니다.`;
+
+  let userPromptText = `업무 내용:
+${userPrompt.jobDescription || '업무 내용이 없습니다.'}
+
+`;
+
+  if (userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim()) {
+    userPromptText += `필수 요구사항:
+${userPrompt.requiredQualifications}
+
+`;
+  }
+
+  if (userPrompt.preferredQualifications && userPrompt.preferredQualifications.trim()) {
+    userPromptText += `우대 사항:
+${userPrompt.preferredQualifications}
+
+`;
+  }
+
+  if (userPrompt.requiredCertifications && userPrompt.requiredCertifications.length > 0) {
+    userPromptText += `필수 자격증:
+${userPrompt.requiredCertifications.join(', ')}
+
+자격증 평가 가이드 (반드시 준수):
+1. **가장 중요**: 이력서의 자격사항 섹션에 명시적으로 기재된 자격증만 인정합니다. 이력서에 자격증이 없거나 명시되지 않았다면, 불확실하다고 느껴도 절대 추측하지 말고 반드시 "X"로 평가해야 합니다.
+2. 자격사항 섹션이 비어있거나 "없음"이라고 명시되어 있다면 "X"입니다.
+3. 국가기술자격은 가장 낮은 순서부터 기능사, 산업기사, 기사, 기술사로 단계가 나뉩니다(물론 꼭 그렇지 않은 자격증도 있습니다).
+4. 요구하는 자격증보다 단계가 높은 자격증을 가진 경우에는 해당 자격증도 보유한 것으로 간주합니다. 예를 들어, 전기기사 자격을 보유하고 있다면 전기산업기사도 보유한 것으로 봅니다. 단, 이력서에 명시되어 있어야 합니다.
+5. 필수 자격증이 여러 개인 경우, 모든 자격증을 보유해야 "◎" 또는 "○"로 평가됩니다. 하나라도 없으면 "X"입니다.
+6. 자격증 이름이 정확히 일치하지 않더라도, 동일한 자격증임이 명확하면 인정합니다 (예: "전기산업기사"와 "전기 산업기사").
+
+`;
+  }
+
+  userPromptText += `이력서 경력 정보:
+${resumeText}
+
+평가 지침:
+1. 등급 부여: 위에 제시된 등급 체계를 참고하여, 이력서가 어느 등급에 해당하는지 판단하세요. 높은 등급 기준을 만족하면 해당 등급으로 평가합니다.
+
+2. summary 작성: 등급 근거가 아닌 이력서 전체에 대한 종합적인 평가 요약을 작성하세요. 예: "이력서는 [전체적인 특징]을 보이며, [주요 강점/약점]이 있습니다."
+
+3. opinion 작성: 등급 근거가 아닌 이력서 전체에 대한 평가 의견을 작성하세요. 등급 근거는 gradeEvaluations.reason에만 작성하세요.
+
+4. gradeEvaluations 작성: 각 등급(최상, 상, 중, 하, 최하)의 조건을 이력서 내용과 비교하여:
+   - satisfied: 해당 등급 조건을 만족하는지 true/false
+   - reason: 조건과 이력서 내용을 구체적으로 비교한 상세 근거 (예: "최상 등급 조건은 '시설관리 경력 3년 이상, 전기산업기사+소방안전관리자1급 보유'인데, 이력서에는 시설관리 경력이 5년이고 두 자격증 모두 보유하고 있어 조건을 만족합니다.")
+   
+   각 등급의 조건:
+   - 최상: ${userPrompt.gradeCriteria?.최상 || '조건 없음'}
+   - 상: ${userPrompt.gradeCriteria?.상 || '조건 없음'}
+   - 중: ${userPrompt.gradeCriteria?.중 || '조건 없음'}
+   - 하: ${userPrompt.gradeCriteria?.하 || '조건 없음'}
+   - 최하: ${userPrompt.gradeCriteria?.최하 || '조건 없음'}
+
+5. 추가 평가 항목:
+${userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim() ? '- 필수사항 만족여부: 필수 요구사항을 모두 만족하는지 평가 (◎=만족, X=불만족). 이력서에 명시되지 않은 항목은 불만족으로 평가하세요.' : ''}
+${userPrompt.preferredQualifications && userPrompt.preferredQualifications.trim() ? '- 우대사항 만족여부: 우대 사항을 얼마나 만족하는지 평가 (◎=매우 만족, ○=만족, X=불만족)' : ''}
+${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length > 0 ? '- 자격증 만족여부: **중요** - 이력서의 자격사항 섹션을 정확히 확인하세요. 필수 자격증이 명시적으로 기재되어 있는지 확인하고, 자격증이 없거나 명시되지 않았다면 절대 추측하지 말고 반드시 "X"로 평가하세요. 이력서에 자격증이 없다고 명시되어 있거나 자격사항 섹션이 비어있다면 "X"입니다. 위의 자격증 평가 가이드를 참고하여, 요구하는 자격증보다 단계가 높은 자격증을 보유한 경우에도 만족한 것으로 평가하세요.' : ''}
+- 경력 적합도: 이력서의 경력이 업무 내용과 얼마나 적합한지 평가 (◎=매우 적합, ○=적합, X=부적합, -=경력 없음)
+
+중요: evaluations 객체에는 위에서 언급된 항목들만 포함하세요. 예를 들어 필수 요구사항이 없으면 requiredQual 필드를 포함하지 마세요.`;
+
+  return { systemPrompt, userPromptText };
+}
+
 // Azure OpenAI API 호출 IPC 핸들러
 ipcMain.handle('ai-check-resume', async (event, data: {
   applicationData: any;
@@ -3076,121 +3206,7 @@ ipcMain.handle('ai-check-resume', async (event, data: {
       throw new Error('jobDescription이 비어있습니다.');
     }
     
-    // AI 프롬프트 구성
-    const systemPrompt = `당신은 채용 담당자입니다. 이력서의 경력을 분석하여 업무 내용과의 적합도를 평가하고 등급을 부여해야 합니다.
-
-등급 체계:
-- 최상: ${userPrompt.gradeCriteria?.최상 || '하위 등급의 모든 조건을 만족하는 경우'}
-- 상: ${userPrompt.gradeCriteria?.상 || '중 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
-- 중: ${userPrompt.gradeCriteria?.중 || '하 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
-- 하: ${userPrompt.gradeCriteria?.하 || '기본 조건을 만족하는 경우'}
-- 최하: ${userPrompt.gradeCriteria?.최하 || '기본 조건을 만족하지 못하는 경우'}
-
-응답 형식:
-반드시 다음 JSON 형식으로만 응답해야 합니다. 다른 텍스트나 설명은 포함하지 마세요:
-{
-  "grade": "최상|상|중|하|최하 중 하나",
-  "summary": "이력서 전체를 종합적으로 평가한 요약 (등급 근거가 아닌 전체적인 평가 내용)",
-  "strengths": ["강점1", "강점2", "강점3", "강점4", "강점5"],
-  "weaknesses": ["약점1", "약점2", "약점3", "약점4", "약점5"],
-  "opinion": "2-3문단으로 작성한 종합 의견 (등급 근거가 아닌 전체적인 평가 의견)",
-  "evaluations": {
-    "careerFit": "◎|○|X|- 중 하나 (경력 적합도: ◎=매우 적합, ○=적합, X=부적합, -=경력 없음)",
-    "requiredQual": "◎|X 중 하나 (필수사항 만족여부: ◎=만족, X=불만족) - 필수 요구사항이 있는 경우에만 평가",
-    "preferredQual": "◎|○|X 중 하나 (우대사항 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 우대 사항이 있는 경우에만 평가",
-    "certification": "◎|○|X 중 하나 (자격증 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 필수 자격증이 있는 경우에만 평가"
-  },
-  "gradeEvaluations": {
-    "최상": {
-      "satisfied": true|false,
-      "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
-    },
-    "상": {
-      "satisfied": true|false,
-      "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
-    },
-    "중": {
-      "satisfied": true|false,
-      "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
-    },
-    "하": {
-      "satisfied": true|false,
-      "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
-    },
-    "최하": {
-      "satisfied": true|false,
-      "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
-    }
-  }
-}
-
-중요 사항:
-1. 반드시 유효한 JSON 형식으로만 응답하고, JSON 외의 다른 텍스트는 포함하지 마세요.
-2. summary와 opinion은 등급 근거가 아닌 이력서 전체에 대한 종합 평가여야 합니다. 등급 근거는 gradeEvaluations.reason에만 작성하세요.
-3. gradeEvaluations 객체에는 각 등급(최상, 상, 중, 하, 최하)의 조건을 만족하는지 여부(satisfied)와 그 근거(reason)를 반드시 포함해야 합니다. reason은 해당 등급의 조건과 이력서 내용을 구체적으로 비교한 설명이어야 합니다.`;
-
-    let userPromptText = `업무 내용:
-${userPrompt.jobDescription || '업무 내용이 없습니다.'}
-
-`;
-
-    if (userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim()) {
-      userPromptText += `필수 요구사항:
-${userPrompt.requiredQualifications}
-
-`;
-    }
-
-    if (userPrompt.preferredQualifications && userPrompt.preferredQualifications.trim()) {
-      userPromptText += `우대 사항:
-${userPrompt.preferredQualifications}
-
-`;
-    }
-
-    if (userPrompt.requiredCertifications && userPrompt.requiredCertifications.length > 0) {
-      userPromptText += `필수 자격증:
-${userPrompt.requiredCertifications.join(', ')}
-
-자격증 평가 가이드 (반드시 준수):
-1. **가장 중요**: 이력서의 자격사항 섹션에 명시적으로 기재된 자격증만 인정합니다. 이력서에 자격증이 없거나 명시되지 않았다면, 불확실하다고 느껴도 절대 추측하지 말고 반드시 "X"로 평가해야 합니다.
-2. 자격사항 섹션이 비어있거나 "없음"이라고 명시되어 있다면 "X"입니다.
-3. 국가기술자격은 가장 낮은 순서부터 기능사, 산업기사, 기사, 기술사로 단계가 나뉩니다(물론 꼭 그렇지 않은 자격증도 있습니다).
-4. 요구하는 자격증보다 단계가 높은 자격증을 가진 경우에는 해당 자격증도 보유한 것으로 간주합니다. 예를 들어, 전기기사 자격을 보유하고 있다면 전기산업기사도 보유한 것으로 봅니다. 단, 이력서에 명시되어 있어야 합니다.
-5. 필수 자격증이 여러 개인 경우, 모든 자격증을 보유해야 "◎" 또는 "○"로 평가됩니다. 하나라도 없으면 "X"입니다.
-6. 자격증 이름이 정확히 일치하지 않더라도, 동일한 자격증임이 명확하면 인정합니다 (예: "전기산업기사"와 "전기 산업기사").
-
-`;
-    }
-
-    userPromptText += `이력서 경력 정보:
-${resumeText}
-
-평가 지침:
-1. 등급 부여: 위에 제시된 등급 체계를 참고하여, 이력서가 어느 등급에 해당하는지 판단하세요. 높은 등급 기준을 만족하면 해당 등급으로 평가합니다.
-
-2. summary 작성: 등급 근거가 아닌 이력서 전체에 대한 종합적인 평가 요약을 작성하세요. 예: "이력서는 [전체적인 특징]을 보이며, [주요 강점/약점]이 있습니다."
-
-3. opinion 작성: 등급 근거가 아닌 이력서 전체에 대한 평가 의견을 작성하세요. 등급 근거는 gradeEvaluations.reason에만 작성하세요.
-
-4. gradeEvaluations 작성: 각 등급(최상, 상, 중, 하, 최하)의 조건을 이력서 내용과 비교하여:
-   - satisfied: 해당 등급 조건을 만족하는지 true/false
-   - reason: 조건과 이력서 내용을 구체적으로 비교한 상세 근거 (예: "최상 등급 조건은 '시설관리 경력 3년 이상, 전기산업기사+소방안전관리자1급 보유'인데, 이력서에는 시설관리 경력이 5년이고 두 자격증 모두 보유하고 있어 조건을 만족합니다.")
-   
-   각 등급의 조건:
-   - 최상: ${userPrompt.gradeCriteria?.최상 || '조건 없음'}
-   - 상: ${userPrompt.gradeCriteria?.상 || '조건 없음'}
-   - 중: ${userPrompt.gradeCriteria?.중 || '조건 없음'}
-   - 하: ${userPrompt.gradeCriteria?.하 || '조건 없음'}
-   - 최하: ${userPrompt.gradeCriteria?.최하 || '조건 없음'}
-
-5. 추가 평가 항목:
-${userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim() ? '- 필수사항 만족여부: 필수 요구사항을 모두 만족하는지 평가 (◎=만족, X=불만족). 이력서에 명시되지 않은 항목은 불만족으로 평가하세요.' : ''}
-${userPrompt.preferredQualifications && userPrompt.preferredQualifications.trim() ? '- 우대사항 만족여부: 우대 사항을 얼마나 만족하는지 평가 (◎=매우 만족, ○=만족, X=불만족)' : ''}
-${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length > 0 ? '- 자격증 만족여부: **중요** - 이력서의 자격사항 섹션을 정확히 확인하세요. 필수 자격증이 명시적으로 기재되어 있는지 확인하고, 자격증이 없거나 명시되지 않았다면 절대 추측하지 말고 반드시 "X"로 평가하세요. 이력서에 자격증이 없다고 명시되어 있거나 자격사항 섹션이 비어있다면 "X"입니다. 위의 자격증 평가 가이드를 참고하여, 요구하는 자격증보다 단계가 높은 자격증을 보유한 경우에도 만족한 것으로 평가하세요.' : ''}
-- 경력 적합도: 이력서의 경력이 업무 내용과 얼마나 적합한지 평가 (◎=매우 적합, ○=적합, X=부적합, -=경력 없음)
-
-중요: evaluations 객체에는 위에서 언급된 항목들만 포함하세요. 예를 들어 필수 요구사항이 없으면 requiredQual 필드를 포함하지 마세요.`;
+    const { systemPrompt, userPromptText } = buildAiPrompts(userPrompt, resumeText);
 
     // AI API 호출 및 파싱 (재시도 로직 포함)
     const result = await callAIAndParse(systemPrompt, userPromptText, data.fileName, 0);
@@ -3234,6 +3250,37 @@ ${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length 
     };
   } catch (error) {
     console.error('[AI Check] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '알 수 없는 오류',
+    };
+  }
+});
+
+/** AI 프롬프트 미리보기: systemPrompt / userPromptText 전문 반환. applicationData 없으면 이력서 영역은 플레이스홀더. */
+ipcMain.handle('get-ai-prompts-preview', async (event, data: { userPrompt: any; applicationData?: any }) => {
+  try {
+    if (!data.userPrompt) {
+      return { success: false, error: 'userPrompt가 제공되지 않았습니다.' };
+    }
+    const userPrompt = {
+      jobDescription: (data.userPrompt.jobDescription && typeof data.userPrompt.jobDescription === 'string') ? data.userPrompt.jobDescription : '',
+      requiredQualifications: (data.userPrompt.requiredQualifications && typeof data.userPrompt.requiredQualifications === 'string') ? data.userPrompt.requiredQualifications : '',
+      preferredQualifications: (data.userPrompt.preferredQualifications && typeof data.userPrompt.preferredQualifications === 'string') ? data.userPrompt.preferredQualifications : '',
+      requiredCertifications: Array.isArray(data.userPrompt.requiredCertifications) ? data.userPrompt.requiredCertifications : [],
+      gradeCriteria: data.userPrompt.gradeCriteria || {},
+      scoringWeights: data.userPrompt.scoringWeights || {},
+    };
+    if (!userPrompt.jobDescription || !userPrompt.jobDescription.trim()) {
+      return { success: false, error: 'jobDescription이 비어있습니다.' };
+    }
+    const resumeText = data.applicationData
+      ? formatResumeDataForAI(data.applicationData)
+      : '(이력서 텍스트는 분석 시 해당 이력서 데이터로 채워집니다.)';
+    const { systemPrompt, userPromptText } = buildAiPrompts(userPrompt, resumeText);
+    return { success: true, systemPrompt, userPromptText };
+  } catch (error) {
+    console.error('[get-ai-prompts-preview] Error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : '알 수 없는 오류',

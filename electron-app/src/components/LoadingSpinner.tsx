@@ -21,15 +21,21 @@ interface LoadingSpinnerProps {
     total: number;
     currentFile?: string;
     estimatedTimeRemainingMs?: number;
+    phase?: 'parsing' | 'ai';
+    concurrency?: number;
   };
 }
 
 export default function LoadingSpinner({ message = '처리 중...', fullScreen = false, progress }: LoadingSpinnerProps) {
-  console.log('[LoadingSpinner] progress prop:', progress);
   const progressPercent = progress && progress.total > 0 
     ? (progress.current / progress.total) * 100 
     : 0;
-  console.log('[LoadingSpinner] progressPercent:', progressPercent, 'total:', progress?.total);
+
+  const phaseLabel = progress?.phase === 'parsing'
+    ? `이력서 파싱 중 (최대 ${progress.concurrency ?? 4}개 동시)`
+    : progress?.phase === 'ai'
+      ? `AI 분석 중 (최대 ${progress.concurrency ?? 3}개 동시)`
+      : null;
 
   return (
     <div className={`loading-spinner-overlay ${fullScreen ? 'fullscreen' : ''}`}>
@@ -41,6 +47,9 @@ export default function LoadingSpinner({ message = '처리 중...', fullScreen =
           <div className="spinner-ring"></div>
         </div>
         <div className="loading-spinner-message">{message}</div>
+        {phaseLabel && (
+          <div className="loading-spinner-phase">{phaseLabel}</div>
+        )}
         
         {/* 프로그레스 바 */}
         {progress && progress.total > 0 && (
