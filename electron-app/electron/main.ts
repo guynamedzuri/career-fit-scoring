@@ -2181,7 +2181,7 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
     app[`careerDetailDescription${idx}`] = c.description != null ? String(c.description) : '';
   });
 
-  // 학력 (1~6)
+  // 학력 (1~6): gpa가 "3.46/4.5" 형태면 분리하여 universityGPA / universityGPAMax 설정
   education.forEach((e: any, i: number) => {
     if (i >= 6) return;
     const idx = i + 1;
@@ -2189,8 +2189,15 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
     app[`educationEndDate${idx}`] = e.endDate != null ? String(e.endDate) : '';
     app[`universityName${idx}`] = e.school != null ? String(e.school) : '';
     app[`universityMajor${idx}_1`] = e.major != null ? String(e.major) : '';
-    app[`universityGPA${idx}`] = e.gpa != null ? String(e.gpa) : '';
-    app[`universityGPAMax${idx}`] = '';
+    const gpaRaw = e.gpa != null ? String(e.gpa).trim() : '';
+    if (gpaRaw && gpaRaw.includes('/')) {
+      const parts = gpaRaw.split('/');
+      app[`universityGPA${idx}`] = parts[0].trim();
+      app[`universityGPAMax${idx}`] = parts.length > 1 ? parts[1].trim() : '';
+    } else {
+      app[`universityGPA${idx}`] = gpaRaw;
+      app[`universityGPAMax${idx}`] = '';
+    }
     app[`universityLocation${idx}`] = '';
     app[`universityGraduationType${idx}`] = e.degree != null ? String(e.degree) : '';
     const degreeType = (e.school && String(e.school).indexOf('고등') >= 0) ? '고등학교' : (e.degree || '');
