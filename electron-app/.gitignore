@@ -15,3 +15,5 @@ electron/**/*.js.map
 electron/src/
 # TypeScript 컴파일 중간 디렉토리
 electron/electron-app/
+# 빌드 시 copy-poppler-for-build.js가 복사하는 poppler-windows (원본은 프로젝트 루트)
+poppler-windows/
