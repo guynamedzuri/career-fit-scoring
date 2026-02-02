@@ -1529,7 +1529,17 @@ ipcMain.handle('load-cache', async (event, folderPath: string, filePaths: string
   }
 });
 
-// 캐시 데이터 저장 IPC 핸들러
+// 확장자 → MIME (증명사진 캐시용)
+function getMimeFromExt(ext: string): string {
+  const e = (ext || '').toLowerCase();
+  if (e === 'jpg' || e === 'jpeg') return 'image/jpeg';
+  if (e === 'png') return 'image/png';
+  if (e === 'gif') return 'image/gif';
+  if (e === 'webp') return 'image/webp';
+  return 'image/jpeg';
+}
+
+// 캐시 데이터 저장 IPC 핸들러 (photoPath가 있으면 파일 읽어서 photoDataUrl로 캐시에 포함)
 ipcMain.handle('save-cache', async (event, folderPath: string, results: Array<{
   filePath: string;
   fileName: string;
@@ -1549,17 +1559,29 @@ ipcMain.handle('save-cache', async (event, folderPath: string, results: Array<{
       };
     }
     
-    // 결과를 캐시에 저장
     for (const result of results) {
       const metadata = getFileMetadata(result.filePath);
       if (!metadata) continue;
+      
+      const data = { ...result.data };
+      // 증명사진 경로가 있으면 파일을 읽어 base64 data URL로 캐시에 포함 (뒤로 갔다 와도 사진 유지)
+      if (data.photoPath && typeof data.photoPath === 'string' && fs.existsSync(data.photoPath)) {
+        try {
+          const buf = fs.readFileSync(data.photoPath);
+          const ext = path.extname(data.photoPath).replace(/^\./, '') || 'jpg';
+          const mime = getMimeFromExt(ext);
+          data.photoDataUrl = `data:${mime};base64,${buf.toString('base64')}`;
+        } catch (e: any) {
+          console.warn('[Cache] Failed to read photo for cache:', data.photoPath, e?.message);
+        }
+      }
       
       cacheData.entries[result.filePath] = {
         filePath: result.filePath,
         fileName: result.fileName,
         size: metadata.size,
         mtime: metadata.mtime,
-        data: result.data,
+        data,
       };
     }
     
@@ -2284,9 +2306,14 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
           'PDF 추출에 pdftotext(poppler)가 필요합니다. pdftotext가 없어 추출 및 AI 분석을 건너뜁니다. 빌드 시 프로젝트 루트에 poppler-windows를 포함한 뒤 재빌드해 주세요.'
         );
       }
+      const os = require('os');
+      const pdfBaseName = path.basename(filePath, path.extname(filePath));
+      const photoTempDir = path.join(os.tmpdir(), 'career-fit-scoring', 'photos', pdfBaseName);
+      fs.mkdirSync(photoTempDir, { recursive: true });
       const debugDirArg = ` --debug-dir "${debugDir}"`;
       const corpusHeadersArg = ' --use-corpus-headers';
-      const command = `"${pythonCmd}" "${scriptPath}"${pdftotextArg}${debugDirArg}${corpusHeadersArg} "${filePath}"`;
+      const photoDirArg = ` --photo-dir "${photoTempDir}"`;
+      const command = `"${pythonCmd}" "${scriptPath}"${pdftotextArg}${debugDirArg}${corpusHeadersArg}${photoDirArg} "${filePath}"`;
       writeLog('[Process Resume PDF] ' + command, 'info');
       const execOpts: any = { maxBuffer: 10 * 1024 * 1024, timeout: 60000 };
       execOpts.env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
@@ -2354,6 +2381,15 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
         applicationData.certificateName3,
       ].filter(Boolean).join(' ');
 
+      let photoPath: string | undefined = undefined;
+      if (pdfResult.profilePhotoFilename) {
+        const resolved = path.join(photoTempDir, pdfResult.profilePhotoFilename);
+        if (fs.existsSync(resolved)) {
+          photoPath = resolved;
+          writeLog('[Process Resume PDF] 증명사진 추출: ' + photoPath, 'info');
+        }
+      }
+
       return {
         success: true,
         applicationData,
@@ -2363,7 +2399,7 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
         lastSalary,
         residence,
         searchableText,
-        photoPath: undefined,
+        photoPath,
       };
     }
 

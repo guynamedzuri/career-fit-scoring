@@ -2,18 +2,25 @@ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Search, ChevronUp, ChevronDown, Download, Info, AlertCircle, CheckCircle2, Filter } from 'lucide-react';
 import '../styles/result-view.css';
 
-// 이미지를 base64로 로드하는 컴포넌트
-function PhotoImage({ photoPath, alt, className, placeholderClassName }: { 
+// 이미지 표시: photoDataUrl(캐시용) 우선, 없으면 photoPath로 IPC 읽기
+function PhotoImage({ photoPath, photoDataUrl, alt, className, placeholderClassName }: { 
   photoPath?: string; 
+  photoDataUrl?: string; // 캐시에서 복원한 base64 data URL (있으면 파일 읽기 생략)
   alt: string; 
   className: string;
   placeholderClassName?: string;
 }) {
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [imageSrc, setImageSrc] = useState<string | null>(photoDataUrl || null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
+    if (photoDataUrl) {
+      setImageSrc(photoDataUrl);
+      setError(false);
+      setLoading(false);
+      return;
+    }
     if (!photoPath) {
       setImageSrc(null);
       setError(false);
@@ -23,7 +30,6 @@ function PhotoImage({ photoPath, alt, className, placeholderClassName }: {
     setLoading(true);
     setError(false);
 
-    // IPC를 통해 이미지를 base64로 읽기
     if (window.electron?.readImageAsBase64) {
       window.electron.readImageAsBase64(photoPath)
         .then((result: any) => {
@@ -47,9 +53,9 @@ function PhotoImage({ photoPath, alt, className, placeholderClassName }: {
       setError(true);
       setLoading(false);
     }
-  }, [photoPath]);
+  }, [photoPath, photoDataUrl]);
 
-  if (!photoPath || error) {
+  if ((!photoPath && !photoDataUrl) || error) {
     return <div className={placeholderClassName || className}></div>;
   }
 
@@ -144,6 +150,7 @@ interface ScoringResult {
   residence?: string; // 거주지 (서울, 수도권, 시흥, 안산, 지방)
   searchableText?: string; // 검색 가능한 전체 텍스트 (이름, 회사, 자격증 등 모든 정보)
   photoPath?: string; // 증명사진 파일 경로
+  photoDataUrl?: string; // 캐시용 증명사진 base64 data URL (있으면 파일 읽기 생략)
   // AI 검사 결과
   aiGrade?: string; // AI 평가 등급 (예: 'A', 'B', 'C', 'D')
   aiReport?: string | { // AI 분석 결과 보고서 (JSON 파싱된 객체 또는 원본 텍스트)
@@ -290,9 +297,10 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               aiGrade: cachedData.aiGrade,
               aiReport: cachedData.aiReport,
               aiReportParsed: cachedData.aiReportParsed || false,
-              // aiChecked가 true이지만 aiGrade나 aiReport가 없으면 재분석 필요
               aiChecked: cachedData.aiChecked && cachedData.aiGrade && cachedData.aiReport ? true : false,
               searchableText: cachedData.searchableText || file.name,
+              photoPath: cachedData.photoPath,
+              photoDataUrl: cachedData.photoDataUrl,
             };
           } else {
             // 캐시 없음 - 새로 처리 필요
@@ -857,6 +865,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           age: result.age,
           lastCompany: result.lastCompany,
           lastSalary: result.lastSalary,
+          residence: result.residence,
           applicationData: result.applicationData,
           aiGrade: result.aiGrade,
           aiReport: result.aiReport,
@@ -864,6 +873,8 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           aiChecked: result.aiChecked,
           candidateStatus: result.candidateStatus,
           searchableText: result.searchableText,
+          photoPath: result.photoPath,
+          photoDataUrl: result.photoDataUrl,
         },
       }));
       
@@ -1171,30 +1182,32 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
 
       // 캐시에 저장
       if (window.electron?.saveCache && selectedFolder) {
-        const resultsToSave = aiResults
-          .filter(r => r.aiChecked)
-          .map(r => {
-            const result = results.find(res => res.filePath === r.filePath);
-            return {
-              filePath: r.filePath,
-              fileName: result?.fileName || r.filePath.split(/[/\\]/).pop() || r.filePath,
-              data: {
-                totalScore: result?.totalScore || 0,
-                name: result?.name,
-                age: result?.age,
-                lastCompany: result?.lastCompany,
-                lastSalary: result?.lastSalary,
-                residence: result?.residence,
-                applicationData: result?.applicationData,
-                aiGrade: r.aiGrade,
-                aiReport: r.aiReport,
-                aiReportParsed: r.aiReportParsed,
-                aiChecked: r.aiChecked,
-                candidateStatus: result?.candidateStatus,
-                searchableText: result?.searchableText,
-              },
-            };
-          });
+            const resultsToSave = aiResults
+              .filter(r => r.aiChecked)
+              .map(r => {
+                const result = results.find(res => res.filePath === r.filePath);
+                return {
+                  filePath: r.filePath,
+                  fileName: result?.fileName || r.filePath.split(/[/\\]/).pop() || r.filePath,
+                  data: {
+                    totalScore: result?.totalScore || 0,
+                    name: result?.name,
+                    age: result?.age,
+                    lastCompany: result?.lastCompany,
+                    lastSalary: result?.lastSalary,
+                    residence: result?.residence,
+                    applicationData: result?.applicationData,
+                    aiGrade: r.aiGrade,
+                    aiReport: r.aiReport,
+                    aiReportParsed: r.aiReportParsed,
+                    aiChecked: r.aiChecked,
+                    candidateStatus: result?.candidateStatus,
+                    searchableText: result?.searchableText,
+                    photoPath: result?.photoPath,
+                    photoDataUrl: result?.photoDataUrl,
+                  },
+                };
+              });
         
         if (resultsToSave.length > 0) {
           await window.electron.saveCache(selectedFolder, resultsToSave);
@@ -1498,6 +1511,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                   <div className="candidate-photo-container">
                     <PhotoImage 
                       photoPath={result.photoPath}
+                      photoDataUrl={result.photoDataUrl}
                       alt={result.name || result.fileName}
                       className="candidate-photo"
                       placeholderClassName="candidate-photo candidate-photo-placeholder"
@@ -1771,6 +1785,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               <div className="detail-photo-container">
                 <PhotoImage 
                   photoPath={selectedResult.photoPath}
+                  photoDataUrl={selectedResult.photoDataUrl}
                   alt={selectedResult.name || selectedResult.fileName}
                   className="detail-photo"
                   placeholderClassName="detail-photo detail-photo-placeholder"

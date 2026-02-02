@@ -636,14 +636,14 @@ export default function JobConfigForm({
               className={`document-type-option ${documentType === 'docx' ? 'active' : ''}`}
               onClick={() => setDocumentType('docx')}
             >
-              DOCX
+              자체이력서폼(DOCX)
             </button>
             <button
               type="button"
               className={`document-type-option ${documentType === 'pdf' ? 'active' : ''}`}
               onClick={() => setDocumentType('pdf')}
             >
-              PDF
+              사람인 이력서폼(PDF)
             </button>
           </div>
         </div>

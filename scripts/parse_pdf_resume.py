@@ -72,6 +72,47 @@ def _extract_with_pymupdf(pdf_path: str) -> str:
         doc.close()
 
 
+# 이력서 증명사진 표준 크기 (px)
+PROFILE_PHOTO_WIDTH = 100
+PROFILE_PHOTO_HEIGHT = 140
+
+
+def _extract_profile_image_from_pdf(pdf_path: str, photo_dir: str) -> Optional[str]:
+    """PDF에서 100x140 크기 이미지(증명사진)만 찾아 photo_dir에 저장. 저장된 파일명 반환, 없으면 None.
+    PyMuPDF(fitz) 사용. 100x140이 없으면 추출하지 않음."""
+    try:
+        import fitz
+    except ImportError:
+        return None
+    Path(photo_dir).mkdir(parents=True, exist_ok=True)
+    try:
+        doc = fitz.open(pdf_path)
+        try:
+            for page in doc:
+                image_list = page.get_images(full=True)
+                for img in image_list:
+                    xref = img[0]
+                    base = doc.extract_image(xref)
+                    if not base or not base.get("image"):
+                        continue
+                    width = base.get("width", 0)
+                    height = base.get("height", 0)
+                    if width != PROFILE_PHOTO_WIDTH or height != PROFILE_PHOTO_HEIGHT:
+                        continue
+                    ext = base.get("ext", "png").lower()
+                    if ext not in ("png", "jpg", "jpeg", "gif", "bmp"):
+                        ext = "png"
+                    out_name = f"profile.{ext}"
+                    out_path = Path(photo_dir) / out_name
+                    out_path.write_bytes(base["image"])
+                    return out_name
+        finally:
+            doc.close()
+    except Exception:
+        pass
+    return None
+
+
 def extract_text_with_layout(
     pdf_path: str, pdftotext_exe: Optional[str] = None
 ) -> tuple[str, str]:
@@ -819,6 +860,7 @@ def parse_pdf_resume(
     pdftotext_exe: Optional[str] = None,
     debug_dir: Optional[str] = None,
     use_corpus_headers: bool = False,
+    photo_dir: Optional[str] = None,
 ) -> dict:
     """PDF 한 개를 파싱해 구조화된 dict 반환.
     debug_dir이 있으면 1단계(raw 텍스트), 2단계(섹션/블록) 중간 결과를 해당 폴더에 저장.
@@ -877,7 +919,7 @@ def parse_pdf_resume(
 
     self_intro = sections.get("self_introduction", "").strip() or ""
 
-    return {
+    out = {
         "basicInfo": basic,
         "skills": skills,
         "careers": careers,
@@ -886,6 +928,12 @@ def parse_pdf_resume(
         "employmentPreference": employment_pref,
         "selfIntroduction": self_intro,
     }
+    # 증명사진 후보 이미지 추출 (있으면 한 장만 저장)
+    if photo_dir:
+        profile_filename = _extract_profile_image_from_pdf(pdf_path, photo_dir)
+        if profile_filename:
+            out["profilePhotoFilename"] = profile_filename
+    return out
 
 
 def main():
@@ -893,6 +941,7 @@ def main():
     pdftotext_exe = None
     debug_dir = None
     use_corpus_headers = False
+    photo_dir = None
     while args:
         if args[0] == "--pdftotext" and len(args) >= 3:
             pdftotext_exe = args[1]
@@ -903,13 +952,16 @@ def main():
         elif args[0] == "--use-corpus-headers":
             use_corpus_headers = True
             args = args[1:]
+        elif args[0] == "--photo-dir" and len(args) >= 2:
+            photo_dir = args[1]
+            args = args[2:]
         else:
             break
     if not args:
         print(
             json.dumps(
                 {
-                    "error": "Usage: parse_pdf_resume.py [--pdftotext PATH] [--debug-dir DIR] [--use-corpus-headers] <pdf_path>"
+                    "error": "Usage: parse_pdf_resume.py [--pdftotext PATH] [--debug-dir DIR] [--use-corpus-headers] [--photo-dir DIR] <pdf_path>"
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -922,7 +974,7 @@ def main():
         sys.exit(1)
     try:
         data = parse_pdf_resume(
-            pdf_path, pdftotext_exe, debug_dir, use_corpus_headers
+            pdf_path, pdftotext_exe, debug_dir, use_corpus_headers, photo_dir
         )
         print(json.dumps(data, ensure_ascii=False, indent=2))
     except Exception as e:
