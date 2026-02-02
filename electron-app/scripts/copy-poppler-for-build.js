@@ -8,10 +8,32 @@
 const fs = require('fs');
 const path = require('path');
 
+const cwd = process.cwd();
 const projectRoot = path.resolve(__dirname, '..');
 const source = path.join(projectRoot, '..', 'poppler-windows');
 const dest = path.join(projectRoot, 'poppler-windows');
 const requiredFile = path.join(source, 'bin', process.platform === 'win32' ? 'pdftotext.exe' : 'pdftotext');
+
+console.log('[copy-poppler] cwd:', cwd);
+console.log('[copy-poppler] projectRoot (electron-app):', projectRoot);
+console.log('[copy-poppler] source (../poppler-windows):', source);
+console.log('[copy-poppler] source 존재:', fs.existsSync(source));
+console.log('[copy-poppler] dest (electron-app/poppler-windows):', dest);
+if (fs.existsSync(source)) {
+  try {
+    const srcContents = fs.readdirSync(source);
+    console.log('[copy-poppler] source 내용:', srcContents.join(', '));
+    const binPath = path.join(source, 'bin');
+    if (fs.existsSync(binPath)) {
+      const binContents = fs.readdirSync(binPath);
+      console.log('[copy-poppler] source/bin 내용:', binContents.join(', '));
+    }
+  } catch (e) {
+    console.log('[copy-poppler] source 읽기 실패:', e.message);
+  }
+}
+console.log('[copy-poppler] requiredFile (pdftotext):', requiredFile);
+console.log('[copy-poppler] requiredFile 존재:', fs.existsSync(requiredFile));
 
 if (!fs.existsSync(requiredFile)) {
   console.error('[copy-poppler] ERROR: pdftotext not found at:', requiredFile);
@@ -46,3 +68,11 @@ if (fs.existsSync(dest)) {
 
 copyDirRecursive(source, dest);
 console.log('[copy-poppler] OK: poppler-windows 복사 완료 →', dest);
+console.log('[copy-poppler] dest 존재:', fs.existsSync(dest));
+const destBin = path.join(dest, 'bin');
+if (fs.existsSync(destBin)) {
+  const destBinContents = fs.readdirSync(destBin);
+  console.log('[copy-poppler] dest/bin 내용:', destBinContents.join(', '));
+  const pdftotextDest = path.join(destBin, process.platform === 'win32' ? 'pdftotext.exe' : 'pdftotext');
+  console.log('[copy-poppler] dest/bin/pdftotext 존재:', fs.existsSync(pdftotextDest));
+}
