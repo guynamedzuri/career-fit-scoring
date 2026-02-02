@@ -691,8 +691,8 @@ def parse_career_entries(block: str) -> list:
     return entries
 
 
-# 학점 패턴: 3.46/4.5 형태
-GPA_PATTERN = re.compile(r"\d+\.\d+/\d+\.\d+")
+# 학점 패턴: 3.46/4.5 또는 3.46 / 4.5 (슬래시 주변 공백 허용)
+GPA_PATTERN = re.compile(r"\d+\.\d+\s*/\s*\d+\.\d+")
 
 
 # --- 학력 블록 ---
@@ -715,12 +715,18 @@ def parse_education_entries(block: str) -> list:
             if gpa_match:
                 gpa = gpa_match.group(0)
                 rest = (rest[: gpa_match.start()] + rest[gpa_match.end() :]).strip()
-            # 다음 줄이 학점만 있는 경우 (예: 3.46/4.5)
-            if not gpa and i + 1 < len(lines):
-                next_line = lines[i + 1].strip()
-                if GPA_PATTERN.fullmatch(next_line):
-                    gpa = next_line
-                    i += 1  # 다음 줄 소비
+            # 다음 몇 줄에 학점이 있는 경우 (예: 3.46/4.5 또는 "학점 3.46/4.5", 빈 줄 건너뛰기)
+            if not gpa:
+                date_line_re = re.compile(r"^\d{4}\.\d{2}\s*~\s*\d{4}\.\d{2}\s+")
+                for j in range(i + 1, min(i + 4, len(lines))):
+                    cand = lines[j].strip()
+                    if date_line_re.match(cand):
+                        break  # 다음 학력 항목이면 중단
+                    gpa_m = GPA_PATTERN.search(cand)
+                    if gpa_m:
+                        gpa = gpa_m.group(0).replace(" ", "")  # "3.46 / 4.5" → "3.46/4.5"
+                        i = j  # 해당 줄까지 소비
+                        break
             # 학교명 전문(실업)계 전문(실업)계 전자계산기과 졸업 (고등학교도 ~과 있으면 전공에 포함)
             school = ""
             degree = ""

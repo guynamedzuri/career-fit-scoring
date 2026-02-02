@@ -2185,6 +2185,7 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
   education.forEach((e: any, i: number) => {
     if (i >= 6) return;
     const idx = i + 1;
+    writeLog(`[PDF Education] entry ${idx} school=${e.school ?? ''} gpa=${e.gpa ?? '(없음)'}`, 'info');
     app[`educationStartDate${idx}`] = e.startDate != null ? String(e.startDate) : '';
     app[`educationEndDate${idx}`] = e.endDate != null ? String(e.endDate) : '';
     app[`universityName${idx}`] = e.school != null ? String(e.school) : '';
