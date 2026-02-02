@@ -75,6 +75,30 @@ function PhotoImage({ photoPath, photoDataUrl, alt, className, placeholderClassN
   );
 }
 
+// detail-list li: "|" 구분자를 줄바꿈으로, 기간(YYYY.MM ~ ...)은 색·작은 폰트로 표시
+function DetailListLi({ text }: { text: string }) {
+  const parts = text.split('|').map((p) => p.trim()).filter(Boolean);
+  if (parts.length <= 1) {
+    return <li>{text}</li>;
+  }
+  const periodPattern = /^\d{4}\.\d{2}\s*~\s*(재직중|현재|\d{4}\.\d{2})?/;
+  return (
+    <li className="detail-list-li">
+      {parts.map((part, i) => {
+        const isPeriod = periodPattern.test(part);
+        return (
+          <span
+            key={i}
+            className={isPeriod ? 'detail-list-part detail-list-period' : 'detail-list-part'}
+          >
+            {part}
+          </span>
+        );
+      })}
+    </li>
+  );
+}
+
 // 평가 항목 점수 계산 함수들은 AI 분석 단계로 이동하여 더 이상 사용하지 않음
 // 이제 모든 평가 항목은 AI 분석 결과에서 가져옴
 // 참고: renderer 프로세스에서는 require를 사용할 수 없으므로, 
@@ -1851,7 +1875,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                         <h5>자격증</h5>
                         <ul className="detail-list">
                           {certificates.map((cert, idx) => (
-                            <li key={idx}>{cert}</li>
+                            <DetailListLi key={idx} text={cert} />
                           ))}
                         </ul>
                       </div>
@@ -1875,7 +1899,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                         <h5>경력 사항</h5>
                         <ul className="detail-list">
                           {careers.map((career, idx) => (
-                            <li key={idx}>{career}</li>
+                            <DetailListLi key={idx} text={career} />
                           ))}
                         </ul>
                       </div>
@@ -1887,11 +1911,13 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                     const educations: string[] = [];
                     for (let i = 1; i <= 5; i++) {
                       const school = selectedResult.applicationData[`universityName${i}`];
-                      const degree = selectedResult.applicationData[`universityDegreeType${i}`];
+                      const degree = selectedResult.applicationData[`universityDegreeType${i}`] ?? selectedResult.applicationData[`universityGraduationType${i}`];
                       const major = selectedResult.applicationData[`universityMajor${i}_1`];
                       const gpa = selectedResult.applicationData[`universityGPA${i}`];
+                      const gpaMax = selectedResult.applicationData[`universityGPAMax${i}`];
+                      const gpaStr = gpa ? (gpaMax ? `${gpa}/${gpaMax}` : gpa) : '';
                       if (school) {
-                        educations.push(`${school} | ${degree || ''} | ${major || ''} | GPA: ${gpa || 'N/A'}`);
+                        educations.push(`${school} | ${degree || ''} | ${major || ''} | GPA: ${gpaStr || 'N/A'}`);
                       }
                     }
                     return educations.length > 0 ? (
@@ -1899,7 +1925,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                         <h5>학력 사항</h5>
                         <ul className="detail-list">
                           {educations.map((edu, idx) => (
-                            <li key={idx}>{edu}</li>
+                            <DetailListLi key={idx} text={edu} />
                           ))}
                         </ul>
                       </div>
@@ -1922,7 +1948,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                         <h5>대학원</h5>
                         <ul className="detail-list">
                           {gradSchools.map((grad, idx) => (
-                            <li key={idx}>{grad}</li>
+                            <DetailListLi key={idx} text={grad} />
                           ))}
                         </ul>
                       </div>

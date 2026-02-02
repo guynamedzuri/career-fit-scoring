@@ -1066,6 +1066,24 @@
   border-left: 3px solid #1383ff;
 }
 
+/* detail-list li 내부: "|" 구분자를 줄 단위로 표시 */
+.detail-list-li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-list-li .detail-list-part {
+  display: block;
+  line-height: 1.4;
+}
+
+.detail-list-li .detail-list-period {
+  color: #6366f1;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
 .detail-selfintro-item,
 .detail-career-detail-item {
   margin-bottom: 1rem;
