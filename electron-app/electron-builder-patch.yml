@@ -90,6 +90,11 @@ win:
       to: python-embed
       filter:
         - "**/*"
+    # Poppler Windows 바이너리 (pdftotext 등) - copy-poppler-for-build.js가 빌드 전에 ../poppler-windows → poppler-windows 로 복사
+    - from: poppler-windows
+      to: poppler-windows
+      filter:
+        - "bin/**"
   # 코드 서명 비활성화 (인증서 비용 절감)
   sign: null
   signAndEditExecutable: false
