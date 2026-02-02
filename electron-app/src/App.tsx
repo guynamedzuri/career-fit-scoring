@@ -18,6 +18,9 @@ function App() {
   const [selectedFiles, setSelectedFiles] = useState<Array<{ name: string; path: string }>>([]);
   const [jobMetadata, setJobMetadata] = useState<{ documentType?: 'docx' | 'pdf' } | null>(null);
   const [showSaveLoadModal, setShowSaveLoadModal] = useState<boolean>(false);
+  const [showPromptsModal, setShowPromptsModal] = useState<boolean>(false);
+  const [promptsPreview, setPromptsPreview] = useState<{ systemPrompt: string; userPromptText: string } | null>(null);
+  const [promptsPreviewError, setPromptsPreviewError] = useState<string | null>(null);
   const [userPrompt, setUserPrompt] = useState<any>(null);
   const [loadedData, setLoadedData] = useState<any>(null);
   // "실행하기"를 누른 시점의 설정 스냅샷 (뒤로가기 시 이 값으로 복원)
@@ -289,6 +292,59 @@ function App() {
             내용 저장/불러오기
           </button>
           <button 
+            type="button"
+            className="prompts-preview-footer-btn"
+            onClick={async () => {
+              setPromptsPreviewError(null);
+              setPromptsPreview(null);
+              setShowPromptsModal(true);
+              const electron = (window as any).electron;
+              if (!electron?.getAiPromptsPreview) {
+                setPromptsPreviewError('프롬프트 미리보기를 사용할 수 없습니다.');
+                return;
+              }
+              const up = userPrompt || {};
+              const placeholders: Record<string, string> = {
+                jobDescription: '(업무 내용을 입력하세요)',
+                requiredQualifications: '(필수 요구사항을 입력하세요)',
+                preferredQualifications: '(우대 사항을 입력하세요)',
+              };
+              const gradePlaceholder = '(등급별 조건을 입력하세요)';
+              const userPromptWithPlaceholders = {
+                jobDescription: (up.jobDescription && String(up.jobDescription).trim()) ? up.jobDescription : placeholders.jobDescription,
+                requiredQualifications: (up.requiredQualifications && String(up.requiredQualifications).trim()) ? up.requiredQualifications : placeholders.requiredQualifications,
+                preferredQualifications: (up.preferredQualifications && String(up.preferredQualifications).trim()) ? up.preferredQualifications : placeholders.preferredQualifications,
+                requiredCertifications: Array.isArray(up.requiredCertifications) ? up.requiredCertifications : [],
+                gradeCriteria: {
+                  최상: (up.gradeCriteria?.최상 && String(up.gradeCriteria.최상).trim()) ? up.gradeCriteria.최상 : gradePlaceholder,
+                  상: (up.gradeCriteria?.상 && String(up.gradeCriteria.상).trim()) ? up.gradeCriteria.상 : gradePlaceholder,
+                  중: (up.gradeCriteria?.중 && String(up.gradeCriteria.중).trim()) ? up.gradeCriteria.중 : gradePlaceholder,
+                  하: (up.gradeCriteria?.하 && String(up.gradeCriteria.하).trim()) ? up.gradeCriteria.하 : gradePlaceholder,
+                  최하: (up.gradeCriteria?.최하 && String(up.gradeCriteria.최하).trim()) ? up.gradeCriteria.최하 : gradePlaceholder,
+                },
+                scoringWeights: up.scoringWeights || {},
+              };
+              if (!userPromptWithPlaceholders.jobDescription || userPromptWithPlaceholders.jobDescription === placeholders.jobDescription) {
+                userPromptWithPlaceholders.jobDescription = placeholders.jobDescription;
+              }
+              try {
+                const res = await electron.getAiPromptsPreview({
+                  userPrompt: userPromptWithPlaceholders,
+                  applicationData: undefined,
+                });
+                if (res.success && res.systemPrompt != null && res.userPromptText != null) {
+                  setPromptsPreview({ systemPrompt: res.systemPrompt, userPromptText: res.userPromptText });
+                } else {
+                  setPromptsPreviewError((res as { error?: string }).error || '프롬프트를 불러오지 못했습니다.');
+                }
+              } catch (e) {
+                setPromptsPreviewError(e instanceof Error ? e.message : '알 수 없는 오류');
+              }
+            }}
+          >
+            프롬프트 미리보기
+          </button>
+          <button 
             className="execute-btn"
             onClick={handleExecute}
           >
@@ -299,6 +355,35 @@ function App() {
           Copyright Ⓒ 2026 LS Automotive Technologies. All rights reserved. | Version {import.meta.env.VITE_APP_VERSION || '1.0.78'}
         </div>
       </div>
+      {showPromptsModal && (
+        <div className="status-modal-overlay app-prompts-overlay" onClick={() => { setShowPromptsModal(false); setPromptsPreview(null); setPromptsPreviewError(null); }}>
+          <div className="prompts-preview-modal app-prompts-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="status-modal-header">
+              <h3>AI 프롬프트 미리보기</h3>
+              <button type="button" className="status-modal-close" onClick={() => { setShowPromptsModal(false); setPromptsPreview(null); setPromptsPreviewError(null); }}>
+                ✕
+              </button>
+            </div>
+            <div className="prompts-preview-content">
+              {promptsPreviewError && (
+                <div className="prompts-preview-error">{promptsPreviewError}</div>
+              )}
+              {promptsPreview && (
+                <>
+                  <div className="prompts-preview-section">
+                    <h4 className="prompts-preview-label">System prompt</h4>
+                    <textarea className="prompts-preview-textarea" readOnly value={promptsPreview.systemPrompt} rows={12} />
+                  </div>
+                  <div className="prompts-preview-section">
+                    <h4 className="prompts-preview-label">User prompt</h4>
+                    <textarea className="prompts-preview-textarea" readOnly value={promptsPreview.userPromptText} rows={16} />
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {showSaveLoadModal && (
         <SaveLoadModal
           currentData={{
