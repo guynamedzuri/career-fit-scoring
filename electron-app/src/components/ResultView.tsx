@@ -450,89 +450,73 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     
     updateOverallProgress(0, 0);
     
-    try {
-      // 순차 처리로 변경하여 진행률 추적 가능하게 함
-      for (let i = 0; i < filePaths.length; i++) {
-        const filePath = filePaths[i];
-        const file = selectedFiles.find(f => f.path === filePath);
-        if (!file) continue;
-        
-        // 현재 처리 중인 파일 표시
-        updateOverallProgress(i, 0, file.name);
-        
-        // 상태를 processing으로 변경
-        setResults(prevResults =>
-          prevResults.map(r => 
-            r.filePath === filePath ? { ...r, status: 'processing' as const } : r
-          )
-        );
-        
-        try {
-          const result = await window.electron!.processResume(filePath, jobMetadata?.documentType ?? 'docx');
-          
-          if (result.success) {
-            // 점수 계산 (나중에 구현)
-            const totalScore = 0; // TODO: 실제 점수 계산
-            
-            // 결과 업데이트
-            setResults(prevResults =>
-              prevResults.map(r => {
-                if (r.filePath === filePath) {
-                  return {
-                    ...r,
-                    status: 'completed' as const,
-                    totalScore,
-                    name: result.name,
-                    age: result.age,
-                    lastCompany: result.lastCompany,
-                    lastSalary: result.lastSalary,
-                    residence: result.residence,
-                    applicationData: result.applicationData,
-                    searchableText: result.searchableText || r.fileName,
-                    photoPath: result.photoPath, // 증명사진 경로
-                  };
-                }
-                return r;
-              })
-            );
-            
-            // 캐시에 저장
-            if (window.electron?.saveCache && selectedFolder) {
-              await window.electron.saveCache(selectedFolder, [{
-                filePath,
-                fileName: file.name,
-                data: {
-                  totalScore,
-                  name: result.name,
-                  age: result.age,
-                  lastCompany: result.lastCompany,
-                  lastSalary: result.lastSalary,
-                  residence: result.residence,
-                  applicationData: result.applicationData,
-                  searchableText: result.searchableText || file.name,
-                  photoPath: result.photoPath, // 증명사진 경로
-                },
-              }]);
-            }
-          } else {
-            throw new Error(result.error || '처리 실패');
+    const PARSE_CONCURRENCY = 4; // 동시 파싱 개수
+    let completedCount = 0;
+    
+    const runOneParse = async (filePath: string, file: { name: string }) => {
+      setResults(prev => prev.map(r => r.filePath === filePath ? { ...r, status: 'processing' as const } : r));
+      try {
+        const result = await window.electron!.processResume(filePath, jobMetadata?.documentType ?? 'docx');
+        if (result.success) {
+          const totalScore = 0;
+          setResults(prev => prev.map(r => r.filePath === filePath ? {
+            ...r,
+            status: 'completed' as const,
+            totalScore,
+            name: result.name,
+            age: result.age,
+            lastCompany: result.lastCompany,
+            lastSalary: result.lastSalary,
+            residence: result.residence,
+            applicationData: result.applicationData,
+            searchableText: result.searchableText || r.fileName,
+            photoPath: result.photoPath,
+          } : r));
+          if (window.electron?.saveCache && selectedFolder) {
+            await window.electron.saveCache(selectedFolder, [{
+              filePath,
+              fileName: file.name,
+              data: {
+                totalScore,
+                name: result.name,
+                age: result.age,
+                lastCompany: result.lastCompany,
+                lastSalary: result.lastSalary,
+                residence: result.residence,
+                applicationData: result.applicationData,
+                searchableText: result.searchableText || file.name,
+                photoPath: result.photoPath,
+              },
+            }]);
           }
-        } catch (error: any) {
-          console.error(`[Process] Error processing ${filePath}:`, error);
-          setResults(prevResults =>
-            prevResults.map(r => 
-              r.filePath === filePath 
-                ? { ...r, status: 'error' as const, errorMessage: error.message || '처리 실패' }
-                : r
-            )
-          );
+        } else {
+          throw new Error(result.error || '처리 실패');
         }
-        
-        // 파싱 완료 업데이트
-        updateOverallProgress(i + 1, 0);
+      } catch (error: any) {
+        console.error(`[Process] Error processing ${filePath}:`, error);
+        setResults(prev => prev.map(r => r.filePath === filePath ? { ...r, status: 'error' as const, errorMessage: error.message || '처리 실패' } : r));
       }
+      completedCount++;
+      updateOverallProgress(completedCount, 0);
+    };
+    
+    try {
+      const tasks = filePaths
+        .map(fp => ({ filePath: fp, file: selectedFiles.find(f => f.path === fp) }))
+        .filter((t): t is { filePath: string; file: { name: string } } => !!t.file);
+      const executing: Promise<void>[] = [];
+      for (const { filePath, file } of tasks) {
+        const p = runOneParse(filePath, file).then(() => {
+          executing.splice(executing.indexOf(p), 1);
+        });
+        executing.push(p);
+        if (executing.length >= PARSE_CONCURRENCY) {
+          await Promise.race(executing);
+          await Promise.resolve(); // 한 틱 대기해 완료된 항목이 pool에서 제거되도록
+        }
+      }
+      await Promise.all(executing);
       
-      // 모든 파싱 완료
       updateOverallProgress(totalFiles, 0);
       
       // 모든 파일 처리 완료 후 AI 분석 시작 (결과가 업데이트된 후)
@@ -1022,101 +1006,32 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         onProcessingChange(true);
       }
       try {
-        // 레이트 리미트 방지를 위해 순차 처리 (각 요청 사이에 딜레이)
-        const aiResults = [];
-        const REQUEST_DELAY = 2000; // 기본 2초 딜레이 (요청 간 간격)
-        const MAX_RETRIES = 3; // 최대 재시도 횟수
-        
-        // 각 세션별 처리 시간 추적
-        const sessionTimes: number[] = []; // 각 세션별 소요 시간 (밀리초)
-        
-        for (let i = 0; i < needsAnalysis.length; i++) {
-          const result = needsAnalysis[i];
-          const sessionStartTime = Date.now(); // 세션 시작 시간
-          
-          console.log(`[AI Analysis] Processing ${result.fileName}... (${i + 1}/${needsAnalysis.length})`);
-          
-          // 평균 처리 시간 계산
-          const avgTimeMs = sessionTimes.length > 0 
-            ? sessionTimes.reduce((sum, time) => sum + time, 0) / sessionTimes.length 
-            : 0;
-          
-          // 남은 파일 수 계산
-          const remainingFiles = needsAnalysis.length - i;
-          
-          // 예상 완료 시간 계산 (밀리초)
-          const estimatedTimeRemainingMs = avgTimeMs > 0 
-            ? avgTimeMs * remainingFiles + (REQUEST_DELAY * (remainingFiles - 1)) // 마지막 파일은 딜레이 없음
-            : 0;
-          
-          const progress = { 
-            current: i, 
-            total: needsAnalysis.length, 
-            currentFile: result.fileName,
-            estimatedTimeRemainingMs: estimatedTimeRemainingMs > 0 ? estimatedTimeRemainingMs : undefined
-          };
-          setAiProgress(progress);
-          
-          // 전체 진행률 업데이트 (파싱 완료 + AI 진행 중)
-          const totalFiles = selectedFiles.length;
-          const totalSteps = totalFiles * 2; // 파싱 단계 + AI 단계
-          const completedSteps = totalFiles + i; // 파싱 완료 + AI 완료된 파일 수
-          
-          setOverallProgress(prev => {
-            const updated = {
-              ...prev,
-              aiCompleted: i,
-              currentFile: result.fileName,
-              estimatedTimeRemainingMs: estimatedTimeRemainingMs > 0 ? estimatedTimeRemainingMs : undefined,
-            };
-            
-            const totalProgress = {
-              current: completedSteps,
-              total: totalSteps,
-              currentFile: result.fileName,
-              estimatedTimeRemainingMs: estimatedTimeRemainingMs > 0 ? estimatedTimeRemainingMs : undefined,
-            };
-            
-            if (onProgressChange) {
-              onProgressChange(totalProgress);
-            }
-            
-            return updated;
-          });
-          
+        const aiResults: Array<{ filePath: string; aiGrade?: string; aiReport?: any; aiReportParsed?: boolean; aiChecked: boolean; error?: string }> = [];
+        const MAX_RETRIES = 3;
+        const AI_CONCURRENCY = 3; // 동시 AI 요청 개수 (레이트 리밋 고려)
+        const sessionTimes: number[] = [];
+        let aiCompletedCount = 0;
+        const totalFiles = selectedFiles.length;
+        const totalSteps = totalFiles * 2;
+
+        const runOneAi = async (result: ScoringResult) => {
+          const sessionStart = Date.now();
+          console.log(`[AI Analysis] Processing ${result.fileName}...`);
           let retryCount = 0;
           let success = false;
-          
           while (retryCount < MAX_RETRIES && !success) {
             try {
               if (!result.applicationData) {
-                console.warn(`[AI Analysis] No applicationData for ${result.fileName}`);
-                aiResults.push({
-                  filePath: result.filePath,
-                  aiGrade: undefined,
-                  aiReport: undefined,
-                  aiChecked: true,
-                  error: '이력서 데이터가 없습니다',
-                });
+                aiResults.push({ filePath: result.filePath, aiChecked: true, error: '이력서 데이터가 없습니다' });
                 success = true;
                 break;
               }
-
               const response = await window.electron!.aiCheckResume({
                 applicationData: result.applicationData,
                 userPrompt: userPrompt,
                 fileName: result.fileName,
               });
-
               if (response.success && response.grade && response.report) {
-                console.log(`[AI Analysis] Response for ${result.fileName}:`, {
-                  grade: response.grade,
-                  reportParsed: (response as any).reportParsed,
-                  reportType: typeof response.report,
-                  hasEvaluations: typeof response.report === 'object' && (response.report as any).evaluations ? true : false,
-                  evaluations: typeof response.report === 'object' ? (response.report as any).evaluations : null,
-                });
-                
                 aiResults.push({
                   filePath: result.filePath,
                   aiGrade: response.grade,
@@ -1130,54 +1045,46 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               }
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'AI 분석 실패';
-              
-              // 레이트 리미트 에러인 경우 재시도
               if (errorMessage.startsWith('RATE_LIMIT:')) {
                 const retryAfter = parseInt(errorMessage.split(':')[1], 10) || 10;
                 retryCount++;
-                
                 if (retryCount < MAX_RETRIES) {
-                  console.log(`[AI Analysis] Rate limit reached for ${result.fileName}, waiting ${retryAfter} seconds before retry (${retryCount}/${MAX_RETRIES})...`);
-                  await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
-                  continue; // 재시도
-                } else {
-                  console.error(`[AI Analysis] Max retries reached for ${result.fileName}`);
-                  aiResults.push({
-                    filePath: result.filePath,
-                    aiGrade: undefined,
-                    aiReport: undefined,
-                    aiChecked: true,
-                    error: `레이트 리미트: ${MAX_RETRIES}회 재시도 후 실패`,
-                  });
-                  success = true; // 재시도 포기
+                  await new Promise(r => setTimeout(r, retryAfter * 1000));
+                  continue;
                 }
+                aiResults.push({ filePath: result.filePath, aiChecked: true, error: `레이트 리밋: ${MAX_RETRIES}회 재시도 후 실패` });
+                success = true;
               } else {
-                // 다른 에러는 재시도하지 않음
-                console.error(`[AI Analysis] Error for ${result.filePath}:`, error);
-                aiResults.push({
-                  filePath: result.filePath,
-                  aiGrade: undefined,
-                  aiReport: undefined,
-                  aiChecked: true,
-                  error: errorMessage,
-                });
+                aiResults.push({ filePath: result.filePath, aiChecked: true, error: errorMessage });
                 success = true;
               }
             }
           }
-          
-          // 세션 종료 시간 기록
-          const sessionEndTime = Date.now();
-          const sessionDuration = sessionEndTime - sessionStartTime;
-          sessionTimes.push(sessionDuration);
-          
-          console.log(`[AI Analysis] Session ${i + 1} completed in ${(sessionDuration / 1000).toFixed(2)}s`);
-          
-          // 다음 요청 전 딜레이 (마지막 항목이 아니면)
-          if (i < needsAnalysis.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
+          sessionTimes.push(Date.now() - sessionStart);
+          aiCompletedCount++;
+          const avgMs = sessionTimes.length > 0 ? sessionTimes.reduce((a, b) => a + b, 0) / sessionTimes.length : 0;
+          const remaining = needsAnalysis.length - aiCompletedCount;
+          const estimatedMs = avgMs > 0 ? avgMs * Math.ceil(remaining / AI_CONCURRENCY) : undefined;
+          setAiProgress({ current: aiCompletedCount, total: needsAnalysis.length, currentFile: result.fileName, estimatedTimeRemainingMs: estimatedMs });
+          setOverallProgress(prev => {
+            const totalProgress = { current: totalFiles + aiCompletedCount, total: totalSteps, currentFile: result.fileName, estimatedTimeRemainingMs: estimatedMs };
+            if (onProgressChange) onProgressChange(totalProgress);
+            return { ...prev, aiCompleted: aiCompletedCount, currentFile: result.fileName, estimatedTimeRemainingMs: estimatedMs };
+          });
+        };
+
+        const executing: Promise<void>[] = [];
+        for (const result of needsAnalysis) {
+          const p = runOneAi(result).then(() => {
+            executing.splice(executing.indexOf(p), 1);
+          });
+          executing.push(p);
+          if (executing.length >= AI_CONCURRENCY) {
+            await Promise.race(executing);
+            await Promise.resolve();
           }
         }
+        await Promise.all(executing);
 
       // 결과를 results에 반영
       setResults(prevResults =>
