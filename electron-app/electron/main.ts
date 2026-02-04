@@ -1455,6 +1455,8 @@ ipcMain.handle('get-docx-files', async (event, folderPath: string, documentType?
       .filter(file => {
         const ext = path.extname(file).toLowerCase();
         if (ext !== extToMatch) return false;
+        // DOCX: Word 임시/잠금 파일(~$로 시작) 제외
+        if (documentType === 'docx' && path.basename(file).startsWith('~$')) return false;
         // PDF 모드일 때는 파일명(확장자 제외)이 '_이력서'로 끝나는 것만
         if (documentType === 'pdf') {
           const base = path.basename(file, ext);

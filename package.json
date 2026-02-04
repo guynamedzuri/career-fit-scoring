@@ -1,6 +1,6 @@
 {
   "name": "career-fit-scoring",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "커리어넷 API를 활용한 지원자 적합도 점수 산출 알고리즘 - Electron 데스크톱 앱용",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
