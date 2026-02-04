@@ -3039,8 +3039,8 @@ function buildAiPrompts(
   "opinion": "2-3문단으로 작성한 종합 의견 (등급 근거가 아닌 전체적인 평가 의견)",
   "evaluations": {
     "careerFit": "◎|○|X|- 중 하나 (경력 적합도: ◎=매우 적합, ○=적합, X=부적합, -=경력 없음)",
-    "requiredQual": "◎|X 중 하나 (필수사항 만족여부: ◎=만족, X=불만족) - 필수 요구사항이 있는 경우에만 평가",
-    "requiredQualReason": "필수사항 만족 여부에 대한 판단 근거 (각 필수 요구사항 항목과 이력서 내용을 대조한 구체적 설명). 필수 요구사항이 있는 경우에만 포함",
+    "requiredQual": "◎|X 중 하나 (필수 요구사항 만족여부: ◎=만족, X=불만족). **필수 자격증 보유 여부는 포함하지 않음** - 자격증은 certification 필드로 별도 평가. 필수 요구사항(텍스트)이 있는 경우에만 평가",
+    "requiredQualReason": "필수 요구사항(자격증 제외) 만족 여부에 대한 판단 근거. 각 필수 요구사항 항목과 이력서 내용을 대조한 구체적 설명. 필수 자격증은 여기 포함하지 않고 certification으로만 평가. 필수 요구사항이 있는 경우에만 포함",
     "preferredQual": "◎|○|X 중 하나 (우대사항 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 우대 사항이 있는 경우에만 평가",
     "certification": "◎|○|X 중 하나 (자격증 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 필수 자격증이 있는 경우에만 평가"
   },
@@ -3129,7 +3129,7 @@ ${resumeText}
    - 최하: ${userPrompt.gradeCriteria?.최하 || '조건 없음'}
 
 5. 추가 평가 항목:
-${userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim() ? '- 필수사항 만족여부(requiredQual): 필수 요구사항을 모두 만족하는지 평가 (◎=만족, X=불만족). 이력서에 명시되지 않은 항목은 불만족으로 평가하세요.\n- 필수사항 판단 근거(requiredQualReason): **필수** - requiredQual이 ◎ 또는 X로 평가된 이유를 반드시 작성하세요. 위에 제시된 필수 요구사항을 항목별로 나열하고, 각 항목에 대해 이력서에 해당 내용이 있는지(어디에 어떻게 기재되어 있는지) 또는 없는지 구체적으로 적어주세요. 예: "① OO 자격 요건: 이력서 자격사항에 OO 자격 취득(2020년)으로 기재되어 있어 만족. ② N년 이상 경력: 경력란에 A사 N년 근무로 명시되어 만족. ③ △△ 불만족: 이력서 어디에도 △△ 관련 경험이 없음."' : ''}
+${userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim() ? '- 필수 요구사항 만족여부(requiredQual): **자격증 제외** - 위 "필수 요구사항" 텍스트에 적힌 항목(경력·학력·기타 조건 등)만 평가하세요. 필수 자격증 보유 여부는 requiredQual에 반영하지 말고, certification 필드로만 평가하세요. 필수 요구사항을 모두 만족하면 ◎, 하나라도 불만족하면 X. 이력서에 명시되지 않은 항목은 불만족으로 평가.\n- 필수 요구사항 판단 근거(requiredQualReason): requiredQual이 ◎ 또는 X인 이유를 **필수 요구사항(자격증 제외)** 항목만 기준으로 작성하세요. 위 "필수 요구사항"에 나열된 항목별로 이력서 대조 내용을 적어주세요. 자격증 관련 내용은 requiredQualReason에 넣지 마세요. 예: "① N년 이상 경력: 경력란에 A사 N년 근무 명시되어 만족. ② OO 관련 경험: 경력기술서에 △△ 프로젝트 기재되어 만족. ③ △△ 불만족: 이력서에 해당 경험 없음."' : ''}
 ${userPrompt.preferredQualifications && userPrompt.preferredQualifications.trim() ? '- 우대사항 만족여부: 우대 사항을 얼마나 만족하는지 평가 (◎=매우 만족, ○=만족, X=불만족)' : ''}
 ${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length > 0 ? '- 자격증 만족여부: **중요** - 이력서의 자격사항 섹션을 정확히 확인하세요. 필수 자격증이 명시적으로 기재되어 있는지 확인하고, 자격증이 없거나 명시되지 않았다면 절대 추측하지 말고 반드시 "X"로 평가하세요. 이력서에 자격증이 없다고 명시되어 있거나 자격사항 섹션이 비어있다면 "X"입니다. 위의 자격증 평가 가이드를 참고하여, 요구하는 자격증보다 단계가 높은 자격증을 보유한 경우에도 만족한 것으로 평가하세요.' : ''}
 - 경력 적합도: 이력서의 경력이 업무 내용과 얼마나 적합한지 평가 (◎=매우 적합, ○=적합, X=부적합, -=경력 없음)
