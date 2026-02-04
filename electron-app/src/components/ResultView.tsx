@@ -621,21 +621,48 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       });
     }
 
+    // cell-ai-grade에 표시되는 0~100 종합 점수 계산 (경력/필수/우대/자격증 가중합). 필수사항 불만족·미분석 시 -1
+    const getAiGradeNumericScore = (r: typeof filtered[0]): number => {
+      if (!r.aiChecked || !r.aiReport || typeof r.aiReport !== 'object' || !r.aiReport.evaluations) return -1;
+      const ev = r.aiReport.evaluations as { requiredQual?: string; preferredQual?: string; certification?: string };
+      if (userPrompt?.requiredQualifications?.trim() && ev.requiredQual === 'X') return -1; // 필수사항 불만족
+      const weights = userPrompt?.scoringWeights || { career: 100, requirements: 0, preferred: 0, certifications: 0 };
+      const total = weights.career + weights.requirements + weights.preferred + weights.certifications;
+      const cr = total > 0 ? weights.career / total : 0;
+      const rr = total > 0 ? weights.requirements / total : 0;
+      const pr = total > 0 ? weights.preferred / total : 0;
+      const certR = total > 0 ? weights.certifications / total : 0;
+      const gradeMap: Record<string, number> = { 'A': 100, 'B': 80, 'C': 60, 'D': 40, 'E': 0 };
+      const careerScore = r.aiGrade ? (gradeMap[r.aiGrade] ?? 0) : 0;
+      let requiredScore = 0;
+      if (userPrompt?.requiredQualifications?.trim()) requiredScore = ev.requiredQual === '◎' ? 100 : 0;
+      let preferredScore = 0;
+      if (userPrompt?.preferredQualifications?.trim()) {
+        if (ev.preferredQual === '◎') preferredScore = 100;
+        else if (ev.preferredQual === '○') preferredScore = 80;
+      }
+      let certificationScore = 0;
+      if (userPrompt?.requiredCertifications?.length) {
+        if (ev.certification === '◎') certificationScore = 100;
+        else if (ev.certification === '○') certificationScore = 80;
+      }
+      return careerScore * cr + requiredScore * rr + preferredScore * pr + certificationScore * certR;
+    };
+
     // 정렬
     filtered.sort((a, b) => {
-      let compareA: any, compareB: any;
+      let compareA: number | string, compareB: number | string;
 
       switch (sortField) {
         case 'name':
-          compareA = a.name || a.fileName;
-          compareB = b.name || b.fileName;
+          compareA = a.name || a.fileName || '';
+          compareB = b.name || b.fileName || '';
           break;
         case 'age':
-          // applicationData.birthDate가 있으면 그것을 사용해서 나이 계산
-          const ageA = a.applicationData?.birthDate 
+          const ageA = a.applicationData?.birthDate
             ? calculateAgeFromBirthDate(a.applicationData.birthDate)
             : a.age;
-          const ageB = b.applicationData?.birthDate 
+          const ageB = b.applicationData?.birthDate
             ? calculateAgeFromBirthDate(b.applicationData.birthDate)
             : b.age;
           compareA = ageA ?? 0;
@@ -646,102 +673,81 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           compareB = b.lastCompany || '';
           break;
         case 'residence':
-          // 회사에서 가까운 순: 안산 - 시흥 - 수도권 - 서울 - 지방
           const residenceOrder = { '안산': 1, '시흥': 2, '수도권': 3, '서울': 4, '지방': 5 };
           compareA = residenceOrder[a.residence as keyof typeof residenceOrder] ?? 6;
           compareB = residenceOrder[b.residence as keyof typeof residenceOrder] ?? 6;
           break;
         case 'careerFit':
-          // 경력 적합도: A=1, B=2, C=3, D=4, E=5, 없음=6
+          // 경력 적합도 = cell-career-fit 값 (A~E)
           const careerFitOrder = { 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5 };
-          const careerFitA = a.aiGrade ? (careerFitOrder[a.aiGrade as keyof typeof careerFitOrder] ?? 6) : 6;
-          const careerFitB = b.aiGrade ? (careerFitOrder[b.aiGrade as keyof typeof careerFitOrder] ?? 6) : 6;
-          compareA = careerFitA;
-          compareB = careerFitB;
+          compareA = a.aiGrade ? (careerFitOrder[a.aiGrade as keyof typeof careerFitOrder] ?? 6) : 6;
+          compareB = b.aiGrade ? (careerFitOrder[b.aiGrade as keyof typeof careerFitOrder] ?? 6) : 6;
           break;
         case 'requiredQual':
-          // 필수사항 만족여부: ◎=1, ○=2, X=3, -=4
           const requiredQualOrder = { '◎': 1, '○': 2, 'X': 3, '-': 4 };
           const requiredQualA = (() => {
-            if (!userPrompt?.requiredQualifications || !userPrompt.requiredQualifications.trim()) {
-              return 4; // 해당사항 없음
-            }
+            if (!userPrompt?.requiredQualifications || !userPrompt.requiredQualifications.trim()) return 4;
             if (a.aiChecked && a.aiReport && typeof a.aiReport === 'object' && a.aiReport.evaluations?.requiredQual) {
               return requiredQualOrder[a.aiReport.evaluations.requiredQual as keyof typeof requiredQualOrder] ?? 4;
             }
-            return 4; // 없음
+            return 4;
           })();
           const requiredQualB = (() => {
-            if (!userPrompt?.requiredQualifications || !userPrompt.requiredQualifications.trim()) {
-              return 4; // 해당사항 없음
-            }
+            if (!userPrompt?.requiredQualifications || !userPrompt.requiredQualifications.trim()) return 4;
             if (b.aiChecked && b.aiReport && typeof b.aiReport === 'object' && b.aiReport.evaluations?.requiredQual) {
               return requiredQualOrder[b.aiReport.evaluations.requiredQual as keyof typeof requiredQualOrder] ?? 4;
             }
-            return 4; // 없음
+            return 4;
           })();
           compareA = requiredQualA;
           compareB = requiredQualB;
           break;
         case 'preferredQual':
-          // 우대사항 만족여부: ◎=1, ○=2, X=3, -=4
           const preferredQualOrder = { '◎': 1, '○': 2, 'X': 3, '-': 4 };
           const preferredQualA = (() => {
-            if (!userPrompt?.preferredQualifications || !userPrompt.preferredQualifications.trim()) {
-              return 4; // 해당사항 없음
-            }
+            if (!userPrompt?.preferredQualifications || !userPrompt.preferredQualifications.trim()) return 4;
             if (a.aiChecked && a.aiReport && typeof a.aiReport === 'object' && a.aiReport.evaluations?.preferredQual) {
               return preferredQualOrder[a.aiReport.evaluations.preferredQual as keyof typeof preferredQualOrder] ?? 4;
             }
-            return 4; // 없음
+            return 4;
           })();
           const preferredQualB = (() => {
-            if (!userPrompt?.preferredQualifications || !userPrompt.preferredQualifications.trim()) {
-              return 4; // 해당사항 없음
-            }
+            if (!userPrompt?.preferredQualifications || !userPrompt.preferredQualifications.trim()) return 4;
             if (b.aiChecked && b.aiReport && typeof b.aiReport === 'object' && b.aiReport.evaluations?.preferredQual) {
               return preferredQualOrder[b.aiReport.evaluations.preferredQual as keyof typeof preferredQualOrder] ?? 4;
             }
-            return 4; // 없음
+            return 4;
           })();
           compareA = preferredQualA;
           compareB = preferredQualB;
           break;
         case 'certification':
-          // 자격증 만족여부: ◎=1, ○=2, X=3, -=4
           const certificationOrder = { '◎': 1, '○': 2, 'X': 3, '-': 4 };
           const certificationA = (() => {
-            if (!userPrompt?.requiredCertifications || userPrompt.requiredCertifications.length === 0) {
-              return 4; // 해당사항 없음
-            }
+            if (!userPrompt?.requiredCertifications || userPrompt.requiredCertifications.length === 0) return 4;
             if (a.aiChecked && a.aiReport && typeof a.aiReport === 'object' && a.aiReport.evaluations?.certification) {
               return certificationOrder[a.aiReport.evaluations.certification as keyof typeof certificationOrder] ?? 4;
             }
-            return 4; // 없음
+            return 4;
           })();
           const certificationB = (() => {
-            if (!userPrompt?.requiredCertifications || userPrompt.requiredCertifications.length === 0) {
-              return 4; // 해당사항 없음
-            }
+            if (!userPrompt?.requiredCertifications || userPrompt.requiredCertifications.length === 0) return 4;
             if (b.aiChecked && b.aiReport && typeof b.aiReport === 'object' && b.aiReport.evaluations?.certification) {
               return certificationOrder[b.aiReport.evaluations.certification as keyof typeof certificationOrder] ?? 4;
             }
-            return 4; // 없음
+            return 4;
           })();
           compareA = certificationA;
           compareB = certificationB;
           break;
         case 'aiGrade':
-          const gradeOrder = { 'A': 1, 'B': 2, 'C': 3, 'D': 4 };
-          const gradeA = a.aiGrade ? (gradeOrder[a.aiGrade as keyof typeof gradeOrder] ?? 5) : 6;
-          const gradeB = b.aiGrade ? (gradeOrder[b.aiGrade as keyof typeof gradeOrder] ?? 5) : 6;
-          compareA = gradeA;
-          compareB = gradeB;
+          // 종합 점수 = cell-ai-grade 값 (0~100 정수)
+          compareA = getAiGradeNumericScore(a);
+          compareB = getAiGradeNumericScore(b);
           break;
         case 'totalScore': {
-          // 필수사항 불만족(X)은 내부 점수와 관계없이 항상 아래로 (내림차순 시)
           const isRequiredFail = (r: typeof a) =>
-            userPrompt?.requiredQualifications?.trim() &&
+            !!userPrompt?.requiredQualifications?.trim() &&
             r.aiChecked &&
             r.aiReport &&
             typeof r.aiReport === 'object' &&
@@ -761,7 +767,6 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           break;
         }
         case 'status':
-          // 후보자 상태 우선, 없으면 처리 상태
           const candidateStatusOrder = { pending: 1, review: 2, rejected: 3 };
           const processStatusOrder = { error: 0, pending: 1, processing: 2, completed: 3 };
           if (a.candidateStatus && b.candidateStatus) {
@@ -783,11 +788,23 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           compareB = b.totalScore;
       }
 
-      if (sortOrder === 'asc') {
-        return compareA > compareB ? 1 : -1;
+      // 1차 비교 (동일하면 0 반환)
+      let primaryCmp = 0;
+      if (typeof compareA === 'string' && typeof compareB === 'string') {
+        primaryCmp = compareA.localeCompare(compareB, undefined, { sensitivity: 'base' });
+        if (sortOrder === 'desc') primaryCmp = -primaryCmp;
       } else {
-        return compareA < compareB ? 1 : -1;
+        const numA = Number(compareA);
+        const numB = Number(compareB);
+        if (numA !== numB) primaryCmp = numA < numB ? -1 : 1;
+        if (sortOrder === 'desc') primaryCmp = -primaryCmp;
       }
+      if (primaryCmp !== 0) return primaryCmp;
+
+      // 2차: 동점/동순위 시 cell-ai-grade(0~100 종합 점수) 순으로 정렬
+      const scoreA = getAiGradeNumericScore(a);
+      const scoreB = getAiGradeNumericScore(b);
+      return sortOrder === 'desc' ? (scoreB - scoreA) : (scoreA - scoreB);
     });
 
     return filtered;
@@ -2176,6 +2193,23 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                             </div>
                           );
                         })}
+                      </div>
+                    </div>
+                  )}
+
+                  {currentAiReport.evaluations && typeof currentAiReport.evaluations === 'object' && (currentAiReport.evaluations as { requiredQual?: string; requiredQualReason?: string }).requiredQual != null && (
+                    <div className="ai-report-section ai-report-required-qual">
+                      <h4 className="ai-report-section-title">필수사항 판정 및 근거</h4>
+                      <div className="grade-evaluation-item">
+                        <div className="grade-evaluation-header">
+                          <span className="grade-evaluation-name">필수사항 만족여부</span>
+                          <span className={`grade-evaluation-verdict ${(currentAiReport.evaluations as { requiredQual?: string }).requiredQual === '◎' ? 'satisfied' : 'unsatisfied'}`}>
+                            {(currentAiReport.evaluations as { requiredQual?: string }).requiredQual === '◎' ? '✓ 만족' : (currentAiReport.evaluations as { requiredQual?: string }).requiredQual === 'X' ? '✗ 불만족' : (currentAiReport.evaluations as { requiredQual?: string }).requiredQual || '—'}
+                          </span>
+                        </div>
+                        <p className="grade-evaluation-reason">
+                          {((currentAiReport.evaluations as { requiredQualReason?: string }).requiredQualReason || '').trim() || '—'}
+                        </p>
                       </div>
                     </div>
                   )}

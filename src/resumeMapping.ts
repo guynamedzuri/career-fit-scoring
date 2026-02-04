@@ -400,6 +400,23 @@ export function classifyResidence(address: string | undefined): string | undefin
  * @param mappingConfig 매핑 설정 (기본값: DEFAULT_RESUME_MAPPING)
  * @returns 점수 계산 로직에 사용할 수 있는 applicationData 형식
  */
+
+/** 한글/한문 플레이스홀더 제거 후 한글이름만 추출 (양식: (한글) 이름 (한문) 漢字) */
+function normalizeNameFromCell(raw: string): string {
+  if (!raw || typeof raw !== 'string') return '';
+  let s = raw
+    .replace(/\(한글\)/g, '')
+    .replace(/\(한문\)/g, '')
+    .replace(/\(/g, '')
+    .replace(/\)/g, '');
+  const tokens = s.split(/\s+/).filter(t => t.length > 0);
+  // 한글이 포함된 토큰만 이어서 한글이름으로 사용 (한문 토큰 제외)
+  const hangulRegex = /[\uac00-\ud7a3]/;
+  const koreanTokens = tokens.filter(t => hangulRegex.test(t));
+  if (koreanTokens.length > 0) return koreanTokens.join(' ').trim();
+  return tokens[0]?.trim() ?? '';
+}
+
 export function mapResumeDataToApplicationData(
   tables: RawTableData[],
   mappingConfig: ResumeMappingConfig = DEFAULT_RESUME_MAPPING
@@ -410,8 +427,9 @@ export function mapResumeDataToApplicationData(
   const basicInfo = mappingConfig.basicInfo;
   if (basicInfo.tableIndex >= 0 && basicInfo.tableIndex < tables.length) {
     const namePos = resolveCellPosition(tables, basicInfo.tableIndex, basicInfo.name);
-    applicationData.name = namePos ? safeGetCellValue(tables, basicInfo.tableIndex, namePos.rowIndex, namePos.cellIndex) : undefined;
-    
+    const rawName = namePos ? safeGetCellValue(tables, basicInfo.tableIndex, namePos.rowIndex, namePos.cellIndex) : undefined;
+    applicationData.name = rawName ? normalizeNameFromCell(String(rawName)) || undefined : undefined;
+
     const nameEnglishPos = resolveCellPosition(tables, basicInfo.tableIndex, basicInfo.nameEnglish);
     applicationData.nameEnglish = nameEnglishPos ? safeGetCellValue(tables, basicInfo.tableIndex, nameEnglishPos.rowIndex, nameEnglishPos.cellIndex) : undefined;
     
@@ -478,9 +496,13 @@ export function mapResumeDataToApplicationData(
       const endDate = safeGetCellValue(tables, education.tableIndex, rowIdx, 1);
       if (endDate) applicationData[`educationEndDate${eduIndex}`] = endDate;
       
-      // 학교명 (cell 2)
+      // 학교명 (cell 2) — '대학원', '대학교', '고등학교'만 있는 행은 제외
       if (schoolNameCol >= 0 && schoolNameCol < row.cells.length) {
         const schoolName = safeGetCellValue(tables, education.tableIndex, rowIdx, schoolNameCol);
+        const schoolNameTrimmed = schoolName ? schoolName.trim() : '';
+        if (schoolNameTrimmed === '대학원' || schoolNameTrimmed === '대학교' || schoolNameTrimmed === '고등학교') {
+          continue;
+        }
         if (schoolName) {
           applicationData[`universityName${eduIndex}`] = schoolName;
           
