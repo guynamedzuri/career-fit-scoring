@@ -1851,11 +1851,13 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                     const careers: string[] = [];
                     for (let i = 1; i <= 5; i++) {
                       const company = selectedResult.applicationData[`careerCompanyName${i}`];
+                      const department = selectedResult.applicationData[`careerDepartment${i}`];
                       const startDate = selectedResult.applicationData[`careerStartDate${i}`];
                       const endDate = selectedResult.applicationData[`careerEndDate${i}`];
                       const jobType = selectedResult.applicationData[`careerJobType${i}`];
                       if (company) {
-                        careers.push(`${company} | ${startDate || ''} ~ ${endDate || '현재'} | ${jobType || ''}`);
+                        const companyLabel = department ? `${company} - ${department}` : company;
+                        careers.push(`${companyLabel} | ${startDate || ''} ~ ${endDate || '현재'} | ${jobType || ''}`);
                       }
                     }
                     return careers.length > 0 ? (
