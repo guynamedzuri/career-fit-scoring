@@ -156,30 +156,24 @@ export const DEFAULT_RESUME_MAPPING: ResumeMappingConfig = {
     militaryService: { rowIndex: 6, cellIndexStart: 1, cellIndexEnd: 1 }, // 단일 셀
   },
   certificates: {
-    tableIndex: 3, // 테이블 3: 자격사항 (기존 table4에서 변경)
+    tableIndex: 3, // 테이블 3: 자격사항. 구간은 '수상명' 행 직전까지 동적 탐색 (row 1 ~ 수상명-1)
     headerRowIndex: 1,
-    dataStartRowIndex: 2, // row 2~4
+    dataStartRowIndex: 2,
     dataEndRowIndex: 4,
-    // (2~4,3): 자격증 이름
     nameColumn: 3,
-    // (2~4,4): 등급/점수
     gradeColumn: 4,
-    // (2~4,5): 발행기관
     issuerColumn: 5,
-    maxCount: 3,
+    maxCount: 10,
   },
   languageTests: {
-    tableIndex: 3, // 테이블 3: 어학 정보 (기존 table4에서 변경)
+    tableIndex: 3, // 테이블 3: 어학. 구간은 '수상명' 행 직전까지 동적 탐색 (row 1 ~ 수상명-1)
     headerRowIndex: 1,
-    dataStartRowIndex: 2, // row 2~4
+    dataStartRowIndex: 2,
     dataEndRowIndex: 4,
-    // (2~4,0): 어학종류명
     nameColumn: 0,
-    // (2~4,1): 점수/등급
     scoreColumn: 1,
-    // (2~4,2): 취득일자
     dateColumn: 2,
-    maxCount: 3,
+    maxCount: 10,
   },
   careers: {
     tableIndex: 2, // 테이블 2: 경력사항 (기존 table3에서 변경)
@@ -401,6 +395,29 @@ export function classifyResidence(address: string | undefined): string | undefin
  * @returns 점수 계산 로직에 사용할 수 있는 applicationData 형식
  */
 
+/**
+ * 테이블에서 지정 열의 셀 값이 검색어를 포함하는 첫 번째 행 인덱스 반환 (없으면 -1)
+ */
+function findRowIndexByCellText(
+  tables: RawTableData[],
+  tableIndex: number,
+  columnIndex: number,
+  searchText: string
+): number {
+  if (tableIndex < 0 || tableIndex >= tables.length) return -1;
+  const table = tables[tableIndex];
+  const normalized = searchText.trim();
+  if (!normalized) return -1;
+  for (let r = 0; r < table.rows.length; r++) {
+    const row = table.rows[r];
+    if (columnIndex >= 0 && columnIndex < row.cells.length) {
+      const cellText = row.cells[columnIndex].text.trim();
+      if (cellText.includes(normalized)) return r;
+    }
+  }
+  return -1;
+}
+
 /** 한글/한문 플레이스홀더 제거 후 한글이름만 추출 (양식: (한글) 이름 (한문) 漢字) */
 function normalizeNameFromCell(raw: string): string {
   if (!raw || typeof raw !== 'string') return '';
@@ -608,12 +625,20 @@ export function mapResumeDataToApplicationData(
   const certs = mappingConfig.certificates;
   if (certs.tableIndex >= 0 && certs.tableIndex < tables.length) {
     const headerRowIndex = certs.headerRowIndex ?? 0;
-    const dataStartRowIndex = certs.dataStartRowIndex ?? headerRowIndex + 1;
-    const dataEndRowIndex = certs.dataEndRowIndex ?? dataStartRowIndex;
+    let dataStartRowIndex = certs.dataStartRowIndex ?? headerRowIndex + 1;
+    let dataEndRowIndex = certs.dataEndRowIndex ?? dataStartRowIndex;
+    // 테이블 3: '수상명'이 나오는 행 직전까지가 자격/어학 구간 (중간에 행이 추가된 경우 대응)
+    if (certs.tableIndex === 3) {
+      const awardsHeaderRow = findRowIndexByCellText(tables, 3, 3, '수상명');
+      if (awardsHeaderRow >= 0 && awardsHeaderRow > 1) {
+        dataStartRowIndex = 1;
+        dataEndRowIndex = awardsHeaderRow - 1;
+      }
+    }
     const nameCol = resolveColumnIndex(tables, certs.tableIndex, certs.nameColumn, headerRowIndex);
     const gradeCol = resolveColumnIndex(tables, certs.tableIndex, certs.gradeColumn, headerRowIndex);
     const issuerCol = resolveColumnIndex(tables, certs.tableIndex, certs.issuerColumn, headerRowIndex);
-    const maxCount = certs.maxCount ?? 3;
+    const maxCount = certs.maxCount ?? 10;
     
     const table = tables[certs.tableIndex];
     let certIndex = 1;
@@ -647,12 +672,20 @@ export function mapResumeDataToApplicationData(
     const langTests = mappingConfig.languageTests;
     if (langTests.tableIndex >= 0 && langTests.tableIndex < tables.length) {
       const headerRowIndex = langTests.headerRowIndex ?? 0;
-      const dataStartRowIndex = langTests.dataStartRowIndex ?? headerRowIndex + 1;
-      const dataEndRowIndex = langTests.dataEndRowIndex ?? dataStartRowIndex;
+      let dataStartRowIndex = langTests.dataStartRowIndex ?? headerRowIndex + 1;
+      let dataEndRowIndex = langTests.dataEndRowIndex ?? dataStartRowIndex;
+      // 테이블 3: '수상명'이 나오는 행 직전까지가 자격/어학 구간
+      if (langTests.tableIndex === 3) {
+        const awardsHeaderRow = findRowIndexByCellText(tables, 3, 3, '수상명');
+        if (awardsHeaderRow >= 0 && awardsHeaderRow > 1) {
+          dataStartRowIndex = 1;
+          dataEndRowIndex = awardsHeaderRow - 1;
+        }
+      }
       const nameCol = resolveColumnIndex(tables, langTests.tableIndex, langTests.nameColumn, headerRowIndex);
       const scoreCol = resolveColumnIndex(tables, langTests.tableIndex, langTests.scoreColumn, headerRowIndex);
       const dateCol = resolveColumnIndex(tables, langTests.tableIndex, langTests.dateColumn, headerRowIndex);
-      const maxCount = langTests.maxCount ?? 3;
+      const maxCount = langTests.maxCount ?? 10;
       
       const table = tables[langTests.tableIndex];
       let langIndex = 1;
@@ -686,9 +719,17 @@ export function mapResumeDataToApplicationData(
   if (mappingConfig.overseasTraining) {
     const training = mappingConfig.overseasTraining;
     if (training.tableIndex >= 0 && training.tableIndex < tables.length) {
-      const headerRowIndex = training.headerRowIndex ?? 0;
-      const dataStartRowIndex = training.dataStartRowIndex ?? headerRowIndex + 1;
-      const dataEndRowIndex = training.dataEndRowIndex ?? dataStartRowIndex;
+      let headerRowIndex = training.headerRowIndex ?? 0;
+      let dataStartRowIndex = training.dataStartRowIndex ?? headerRowIndex + 1;
+      let dataEndRowIndex = training.dataEndRowIndex ?? dataStartRowIndex;
+      if (training.tableIndex === 3) {
+        const awardsHeaderRow = findRowIndexByCellText(tables, 3, 3, '수상명');
+        if (awardsHeaderRow >= 0) {
+          headerRowIndex = awardsHeaderRow;
+          dataStartRowIndex = awardsHeaderRow + 1;
+          dataEndRowIndex = Math.min(awardsHeaderRow + 3, (tables[3].rows?.length ?? 0) - 1);
+        }
+      }
       const countryCol = resolveColumnIndex(tables, training.tableIndex, training.countryColumn, headerRowIndex);
       const durationCol = resolveColumnIndex(tables, training.tableIndex, training.durationColumn, headerRowIndex);
       const purposeCol = resolveColumnIndex(tables, training.tableIndex, training.purposeColumn, headerRowIndex);
@@ -726,9 +767,17 @@ export function mapResumeDataToApplicationData(
   if (mappingConfig.awards) {
     const awards = mappingConfig.awards;
     if (awards.tableIndex >= 0 && awards.tableIndex < tables.length) {
-      const headerRowIndex = awards.headerRowIndex ?? 0;
-      const dataStartRowIndex = awards.dataStartRowIndex ?? headerRowIndex + 1;
-      const dataEndRowIndex = awards.dataEndRowIndex ?? dataStartRowIndex;
+      let headerRowIndex = awards.headerRowIndex ?? 0;
+      let dataStartRowIndex = awards.dataStartRowIndex ?? headerRowIndex + 1;
+      let dataEndRowIndex = awards.dataEndRowIndex ?? dataStartRowIndex;
+      if (awards.tableIndex === 3) {
+        const awardsHeaderRow = findRowIndexByCellText(tables, 3, 3, '수상명');
+        if (awardsHeaderRow >= 0) {
+          headerRowIndex = awardsHeaderRow;
+          dataStartRowIndex = awardsHeaderRow + 1;
+          dataEndRowIndex = Math.min(awardsHeaderRow + 3, (tables[3].rows?.length ?? 0) - 1);
+        }
+      }
       const nameCol = resolveColumnIndex(tables, awards.tableIndex, awards.nameColumn, headerRowIndex);
       const orgCol = resolveColumnIndex(tables, awards.tableIndex, awards.organizationColumn, headerRowIndex);
       const detailCol = resolveColumnIndex(tables, awards.tableIndex, awards.detailColumn, headerRowIndex);
