@@ -627,11 +627,11 @@ export function mapResumeDataToApplicationData(
     const headerRowIndex = certs.headerRowIndex ?? 0;
     let dataStartRowIndex = certs.dataStartRowIndex ?? headerRowIndex + 1;
     let dataEndRowIndex = certs.dataEndRowIndex ?? dataStartRowIndex;
-    // 테이블 3: '수상명'이 나오는 행 직전까지가 자격/어학 구간 (중간에 행이 추가된 경우 대응)
+    // 테이블 3: row1=필드명, row2~부터 데이터. '수상명' 행 직전까지가 자격/어학 구간 (중간에 행 추가 시 대응)
     if (certs.tableIndex === 3) {
       const awardsHeaderRow = findRowIndexByCellText(tables, 3, 3, '수상명');
-      if (awardsHeaderRow >= 0 && awardsHeaderRow > 1) {
-        dataStartRowIndex = 1;
+      if (awardsHeaderRow >= 0 && awardsHeaderRow > 2) {
+        dataStartRowIndex = 2;
         dataEndRowIndex = awardsHeaderRow - 1;
       }
     }
@@ -674,11 +674,11 @@ export function mapResumeDataToApplicationData(
       const headerRowIndex = langTests.headerRowIndex ?? 0;
       let dataStartRowIndex = langTests.dataStartRowIndex ?? headerRowIndex + 1;
       let dataEndRowIndex = langTests.dataEndRowIndex ?? dataStartRowIndex;
-      // 테이블 3: '수상명'이 나오는 행 직전까지가 자격/어학 구간
+      // 테이블 3: row1=필드명, row2~ 데이터. '수상명' 행 직전까지가 자격/어학 구간
       if (langTests.tableIndex === 3) {
         const awardsHeaderRow = findRowIndexByCellText(tables, 3, 3, '수상명');
-        if (awardsHeaderRow >= 0 && awardsHeaderRow > 1) {
-          dataStartRowIndex = 1;
+        if (awardsHeaderRow >= 0 && awardsHeaderRow > 2) {
+          dataStartRowIndex = 2;
           dataEndRowIndex = awardsHeaderRow - 1;
         }
       }
