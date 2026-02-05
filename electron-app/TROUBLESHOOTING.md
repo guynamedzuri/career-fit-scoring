@@ -25,18 +25,23 @@ npm run dev:vite
 
 #### 2. 포트 충돌 확인
 
-다른 프로세스가 5173 포트를 사용 중일 수 있습니다:
+다른 프로세스가 5173 포트(Vite)를 사용 중일 수 있습니다. **프로세스로 먼저 탐색**하는 것을 권장합니다:
 ```bash
-# Windows
-netstat -ano | findstr :5173
+# Linux/Mac: Vite/Node 프로세스로 탐색
+pgrep -af "vite"
+pgrep -af "5173"
+ps aux | grep vite | grep -v grep
 
-# Linux/Mac
-lsof -i :5173
+# 사용 중인 Vite 프로세스 종료
+pkill -f "vite"
+
+# Windows: 포트로 확인
+netstat -ano | findstr :5173
 ```
 
 포트가 사용 중이면:
 - `vite.config.ts`에서 다른 포트로 변경
-- 또는 사용 중인 프로세스를 종료
+- 또는 위처럼 프로세스로 찾아서 종료
 
 #### 3. Electron 재빌드
 

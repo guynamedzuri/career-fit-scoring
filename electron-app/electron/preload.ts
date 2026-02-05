@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('electron', {
   getDocxFiles: (folderPath: string, documentType?: 'docx' | 'pdf') => ipcRenderer.invoke('get-docx-files', folderPath, documentType),
   aiCheckResume: (data: { applicationData: any; userPrompt: any; fileName: string }) =>
     ipcRenderer.invoke('ai-check-resume', data),
+  aiCheckResumeBatch: (data: { userPrompt: any; items: Array<{ applicationData: any; fileName: string }> }) =>
+    ipcRenderer.invoke('ai-check-resume-batch', data),
   getAiPromptsPreview: (data: { userPrompt: any; applicationData?: any }) =>
     ipcRenderer.invoke('get-ai-prompts-preview', data),
   processResume: (filePath: string, documentType?: 'docx' | 'pdf') =>

@@ -3141,6 +3141,248 @@ ${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length 
   return { systemPrompt, userPromptText };
 }
 
+/** 배치용: 여러 이력서를 하나의 userPrompt로 묶고, 응답은 JSON 배열로 요청. */
+function buildAiPromptsForBatch(
+  userPrompt: {
+    jobDescription: string;
+    requiredQualifications: string;
+    preferredQualifications: string;
+    requiredCertifications: string[];
+    gradeCriteria: Record<string, string>;
+    scoringWeights?: Record<string, number>;
+  },
+  items: Array<{ resumeText: string; fileName: string }>
+): { systemPrompt: string; userPromptText: string } {
+  const singleSystemSuffix = `응답 형식:
+반드시 다음 JSON 형식으로만 응답해야 합니다. 다른 텍스트나 설명은 포함하지 마세요:
+{
+  "grade": "최상|상|중|하|최하 중 하나",
+  "summary": "이력서 전체를 종합적으로 평가한 요약 (등급 근거가 아닌 전체적인 평가 내용)",
+  "strengths": ["강점1", "강점2", "강점3", "강점4", "강점5"],
+  "weaknesses": ["약점1", "약점2", "약점3", "약점4", "약점5"],
+  "opinion": "2-3문단으로 작성한 종합 의견 (등급 근거가 아닌 전체적인 평가 의견)",
+  "evaluations": {
+    "careerFit": "◎|○|X|- 중 하나 (경력 적합도: ◎=매우 적합, ○=적합, X=부적합, -=경력 없음)",
+    "requiredQual": "◎|X 중 하나 (필수 요구사항 만족여부: ◎=만족, X=불만족). **필수 자격증 보유 여부는 포함하지 않음** - 자격증은 certification 필드로 별도 평가. 필수 요구사항(텍스트)이 있는 경우에만 평가",
+    "requiredQualReason": "필수 요구사항(자격증 제외) 만족 여부에 대한 판단 근거. 각 필수 요구사항 항목과 이력서 내용을 대조한 구체적 설명. 필수 자격증은 여기 포함하지 않고 certification으로만 평가. 필수 요구사항이 있는 경우에만 포함",
+    "preferredQual": "◎|○|X 중 하나 (우대사항 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 우대 사항이 있는 경우에만 평가",
+    "certification": "◎|○|X 중 하나 (자격증 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 필수 자격증이 있는 경우에만 평가"
+  },
+  "gradeEvaluations": {
+    "최상": { "satisfied": true|false, "reason": "구체적인 근거" },
+    "상": { "satisfied": true|false, "reason": "구체적인 근거" },
+    "중": { "satisfied": true|false, "reason": "구체적인 근거" },
+    "하": { "satisfied": true|false, "reason": "구체적인 근거" },
+    "최하": { "satisfied": true|false, "reason": "구체적인 근거" }
+  }
+}`;
+
+  const systemPrompt = `당신은 채용 담당자입니다. **여러 건의 이력서**가 제시됩니다. 각 이력서를 **순서대로** 평가하고, 응답은 반드시 **동일한 순서의 JSON 배열**로만 주세요. 배열의 각 요소는 아래와 같은 단일 이력서 평가 객체입니다.
+
+등급 체계:
+- 최상: ${userPrompt.gradeCriteria?.최상 || '하위 등급의 모든 조건을 만족하는 경우'}
+- 상: ${userPrompt.gradeCriteria?.상 || '중 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
+- 중: ${userPrompt.gradeCriteria?.중 || '하 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
+- 하: ${userPrompt.gradeCriteria?.하 || '기본 조건을 만족하는 경우'}
+- 최하: ${userPrompt.gradeCriteria?.최하 || '기본 조건을 만족하지 못하는 경우'}
+
+응답 형식:
+반드시 **JSON 배열**로만 응답하세요. 배열 길이는 제시된 이력서 개수(${items.length}개)와 같아야 합니다. 각 요소는 다음 구조의 객체입니다:
+${singleSystemSuffix}
+
+중요 사항:
+1. 반드시 유효한 JSON 배열 형식으로만 응답하고, JSON 외의 다른 텍스트는 포함하지 마세요.
+2. 배열의 순서는 이력서 제시 순서(이력서 1, 이력서 2, ...)와 반드시 동일해야 합니다.
+3. summary와 opinion은 등급 근거가 아닌 이력서 전체에 대한 종합 평가여야 합니다. 등급 근거는 gradeEvaluations.reason에만 작성하세요.`;
+
+  // user 쪽: 공통 업무/요구사항/자격증 가이드 + 각 이력서 블록
+  let userPromptText = `업무 내용:
+${userPrompt.jobDescription || '업무 내용이 없습니다.'}
+
+`;
+
+  if (userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim()) {
+    userPromptText += `필수 요구사항:
+${userPrompt.requiredQualifications}
+
+`;
+  }
+  if (userPrompt.preferredQualifications && userPrompt.preferredQualifications.trim()) {
+    userPromptText += `우대 사항:
+${userPrompt.preferredQualifications}
+
+`;
+  }
+  if (userPrompt.requiredCertifications && userPrompt.requiredCertifications.length > 0) {
+    userPromptText += `필수 자격증:
+${userPrompt.requiredCertifications.join(', ')}
+
+자격증 평가 가이드 (반드시 준수):
+1. **가장 중요**: 이력서의 자격사항 섹션에 명시적으로 기재된 자격증만 인정합니다. 이력서에 자격증이 없거나 명시되지 않았다면, 불확실하다고 느껴도 절대 추측하지 말고 반드시 "X"로 평가해야 합니다.
+2. 자격사항 섹션이 비어있거나 "없음"이라고 명시되어 있다면 "X"입니다.
+3. 국가기술자격은 가장 낮은 순서부터 기능사, 산업기사, 기사, 기술사로 단계가 나뉩니다(물론 꼭 그렇지 않은 자격증도 있습니다).
+4. 요구하는 자격증보다 단계가 높은 자격증을 가진 경우에는 해당 자격증도 보유한 것으로 간주합니다. 예를 들어, 전기기사 자격을 보유하고 있다면 전기산업기사도 보유한 것으로 봅니다. 단, 이력서에 명시되어 있어야 합니다. 반대로, 요구하는 자격증이 전기기사인데 이력서에 전기산업기사만 보유하고 있다면 산업기사는 기사보다 낮은 단계의 자격증이므로 전기기사를 보유한 것으로 인정하지 않습니다.
+5. 필수 자격증이 여러 개인 경우, 모든 자격증을 보유해야 "◎" 또는 "○"로 평가됩니다. 하나라도 없으면 "X"입니다.
+6. 자격증 이름이 정확히 일치하지 않더라도, 동일한 자격증임이 명확하면 인정합니다 (예: "전기산업기사"와 "전기 산업기사").
+
+`;
+  }
+
+  userPromptText += `평가 지침:
+1. 등급 부여: 위에 제시된 등급 체계를 참고하여, 각 이력서가 어느 등급에 해당하는지 판단하세요.
+2. summary/opinion: 등급 근거가 아닌 이력서 전체에 대한 종합 평가 요약·의견을 작성하세요. 등급 근거는 gradeEvaluations.reason에만 작성하세요.
+3. gradeEvaluations: 각 등급(최상, 상, 중, 하, 최하)의 조건을 이력서 내용과 비교하여 satisfied와 reason을 작성하세요.
+4. 각 이력서 평가 결과를 **제시된 순서와 동일한 순서**로 JSON 배열에 넣어 주세요.
+
+각 등급의 조건:
+- 최상: ${userPrompt.gradeCriteria?.최상 || '조건 없음'}
+- 상: ${userPrompt.gradeCriteria?.상 || '조건 없음'}
+- 중: ${userPrompt.gradeCriteria?.중 || '조건 없음'}
+- 하: ${userPrompt.gradeCriteria?.하 || '조건 없음'}
+- 최하: ${userPrompt.gradeCriteria?.최하 || '조건 없음'}
+
+아래 이력서들을 **순서대로** 평가한 뒤, 위 형식의 **JSON 배열**로만 응답하세요.
+
+`;
+
+  items.forEach((item, index) => {
+    userPromptText += `## 이력서 ${index + 1} (파일명: ${item.fileName})\n${item.resumeText}\n\n`;
+  });
+
+  return { systemPrompt, userPromptText };
+}
+
+/** 단일 파싱된 보고서 객체를 등급 매핑·유효성 검사 후 반환 (단일/배치 공용) */
+function normalizeParsedReport(
+  parsed: any,
+  _fileName: string
+): { grade: string; report: any; reportParsed: boolean } {
+  const gradeMap: { [key: string]: string } = {
+    '최상': 'A', '상': 'B', '중': 'C', '하': 'D', '최하': 'E'
+  };
+  let grade = 'C';
+  if (parsed && typeof parsed === 'object' && 'grade' in parsed) {
+    grade = gradeMap[parsed.grade] || 'C';
+  }
+  const hasRequired = parsed?.summary?.trim() && parsed?.opinion?.trim();
+  const report = parsed && typeof parsed === 'object' ? parsed : {};
+  return {
+    grade,
+    report,
+    reportParsed: !!(hasRequired && report.grade),
+  };
+}
+
+/** 배치 AI 호출: 한 번의 API 요청으로 여러 이력서 평가, 응답 JSON 배열 파싱 후 각 항목을 순서대로 반환 */
+async function callAIAndParseBatch(
+  systemPrompt: string,
+  userPromptText: string,
+  fileNames: string[],
+  retryCount: number = 0
+): Promise<Array<{ success: boolean; grade: string; report: any; reportParsed: boolean; fileName: string; error?: string }>> {
+  const MAX_RETRIES = 1;
+  const API_KEY = process.env.AZURE_OPENAI_API_KEY || '';
+  const API_ENDPOINT = (process.env.AZURE_OPENAI_ENDPOINT || 'https://roar-mjm4cwji-swedencentral.openai.azure.com/').replace(/\/+$/, '');
+  const DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+  const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
+  const apiUrl = `${API_ENDPOINT}/openai/deployments/${DEPLOYMENT}/chat/completions?api-version=${API_VERSION}`;
+
+  const emptyResult = (fileName: string, error: string) => ({
+    success: false,
+    grade: 'C',
+    report: '',
+    reportParsed: false,
+    fileName,
+    error,
+  });
+
+  try {
+    console.log(`[AI Check Batch] Calling Azure OpenAI API for ${fileNames.length} files${retryCount > 0 ? ` (재시도 ${retryCount})` : ''}`);
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': API_KEY,
+      },
+      body: JSON.stringify({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPromptText },
+        ],
+        max_tokens: Math.min(16000, 2000 + fileNames.length * 1500),
+        temperature: 0.7,
+        top_p: 1.0,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('[AI Check Batch] API Error:', response.status, errorData);
+      if (response.status === 429) {
+        let retryAfter = 10;
+        try {
+          const errorJson = JSON.parse(errorData);
+          if (errorJson.error?.message) {
+            const retryMatch = errorJson.error.message.match(/after (\d+) seconds?/i);
+            if (retryMatch) retryAfter = parseInt(retryMatch[1], 10) + 2;
+          }
+        } catch (_e) {}
+        writeLog(`[AI Check Batch] Rate limit, retrying after ${retryAfter}s...`, 'warn');
+        throw new Error(`RATE_LIMIT:${retryAfter}`);
+      }
+      throw new Error(`AI API 호출 실패: ${response.status}`);
+    }
+
+    const responseData = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const aiContent = responseData.choices?.[0]?.message?.content || '';
+
+    let jsonText = aiContent.trim();
+    if (jsonText.startsWith('```')) {
+      const lines = jsonText.split('\n');
+      const startIndex = lines[0].includes('json') ? 1 : 0;
+      const endIndex = lines[lines.length - 1].trim() === '```' ? lines.length - 1 : lines.length;
+      jsonText = lines.slice(startIndex, endIndex).join('\n').trim();
+    }
+
+    let arr: any[];
+    try {
+      arr = JSON.parse(jsonText);
+    } catch (parseErr) {
+      console.warn('[AI Check Batch] Response is not valid JSON array:', (parseErr as Error).message);
+      return fileNames.map(fn => emptyResult(fn, '배치 응답 JSON 배열 파싱 실패'));
+    }
+
+    if (!Array.isArray(arr)) {
+      return fileNames.map(fn => emptyResult(fn, '배치 응답이 배열이 아님'));
+    }
+
+    const results: Array<{ success: boolean; grade: string; report: any; reportParsed: boolean; fileName: string; error?: string }> = [];
+    for (let i = 0; i < fileNames.length; i++) {
+      const fileName = fileNames[i];
+      const raw = arr[i];
+      if (raw == null) {
+        results.push(emptyResult(fileName, '배치 응답에 해당 순서의 항목 없음'));
+        continue;
+      }
+      const { grade, report, reportParsed } = normalizeParsedReport(raw, fileName);
+      results.push({
+        success: true,
+        grade,
+        report,
+        reportParsed,
+        fileName,
+      });
+    }
+    console.log('[AI Check Batch] Success for', fileNames.length, 'files');
+    return results;
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : '알 수 없는 오류';
+    console.error('[AI Check Batch] Error:', errMsg);
+    return fileNames.map(fn => emptyResult(fn, errMsg));
+  }
+}
+
 // Azure OpenAI API 호출 IPC 핸들러
 ipcMain.handle('ai-check-resume', async (event, data: {
   applicationData: any;
@@ -3259,6 +3501,57 @@ ipcMain.handle('ai-check-resume', async (event, data: {
       success: false,
       error: error instanceof Error ? error.message : '알 수 없는 오류',
     };
+  }
+});
+
+/** 배치 AI 분석: 여러 이력서를 한 번에 API 호출하여 분석 (예: 10건씩) */
+ipcMain.handle('ai-check-resume-batch', async (event, data: {
+  userPrompt: {
+    jobDescription: string;
+    requiredQualifications: string;
+    preferredQualifications: string;
+    requiredCertifications: string[];
+    gradeCriteria: { 최상: string; 상: string; 중: string; 하: string; 최하: string };
+    scoringWeights?: Record<string, number>;
+  };
+  items: Array<{ applicationData: any; fileName: string }>;
+}) => {
+  try {
+    loadEnvFile();
+    const API_KEY = process.env.AZURE_OPENAI_API_KEY;
+    if (!API_KEY) {
+      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. .env 파일에 AZURE_OPENAI_API_KEY를 설정하세요.');
+    }
+    if (!data.userPrompt?.jobDescription?.trim()) {
+      throw new Error('jobDescription이 비어있습니다.');
+    }
+    const userPrompt = {
+      jobDescription: (data.userPrompt.jobDescription && typeof data.userPrompt.jobDescription === 'string') ? data.userPrompt.jobDescription : '',
+      requiredQualifications: (data.userPrompt.requiredQualifications && typeof data.userPrompt.requiredQualifications === 'string') ? data.userPrompt.requiredQualifications : '',
+      preferredQualifications: (data.userPrompt.preferredQualifications && typeof data.userPrompt.preferredQualifications === 'string') ? data.userPrompt.preferredQualifications : '',
+      requiredCertifications: Array.isArray(data.userPrompt.requiredCertifications) ? data.userPrompt.requiredCertifications : [],
+      gradeCriteria: data.userPrompt.gradeCriteria || {},
+      scoringWeights: data.userPrompt.scoringWeights || {},
+    };
+    const batchItems = data.items.map(({ applicationData, fileName }) => ({
+      resumeText: formatResumeDataForAI(applicationData),
+      fileName,
+    }));
+    const { systemPrompt, userPromptText } = buildAiPromptsForBatch(userPrompt, batchItems);
+    const fileNames = batchItems.map(i => i.fileName);
+    const results = await callAIAndParseBatch(systemPrompt, userPromptText, fileNames, 0);
+    return results;
+  } catch (error) {
+    console.error('[AI Check Batch] IPC Error:', error);
+    const errMsg = error instanceof Error ? error.message : '알 수 없는 오류';
+    return (data.items || []).map(({ fileName }) => ({
+      success: false,
+      grade: 'C',
+      report: '',
+      reportParsed: false,
+      fileName,
+      error: errMsg,
+    }));
   }
 });
 

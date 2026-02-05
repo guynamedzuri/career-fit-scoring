@@ -949,12 +949,12 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         return;
       }
       
-      if (!userPrompt || !userPrompt.jobDescription || userPrompt.jobDescription.trim() === '' || selectedFiles.length === 0 || !window.electron?.aiCheckResume) {
+      if (!userPrompt || !userPrompt.jobDescription || userPrompt.jobDescription.trim() === '' || selectedFiles.length === 0 || !window.electron?.aiCheckResumeBatch) {
         console.log('[AI Analysis] Skipping - missing requirements:', {
           hasUserPrompt: !!userPrompt,
           hasJobDescription: !!(userPrompt?.jobDescription),
           hasFiles: selectedFiles.length > 0,
-          hasElectron: !!window.electron?.aiCheckResume,
+          hasElectron: !!window.electron?.aiCheckResumeBatch,
         });
         if (onProcessingChange) {
           onProcessingChange(false);
@@ -1028,91 +1028,101 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       }
       try {
         const aiResults: Array<{ filePath: string; aiGrade?: string; aiReport?: any; aiReportParsed?: boolean; aiChecked: boolean; error?: string }> = [];
+        const BATCH_SIZE = 10;
         const MAX_RETRIES = 3;
-        const AI_CONCURRENCY = 3; // 동시 AI 요청 개수 (레이트 리밋 고려)
-        const sessionTimes: number[] = [];
-        let aiCompletedCount = 0;
         const totalFiles = selectedFiles.length;
         const totalSteps = totalFiles * 2;
 
-        const runOneAi = async (result: ScoringResult) => {
-          const sessionStart = Date.now();
-          console.log(`[AI Analysis] Processing ${result.fileName}...`);
+        // 데이터 없는 건 미리 결과에 넣음
+        const needsAnalysisForBatch = needsAnalysis.filter(r => {
+          if (!r.applicationData) {
+            aiResults.push({ filePath: r.filePath, aiChecked: true, error: '이력서 데이터가 없습니다' });
+            return false;
+          }
+          return true;
+        });
+
+        let aiCompletedCount = aiResults.length;
+        const batchCount = Math.ceil(needsAnalysisForBatch.length / BATCH_SIZE);
+        const batchTimes: number[] = [];
+
+        for (let start = 0; start < needsAnalysisForBatch.length; start += BATCH_SIZE) {
+          const chunk = needsAnalysisForBatch.slice(start, start + BATCH_SIZE);
+          const batchStart = Date.now();
           let retryCount = 0;
-          let success = false;
-          while (retryCount < MAX_RETRIES && !success) {
+          let batchResponse: Awaited<ReturnType<typeof window.electron.aiCheckResumeBatch>> | null = null;
+
+          while (retryCount < MAX_RETRIES) {
             try {
-              if (!result.applicationData) {
-                aiResults.push({ filePath: result.filePath, aiChecked: true, error: '이력서 데이터가 없습니다' });
-                success = true;
-                break;
-              }
-              const response = await window.electron!.aiCheckResume({
-                applicationData: result.applicationData,
-                userPrompt: userPrompt,
-                fileName: result.fileName,
+              batchResponse = await window.electron!.aiCheckResumeBatch({
+                userPrompt,
+                items: chunk.map(r => ({ applicationData: r.applicationData, fileName: r.fileName })),
               });
-              if (response.success && response.grade && response.report) {
-                aiResults.push({
-                  filePath: result.filePath,
-                  aiGrade: response.grade,
-                  aiReport: response.report,
-                  aiReportParsed: (response as any).reportParsed || false,
-                  aiChecked: true,
-                });
-                success = true;
-              } else {
-                throw new Error(response.error || 'AI 분석 실패');
-              }
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : 'AI 분석 실패';
-              if (errorMessage.startsWith('RATE_LIMIT:')) {
-                const retryAfter = parseInt(errorMessage.split(':')[1], 10) || 10;
+              break;
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : 'AI 분석 실패';
+              if (msg.startsWith('RATE_LIMIT:')) {
+                const retryAfter = parseInt(msg.split(':')[1], 10) || 10;
                 retryCount++;
                 if (retryCount < MAX_RETRIES) {
                   await new Promise(r => setTimeout(r, retryAfter * 1000));
                   continue;
                 }
-                aiResults.push({ filePath: result.filePath, aiChecked: true, error: `레이트 리밋: ${MAX_RETRIES}회 재시도 후 실패` });
-                success = true;
+              }
+              batchResponse = chunk.map(r => ({
+                success: false,
+                grade: 'C',
+                report: '',
+                reportParsed: false,
+                fileName: r.fileName,
+                error: msg,
+              }));
+              break;
+            }
+          }
+
+          if (batchResponse) {
+            for (let i = 0; i < chunk.length; i++) {
+              const r = chunk[i];
+              const res = batchResponse[i];
+              if (res?.success && res.grade != null && res.report != null) {
+                aiResults.push({
+                  filePath: r.filePath,
+                  aiGrade: res.grade,
+                  aiReport: res.report,
+                  aiReportParsed: res.reportParsed ?? false,
+                  aiChecked: true,
+                });
               } else {
-                aiResults.push({ filePath: result.filePath, aiChecked: true, error: errorMessage });
-                success = true;
+                aiResults.push({
+                  filePath: r.filePath,
+                  aiChecked: true,
+                  error: (res as any)?.error || 'AI 분석 실패',
+                });
               }
             }
           }
-          sessionTimes.push(Date.now() - sessionStart);
-          aiCompletedCount++;
-          const avgMs = sessionTimes.length > 0 ? sessionTimes.reduce((a, b) => a + b, 0) / sessionTimes.length : 0;
-          const remaining = needsAnalysis.length - aiCompletedCount;
-          const estimatedMs = avgMs > 0 ? avgMs * Math.ceil(remaining / AI_CONCURRENCY) : undefined;
-          setAiProgress({ current: aiCompletedCount, total: needsAnalysis.length, currentFile: result.fileName, estimatedTimeRemainingMs: estimatedMs });
+
+          aiCompletedCount = aiResults.length;
+          batchTimes.push(Date.now() - batchStart);
+          const avgBatchMs = batchTimes.length > 0 ? batchTimes.reduce((a, b) => a + b, 0) / batchTimes.length : 0;
+          const batchesLeft = batchCount - batchTimes.length;
+          const estimatedMs = avgBatchMs > 0 ? avgBatchMs * batchesLeft : undefined;
+          const lastInChunk = chunk[chunk.length - 1];
+          setAiProgress({ current: aiCompletedCount, total: needsAnalysis.length, currentFile: lastInChunk?.fileName ?? '', estimatedTimeRemainingMs: estimatedMs });
           setOverallProgress(prev => {
             const totalProgress = {
               current: totalFiles + aiCompletedCount,
               total: totalSteps,
-              currentFile: result.fileName,
+              currentFile: lastInChunk?.fileName ?? '',
               estimatedTimeRemainingMs: estimatedMs,
               phase: 'ai' as const,
-              concurrency: 3,
+              concurrency: BATCH_SIZE,
             };
             if (onProgressChange) onProgressChange(totalProgress);
-            return { ...prev, aiCompleted: aiCompletedCount, currentFile: result.fileName, estimatedTimeRemainingMs: estimatedMs };
+            return { ...prev, aiCompleted: aiCompletedCount, currentFile: lastInChunk?.fileName ?? '', estimatedTimeRemainingMs: estimatedMs };
           });
-        };
-
-        const executing: Promise<void>[] = [];
-        for (const result of needsAnalysis) {
-          const p = runOneAi(result).then(() => {
-            executing.splice(executing.indexOf(p), 1);
-          });
-          executing.push(p);
-          if (executing.length >= AI_CONCURRENCY) {
-            await Promise.race(executing);
-            await Promise.resolve();
-          }
         }
-        await Promise.all(executing);
 
       // 결과를 results에 반영
       setResults(prevResults =>
