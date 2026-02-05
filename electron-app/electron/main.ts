@@ -2701,7 +2701,7 @@ async function callAIAndParse(
   const MAX_RETRIES = 1; // 최대 1회 재시도
   const API_KEY = process.env.AZURE_OPENAI_API_KEY || '';
   const API_ENDPOINT = (process.env.AZURE_OPENAI_ENDPOINT || 'https://roar-mjm4cwji-swedencentral.openai.azure.com/').replace(/\/+$/, '');
-  const DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+  const DEPLOYMENT = (process.env.AZURE_OPENAI_DEPLOYMENT || '').replace(/^\uFEFF/, '').trim() || 'gpt-4o';
   const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
   if (retryCount === 0) {
     console.log('[AI Check] Using deployment:', DEPLOYMENT, '(from AZURE_OPENAI_DEPLOYMENT)');
@@ -3329,7 +3329,7 @@ async function callAIAndParseBatch(
   const MAX_RETRIES = 1;
   const API_KEY = process.env.AZURE_OPENAI_API_KEY || '';
   const API_ENDPOINT = (process.env.AZURE_OPENAI_ENDPOINT || 'https://roar-mjm4cwji-swedencentral.openai.azure.com/').replace(/\/+$/, '');
-  const DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+  const DEPLOYMENT = (process.env.AZURE_OPENAI_DEPLOYMENT || '').replace(/^\uFEFF/, '').trim() || 'gpt-4o';
   const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
   const apiUrl = `${API_ENDPOINT}/openai/deployments/${DEPLOYMENT}/chat/completions?api-version=${API_VERSION}`;
   if (retryCount === 0) {
@@ -3359,7 +3359,7 @@ async function callAIAndParseBatch(
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPromptText },
         ],
-        max_tokens: 200000,
+        max_tokens: 16384,
         temperature: 0.7,
         top_p: 1.0,
       }),
@@ -3514,7 +3514,7 @@ ipcMain.handle('ai-check-resume', async (event, data: {
     }
     
     const ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT || 'https://roar-mjm4cwji-swedencentral.openai.azure.com/';
-    const DEPLOYMENT_NAME = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
+    const DEPLOYMENT_NAME = (process.env.AZURE_OPENAI_DEPLOYMENT || '').replace(/^\uFEFF/, '').trim() || 'gpt-4o';
     const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
     
     console.log('[AI Check] Using endpoint:', ENDPOINT);
