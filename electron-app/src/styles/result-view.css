@@ -1724,6 +1724,52 @@
   padding: 0;
 }
 
+/* 필수사항 판정 및 근거: 등급별 판정과 동일한 흰 박스 + 만족/불만족 색상 */
+.ai-report-required-qual .grade-evaluation-item {
+  background: white;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  border: 1px solid #e5e7eb;
+  margin-top: 0.5rem;
+}
+
+.ai-report-required-qual .grade-evaluation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.ai-report-required-qual .grade-evaluation-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+
+.ai-report-required-qual .grade-evaluation-verdict {
+  font-size: 0.9rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.ai-report-required-qual .grade-evaluation-verdict.satisfied {
+  color: #059669;
+}
+
+.ai-report-required-qual .grade-evaluation-verdict.unsatisfied {
+  color: #dc2626;
+}
+
+.ai-report-required-qual .grade-evaluation-reason {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #4b5563;
+  margin: 0;
+  padding: 0;
+  white-space: pre-wrap;
+}
+
 .ai-report-list {
   list-style: none;
   padding: 0;
