@@ -3197,7 +3197,8 @@ ${singleSystemSuffix}
 중요 사항:
 1. 반드시 유효한 JSON 배열 형식으로만 응답하고, JSON 외의 다른 텍스트는 포함하지 마세요.
 2. 배열의 순서는 이력서 제시 순서(이력서 1, 이력서 2, ...)와 반드시 동일해야 합니다.
-3. summary와 opinion은 등급 근거가 아닌 이력서 전체에 대한 종합 평가여야 합니다. 등급 근거는 gradeEvaluations.reason에만 작성하세요.`;
+3. **반드시 ${items.length}개 이력서 모두에 대한 평가를 배열에 포함하세요. 중간에 끊지 말고 모든 이력서(이력서 1~${items.length})에 대해 한 개씩 객체를 출력하세요.**
+4. summary와 opinion은 등급 근거가 아닌 이력서 전체에 대한 종합 평가여야 합니다. 등급 근거는 gradeEvaluations.reason에만 작성하세요.`;
 
   // user 쪽: 공통 업무/요구사항/자격증 가이드 + 각 이력서 블록
   let userPromptText = `업무 내용:
@@ -3354,7 +3355,7 @@ async function callAIAndParseBatch(
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPromptText },
         ],
-        max_tokens: Math.min(16000, 2000 + fileNames.length * 1500),
+        max_tokens: 200000,
         temperature: 0.7,
         top_p: 1.0,
       }),
