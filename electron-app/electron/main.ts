@@ -3312,12 +3312,13 @@ function extractFirstJsonArray(text: string): string | null {
   return null;
 }
 
-/** 배치 AI 호출: 한 번의 API 요청으로 여러 이력서 평가, 응답 JSON 배열 파싱 후 각 항목을 순서대로 반환 */
+/** 배치 AI 호출: 한 번의 API 요청으로 여러 이력서 평가, 응답 JSON 배열 파싱 후 각 항목을 순서대로 반환. debugDir 있으면 원문·파싱 결과 저장 */
 async function callAIAndParseBatch(
   systemPrompt: string,
   userPromptText: string,
   fileNames: string[],
-  retryCount: number = 0
+  retryCount: number = 0,
+  debugDir: string | null = null
 ): Promise<Array<{ success: boolean; grade: string; report: any; reportParsed: boolean; fileName: string; error?: string }>> {
   loadEnvFile();
   const MAX_RETRIES = 1;
@@ -3380,6 +3381,24 @@ async function callAIAndParseBatch(
     const responseData = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
     const aiContent = responseData.choices?.[0]?.message?.content || '';
 
+    // 디버그: AI 원문 응답 저장 및 로그
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 23);
+    if (debugDir) {
+      try {
+        if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+        const rawPath = path.join(debugDir, `ai-response-${ts}.txt`);
+        fs.writeFileSync(rawPath, aiContent, 'utf-8');
+        console.log('[AI Check Batch] Raw response saved:', rawPath, `(${aiContent.length} chars)`);
+        writeLog(`[AI Check Batch] Raw response saved: ${rawPath}`, 'info');
+      } catch (e: any) {
+        console.warn('[AI Check Batch] Failed to save raw response:', e?.message);
+      }
+    }
+    if (aiContent.length > 0) {
+      const preview = aiContent.length <= 600 ? aiContent : aiContent.slice(0, 300) + '\n... (truncated) ...\n' + aiContent.slice(-300);
+      console.log('[AI Check Batch] AI response preview:\n', preview);
+    }
+
     let jsonText = aiContent.trim();
     if (jsonText.startsWith('```')) {
       const lines = jsonText.split('\n');
@@ -3399,11 +3418,30 @@ async function callAIAndParseBatch(
       arr = JSON.parse(jsonText);
     } catch (parseErr) {
       console.warn('[AI Check Batch] Response is not valid JSON array:', (parseErr as Error).message);
+      if (debugDir) {
+        try {
+          const failPath = path.join(debugDir, `ai-response-${ts}-PARSE_FAILED.txt`);
+          fs.writeFileSync(failPath, aiContent, 'utf-8');
+          console.log('[AI Check Batch] Raw response (parse failed) saved:', failPath);
+        } catch (_e) {}
+      }
       return fileNames.map(fn => emptyResult(fn, '배치 응답 JSON 배열 파싱 실패'));
     }
 
     if (!Array.isArray(arr)) {
       return fileNames.map(fn => emptyResult(fn, '배치 응답이 배열이 아님'));
+    }
+
+    // 디버그: 파싱된 배열 저장
+    if (debugDir) {
+      try {
+        const parsedPath = path.join(debugDir, `ai-parsed-${ts}.json`);
+        fs.writeFileSync(parsedPath, JSON.stringify(arr, null, 2), 'utf-8');
+        console.log('[AI Check Batch] Parsed array saved:', parsedPath, `(${arr.length} items)`);
+        writeLog(`[AI Check Batch] Parsed array saved: ${parsedPath}`, 'info');
+      } catch (e: any) {
+        console.warn('[AI Check Batch] Failed to save parsed JSON:', e?.message);
+      }
     }
 
     const results: Array<{ success: boolean; grade: string; report: any; reportParsed: boolean; fileName: string; error?: string }> = [];
@@ -3553,7 +3591,7 @@ ipcMain.handle('ai-check-resume', async (event, data: {
   }
 });
 
-/** 배치 AI 분석: 여러 이력서를 한 번에 API 호출하여 분석 (예: 10건씩) */
+/** 배치 AI 분석: 여러 이력서를 한 번에 API 호출하여 분석 (예: 10건씩). debugFolder 있으면 해당/debug에 AI 원문·파싱 결과 저장 */
 ipcMain.handle('ai-check-resume-batch', async (event, data: {
   userPrompt: {
     jobDescription: string;
@@ -3564,6 +3602,7 @@ ipcMain.handle('ai-check-resume-batch', async (event, data: {
     scoringWeights?: Record<string, number>;
   };
   items: Array<{ applicationData: any; fileName: string }>;
+  debugFolder?: string;
 }) => {
   try {
     loadEnvFile();
@@ -3588,7 +3627,8 @@ ipcMain.handle('ai-check-resume-batch', async (event, data: {
     }));
     const { systemPrompt, userPromptText } = buildAiPromptsForBatch(userPrompt, batchItems);
     const fileNames = batchItems.map(i => i.fileName);
-    const results = await callAIAndParseBatch(systemPrompt, userPromptText, fileNames, 0);
+    const debugDir = data.debugFolder ? path.join(data.debugFolder, 'debug') : null;
+    const results = await callAIAndParseBatch(systemPrompt, userPromptText, fileNames, 0, debugDir);
     return results;
   } catch (error) {
     console.error('[AI Check Batch] IPC Error:', error);

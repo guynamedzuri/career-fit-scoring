@@ -1057,6 +1057,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               batchResponse = await window.electron!.aiCheckResumeBatch({
                 userPrompt,
                 items: chunk.map(r => ({ applicationData: r.applicationData, fileName: r.fileName })),
+                debugFolder: selectedFolder || undefined,
               });
               break;
             } catch (err) {
