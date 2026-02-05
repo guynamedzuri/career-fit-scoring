@@ -3273,6 +3273,41 @@ function normalizeParsedReport(
   };
 }
 
+/** 응답 텍스트에서 첫 번째 완전한 JSON 배열 [...] 구간만 추출 (배열 뒤에 설명이 붙는 경우 대비) */
+function extractFirstJsonArray(text: string): string | null {
+  const start = text.indexOf('[');
+  if (start === -1) return null;
+  let depth = 0;
+  let inDouble = false;
+  let inSingle = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (inDouble) {
+      if (c === '\\') escape = true;
+      else if (c === '"') inDouble = false;
+      continue;
+    }
+    if (inSingle) {
+      if (c === '\\') escape = true;
+      else if (c === "'") inSingle = false;
+      continue;
+    }
+    if (c === '"') { inDouble = true; continue; }
+    if (c === "'") { inSingle = true; continue; }
+    if (c === '[') { depth++; continue; }
+    if (c === ']') {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 /** 배치 AI 호출: 한 번의 API 요청으로 여러 이력서 평가, 응답 JSON 배열 파싱 후 각 항목을 순서대로 반환 */
 async function callAIAndParseBatch(
   systemPrompt: string,
@@ -3343,6 +3378,12 @@ async function callAIAndParseBatch(
       const startIndex = lines[0].includes('json') ? 1 : 0;
       const endIndex = lines[lines.length - 1].trim() === '```' ? lines.length - 1 : lines.length;
       jsonText = lines.slice(startIndex, endIndex).join('\n').trim();
+    }
+
+    // AI가 JSON 배열 뒤에 설명을 붙이는 경우 대비: 첫 번째 완전한 [...] 구간만 추출
+    const extracted = extractFirstJsonArray(jsonText);
+    if (extracted !== null) {
+      jsonText = extracted;
     }
 
     let arr: any[];
