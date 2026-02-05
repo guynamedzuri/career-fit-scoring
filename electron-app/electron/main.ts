@@ -626,7 +626,11 @@ function loadEnvFile(): void {
     for (const envPath of envPaths) {
       if (fs.existsSync(envPath)) {
         console.log('[Load Env] Loading .env from:', envPath);
-        const envContent = fs.readFileSync(envPath, 'utf-8');
+        let envContent = fs.readFileSync(envPath, 'utf-8');
+        // Windows에서 UTF-8 BOM 제거 (BOM이 있으면 키가 매칭되지 않아 AZURE_OPENAI_DEPLOYMENT 등이 무시됨)
+        if (envContent.charCodeAt(0) === 0xFEFF) {
+          envContent = envContent.slice(1);
+        }
         const lines = envContent.split('\n');
         
         for (const line of lines) {
@@ -637,7 +641,7 @@ function loadEnvFile(): void {
           // KEY=VALUE 형식 파싱
           const match = trimmedLine.match(/^([^=]+)=(.*)$/);
           if (match) {
-            const key = match[1].trim();
+            const key = match[1].trim().replace(/^\uFEFF/, '');
             let value = match[2].trim();
             
             // 따옴표 제거
