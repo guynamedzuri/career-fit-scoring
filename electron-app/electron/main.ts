@@ -645,9 +645,9 @@ function loadEnvFile(): void {
                 (value.startsWith("'") && value.endsWith("'"))) {
               value = value.slice(1, -1);
             }
-            
-            // 환경 변수에 설정 (이미 있으면 덮어쓰지 않음)
-            if (!process.env[key]) {
+            // Azure OpenAI 등 앱 설정은 .env 값을 항상 우선 (기존 process.env 덮어씀)
+            const overwriteFromEnv = key.startsWith('AZURE_OPENAI_') || key.startsWith('CAREERNET_') || key.startsWith('QNET_');
+            if (overwriteFromEnv || !process.env[key]) {
               process.env[key] = value;
             }
           }
@@ -2693,11 +2693,15 @@ async function callAIAndParse(
   reportParsed: boolean;
   error?: string;
 }> {
+  loadEnvFile();
   const MAX_RETRIES = 1; // 최대 1회 재시도
   const API_KEY = process.env.AZURE_OPENAI_API_KEY || '';
   const API_ENDPOINT = (process.env.AZURE_OPENAI_ENDPOINT || 'https://roar-mjm4cwji-swedencentral.openai.azure.com/').replace(/\/+$/, '');
   const DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
   const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
+  if (retryCount === 0) {
+    console.log('[AI Check] Using deployment:', DEPLOYMENT, '(from AZURE_OPENAI_DEPLOYMENT)');
+  }
   const apiUrl = `${API_ENDPOINT}/openai/deployments/${DEPLOYMENT}/chat/completions?api-version=${API_VERSION}`;
 
   try {
@@ -3315,12 +3319,16 @@ async function callAIAndParseBatch(
   fileNames: string[],
   retryCount: number = 0
 ): Promise<Array<{ success: boolean; grade: string; report: any; reportParsed: boolean; fileName: string; error?: string }>> {
+  loadEnvFile();
   const MAX_RETRIES = 1;
   const API_KEY = process.env.AZURE_OPENAI_API_KEY || '';
   const API_ENDPOINT = (process.env.AZURE_OPENAI_ENDPOINT || 'https://roar-mjm4cwji-swedencentral.openai.azure.com/').replace(/\/+$/, '');
   const DEPLOYMENT = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o';
   const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
   const apiUrl = `${API_ENDPOINT}/openai/deployments/${DEPLOYMENT}/chat/completions?api-version=${API_VERSION}`;
+  if (retryCount === 0) {
+    console.log('[AI Check Batch] Using deployment:', DEPLOYMENT, '(from AZURE_OPENAI_DEPLOYMENT)');
+  }
 
   const emptyResult = (fileName: string, error: string) => ({
     success: false,
