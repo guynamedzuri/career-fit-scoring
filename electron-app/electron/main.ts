@@ -3081,7 +3081,8 @@ function buildAiPrompts(
 중요 사항:
 1. 반드시 유효한 JSON 형식으로만 응답하고, JSON 외의 다른 텍스트는 포함하지 마세요.
 2. summary와 opinion은 등급 근거가 아닌 이력서 전체에 대한 종합 평가여야 합니다. 등급 근거는 gradeEvaluations.reason에만 작성하세요.
-3. gradeEvaluations 객체에는 각 등급(최상, 상, 중, 하, 최하)의 조건을 만족하는지 여부(satisfied)와 그 근거(reason)를 반드시 포함해야 합니다. reason은 해당 등급의 조건과 이력서 내용을 구체적으로 비교한 설명이어야 합니다.`;
+3. gradeEvaluations 객체에는 각 등급(최상, 상, 중, 하, 최하)의 조건을 만족하는지 여부(satisfied)와 그 근거(reason)를 반드시 포함해야 합니다. reason은 해당 등급의 조건과 이력서 내용을 구체적으로 비교한 설명이어야 합니다.
+4. **업무 적합도 판단 시 참조 범위 (필수)**: 경력 적합도(careerFit), 필수 요구사항(requiredQual), 우대사항(preferredQual), 그리고 등급 조건 중 '업무 내용'과의 관련성을 판단할 때는 **오직 "경력"과 "경력기술서"에 적힌 내용만** 근거로 사용하세요. **자기소개서**에는 참조하지 마세요. 자기소개서에 "이 업무에 적합하다"는 식의 어필만 있고 경력·경력기술서에 해당 업무 경험이 없으면 적합하다고 판단하지 마세요. 학력·자격증·기타 항목도 경력 적합도·필수/우대(경력 관련) 판단에는 사용하지 마세요.`;
 
   let userPromptText = `업무 내용:
 ${userPrompt.jobDescription || '업무 내용이 없습니다.'}
@@ -3130,6 +3131,7 @@ ${resumeText}
 4. gradeEvaluations 작성: 각 등급(최상, 상, 중, 하, 최하)의 조건을 이력서 내용과 비교하여:
    - satisfied: 해당 등급 조건을 만족하는지 true/false
    - reason: 조건과 이력서 내용을 구체적으로 비교한 상세 근거 (예: "최상 등급 조건은 '시설관리 경력 3년 이상, 전기산업기사+소방안전관리자1급 보유'인데, 이력서에는 시설관리 경력이 5년이고 두 자격증 모두 보유하고 있어 조건을 만족합니다.")
+   - **등급 조건 중 업무·경력 관련(예: N년 경력, OO 업무 경험)은 "경력"과 "경력기술서"에만 근거를 두고 판단하세요. 자기소개서는 참조하지 마세요.**
    
    각 등급의 조건:
    - 최상: ${userPrompt.gradeCriteria?.최상 || '조건 없음'}
@@ -3138,11 +3140,11 @@ ${resumeText}
    - 하: ${userPrompt.gradeCriteria?.하 || '조건 없음'}
    - 최하: ${userPrompt.gradeCriteria?.최하 || '조건 없음'}
 
-5. 추가 평가 항목:
-${userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim() ? '- 필수 요구사항 만족여부(requiredQual): **자격증 제외** - 위 "필수 요구사항" 텍스트에 적힌 항목(경력·학력·기타 조건 등)만 평가하세요. 필수 자격증 보유 여부는 requiredQual에 반영하지 말고, certification 필드로만 평가하세요. 필수 요구사항을 모두 만족하면 ◎, 하나라도 불만족하면 X. 이력서에 명시되지 않은 항목은 불만족으로 평가.\n- 필수 요구사항 판단 근거(requiredQualReason): requiredQual이 ◎ 또는 X인 이유를 **필수 요구사항(자격증 제외)** 항목만 기준으로 작성하세요. 위 "필수 요구사항"에 나열된 항목별로 이력서 대조 내용을 적어주세요. 자격증 관련 내용은 requiredQualReason에 넣지 마세요. 예: "① N년 이상 경력: 경력란에 A사 N년 근무 명시되어 만족. ② OO 관련 경험: 경력기술서에 △△ 프로젝트 기재되어 만족. ③ △△ 불만족: 이력서에 해당 경험 없음."' : ''}
-${userPrompt.preferredQualifications && userPrompt.preferredQualifications.trim() ? '- 우대사항 만족여부: 우대 사항을 얼마나 만족하는지 평가 (◎=매우 만족, ○=만족, X=불만족)' : ''}
+5. 추가 평가 항목 (업무·경력 관련 판단은 경력+경력기술서만 참조, 자기소개서 무시):
+${userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim() ? '- 필수 요구사항 만족여부(requiredQual): **자격증 제외** - 위 "필수 요구사항" 텍스트에 적힌 항목(경력·학력·기타 조건 등)만 평가하세요. **경력·업무 관련 조건은 "경력"과 "경력기술서"에만 근거를 두고 판단하세요. 자기소개서는 참조하지 마세요.** 필수 자격증 보유 여부는 requiredQual에 반영하지 말고, certification 필드로만 평가하세요. 필수 요구사항을 모두 만족하면 ◎, 하나라도 불만족하면 X. 이력서에 명시되지 않은 항목은 불만족으로 평가.\n- 필수 요구사항 판단 근거(requiredQualReason): requiredQual이 ◎ 또는 X인 이유를 **필수 요구사항(자격증 제외)** 항목만 기준으로 작성하세요. 위 "필수 요구사항"에 나열된 항목별로 **경력·경력기술서** 대조 내용을 적어주세요. 자격증 관련 내용은 requiredQualReason에 넣지 마세요. 예: "① N년 이상 경력: 경력란에 A사 N년 근무 명시되어 만족. ② OO 관련 경험: 경력기술서에 △△ 프로젝트 기재되어 만족. ③ △△ 불만족: 경력·경력기술서에 해당 경험 없음."' : ''}
+${userPrompt.preferredQualifications && userPrompt.preferredQualifications.trim() ? '- 우대사항 만족여부: 우대 사항을 얼마나 만족하는지 평가 (◎=매우 만족, ○=만족, X=불만족). **경력·업무 관련은 경력과 경력기술서만 참조하고 자기소개서는 무시하세요.**' : ''}
 ${userPrompt.requiredCertifications && userPrompt.requiredCertifications.length > 0 ? '- 자격증 만족여부: **중요** - 이력서의 자격사항 섹션을 정확히 확인하세요. 필수 자격증이 명시적으로 기재되어 있는지 확인하고, 자격증이 없거나 명시되지 않았다면 절대 추측하지 말고 반드시 "X"로 평가하세요. 이력서에 자격증이 없다고 명시되어 있거나 자격사항 섹션이 비어있다면 "X"입니다. 위의 자격증 평가 가이드를 참고하여, 요구하는 자격증보다 단계가 높은 자격증을 보유한 경우에도 만족한 것으로 평가하세요.' : ''}
-- 경력 적합도: 이력서의 경력이 업무 내용과 얼마나 적합한지 평가 (◎=매우 적합, ○=적합, X=부적합, -=경력 없음)
+- 경력 적합도(careerFit): **"경력"과 "경력기술서"에 적힌 실제 경험만** 보고 업무 내용과의 적합도를 평가하세요 (◎=매우 적합, ○=적합, X=부적합, -=경력 없음). **자기소개서의 적합성 어필은 절대 반영하지 마세요.** 경력·경력기술서에 해당 업무 경험이 없으면 ◎/○로 평가하지 마세요.
 
 중요: evaluations 객체에는 위에서 언급된 항목들만 포함하세요. 예를 들어 필수 요구사항이 없으면 requiredQual 필드를 포함하지 마세요.`;
 
@@ -3202,7 +3204,8 @@ ${singleSystemSuffix}
 1. 반드시 유효한 JSON 배열 형식으로만 응답하고, JSON 외의 다른 텍스트는 포함하지 마세요.
 2. 배열의 순서는 이력서 제시 순서(이력서 1, 이력서 2, ...)와 반드시 동일해야 합니다.
 3. **반드시 ${items.length}개 이력서 모두에 대한 평가를 배열에 포함하세요. 중간에 끊지 말고 모든 이력서(이력서 1~${items.length})에 대해 한 개씩 객체를 출력하세요.**
-4. summary와 opinion은 등급 근거가 아닌 이력서 전체에 대한 종합 평가여야 합니다. 등급 근거는 gradeEvaluations.reason에만 작성하세요.`;
+4. summary와 opinion은 등급 근거가 아닌 이력서 전체에 대한 종합 평가여야 합니다. 등급 근거는 gradeEvaluations.reason에만 작성하세요.
+5. **업무 적합도 판단 시 참조 범위 (필수)**: 경력 적합도(careerFit), 필수 요구사항(requiredQual), 우대사항(preferredQual), 등급 조건 중 '업무 내용'과의 관련성을 판단할 때는 **오직 "경력"과 "경력기술서"에 적힌 내용만** 근거로 사용하세요. **자기소개서는 참조하지 마세요.** 자기소개서에 "이 업무에 적합하다"는 식의 어필만 있고 경력·경력기술서에 해당 업무 경험이 없으면 적합하다고 판단하지 마세요.`;
 
   // user 쪽: 공통 업무/요구사항/자격증 가이드 + 각 이력서 블록
   let userPromptText = `업무 내용:
@@ -3240,8 +3243,9 @@ ${userPrompt.requiredCertifications.join(', ')}
   userPromptText += `평가 지침:
 1. 등급 부여: 위에 제시된 등급 체계를 참고하여, 각 이력서가 어느 등급에 해당하는지 판단하세요.
 2. summary/opinion: 등급 근거가 아닌 이력서 전체에 대한 종합 평가 요약·의견을 작성하세요. 등급 근거는 gradeEvaluations.reason에만 작성하세요.
-3. gradeEvaluations: 각 등급(최상, 상, 중, 하, 최하)의 조건을 이력서 내용과 비교하여 satisfied와 reason을 작성하세요.
-4. 각 이력서 평가 결과를 **제시된 순서와 동일한 순서**로 JSON 배열에 넣어 주세요.
+3. gradeEvaluations: 각 등급(최상, 상, 중, 하, 최하)의 조건을 이력서 내용과 비교하여 satisfied와 reason을 작성하세요. **등급 조건 중 업무·경력 관련은 "경력"과 "경력기술서"만 참조하고 자기소개서는 무시하세요.**
+4. **경력 적합도·필수/우대(경력 관련)·등급(업무 관련) 판단 시**: **오직 "경력"과 "경력기술서"에 적힌 내용만** 근거로 사용하세요. **자기소개서는 절대 참조하지 마세요.** 자기소개서에 적합성 어필만 있고 경력·경력기술서에 해당 업무 경험이 없으면 적합하다고 판단하지 마세요.
+5. 각 이력서 평가 결과를 **제시된 순서와 동일한 순서**로 JSON 배열에 넣어 주세요.
 
 각 등급의 조건:
 - 최상: ${userPrompt.gradeCriteria?.최상 || '조건 없음'}
@@ -3769,10 +3773,10 @@ function formatResumeDataForAI(applicationData: any): string {
     text += `자기소개서:\n${selfIntroductions.join('\n\n')}\n\n`;
   }
 
-  // 경력기술서 상세
+  // 경력기술서 상세 (PDF: careerDetailDescriptionN, DOCX: careerDetailDescriptionN)
   const careerDetails: string[] = [];
-  for (let i = 1; i <= 4; i++) {
-    const careerDetail = applicationData[`careerDetail${i}`];
+  for (let i = 1; i <= 5; i++) {
+    const careerDetail = applicationData[`careerDetailDescription${i}`];
     if (careerDetail && careerDetail.trim()) {
       careerDetails.push(`[경력기술서 ${i}]\n${careerDetail.trim()}`);
     }

@@ -352,7 +352,7 @@ function App() {
           </button>
         </div>
         <div className="app-version-info">
-          Copyright Ⓒ 2026 LS Automotive Technologies. All rights reserved. | Version {import.meta.env.VITE_APP_VERSION || '1.0.78'}
+          Copyright Ⓒ 2026 LS Automotive Technologies. All rights reserved. | Version {import.meta.env.VITE_APP_VERSION || '1.3.2'}
         </div>
       </div>
       {showPromptsModal && (
