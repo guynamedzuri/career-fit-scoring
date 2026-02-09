@@ -1028,7 +1028,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       }
       try {
         const aiResults: Array<{ filePath: string; aiGrade?: string; aiReport?: any; aiReportParsed?: boolean; aiChecked: boolean; error?: string }> = [];
-        const BATCH_SIZE = 4;
+        const BATCH_SIZE = 1;
         const MAX_RETRIES = 3;
         const totalFiles = selectedFiles.length;
         const totalSteps = totalFiles * 2;
