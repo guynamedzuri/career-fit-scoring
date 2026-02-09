@@ -13,6 +13,7 @@ declare global {
       readImageAsBase64: (imagePath: string) => Promise<{ success: boolean; dataUrl?: string; error?: string }>;
       parseAdditionalNationalCertificates: (content: string) => Promise<string[]>;
       getAdditionalNationalCertificates: () => Promise<string>;
+      generateGradeCriteria: (jobDescription: string) => Promise<{ success: boolean; gradeCriteria?: { 최상: string; 상: string; 중: string; 하: string; 최하: string }; error?: string }>;
     };
   }
 }
@@ -94,6 +95,8 @@ export default function JobConfigForm({
     하: '',
     최하: '',
   });
+  const [gradeCriteriaGenerating, setGradeCriteriaGenerating] = useState(false);
+  const [gradeCriteriaError, setGradeCriteriaError] = useState<string | null>(null);
   const [scoringWeights, setScoringWeights] = useState({
     career: 100,
     requirements: 0,
@@ -715,7 +718,40 @@ export default function JobConfigForm({
 
               {/* 경력 적합도 등급 기준 */}
               <div className="grade-criteria-section">
-                <h3 className="grade-criteria-header">경력 적합도 등급 기준 *</h3>
+                <div className="grade-criteria-header-row">
+                  <h3 className="grade-criteria-header">경력 적합도 등급 기준 *</h3>
+                  <button
+                    type="button"
+                    className="grade-criteria-generate-btn"
+                    disabled={gradeCriteriaGenerating || !jobDescription.trim()}
+                    title={!jobDescription.trim() ? '업무 내용을 먼저 입력하세요' : '업무 내용을 바탕으로 AI가 등급 기준을 생성합니다'}
+                    onClick={async () => {
+                      if (!jobDescription.trim()) return;
+                      setGradeCriteriaGenerating(true);
+                      setGradeCriteriaError(null);
+                      try {
+                        const res = await window.electron?.generateGradeCriteria(jobDescription);
+                        if (res?.success && res.gradeCriteria) {
+                          setGradeCriteria(res.gradeCriteria);
+                          if (setValidationErrors && validationErrors.gradeCriteria) {
+                            setValidationErrors({ ...validationErrors, gradeCriteria: { 최상: false, 상: false, 중: false, 하: false, 최하: false } });
+                          }
+                        } else {
+                          setGradeCriteriaError(res?.error || '기준 생성에 실패했습니다.');
+                        }
+                      } catch (e) {
+                        setGradeCriteriaError(e instanceof Error ? e.message : '오류가 발생했습니다.');
+                      } finally {
+                        setGradeCriteriaGenerating(false);
+                      }
+                    }}
+                  >
+                    {gradeCriteriaGenerating ? '생성 중…' : 'AI로 기준 생성'}
+                  </button>
+                </div>
+                {gradeCriteriaError ? (
+                  <p className="grade-criteria-error">{gradeCriteriaError}</p>
+                ) : null}
                 <p className="grade-criteria-tip">
                   ※ 높은 기준에 부합하기만 하면 우선순위를 주는 방식으로 작성하세요. 상 등급 기준만 만족해도 하 등급 기준을 만족하지 않아도 상 등급으로 평가됩니다.
                 </p>

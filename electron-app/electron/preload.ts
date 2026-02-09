@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.invoke('ai-check-resume-batch', data),
   getAiPromptsPreview: (data: { userPrompt: any; applicationData?: any }) =>
     ipcRenderer.invoke('get-ai-prompts-preview', data),
+  generateGradeCriteria: (jobDescription: string) =>
+    ipcRenderer.invoke('generate-grade-criteria', jobDescription),
   processResume: (filePath: string, documentType?: 'docx' | 'pdf') =>
     ipcRenderer.invoke('process-resume', filePath, documentType),
   loadCache: (folderPath: string, filePaths: string[]) =>

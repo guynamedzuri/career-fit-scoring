@@ -3691,6 +3691,83 @@ ipcMain.handle('get-ai-prompts-preview', async (event, data: { userPrompt: any; 
   }
 });
 
+/** 업무 내용을 바탕으로 경력 적합도 등급 기준(최상~최하) 생성. 각 등급당 공백 포함 약 200자 이내, 이력서만으로 판단 가능한 기준으로 생성 */
+ipcMain.handle('generate-grade-criteria', async (event, jobDescription: string) => {
+  try {
+    loadEnvFile();
+    const API_KEY = process.env.AZURE_OPENAI_API_KEY;
+    if (!API_KEY) {
+      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. .env 파일에 AZURE_OPENAI_API_KEY를 설정하세요.');
+    }
+    const desc = (jobDescription && String(jobDescription).trim()) || '';
+    if (!desc) {
+      throw new Error('업무 내용이 비어있습니다. 업무 내용을 먼저 입력하세요.');
+    }
+    const ENDPOINT = (process.env.AZURE_OPENAI_ENDPOINT || 'https://roar-mjm4cwji-swedencentral.openai.azure.com/').replace(/\/+$/, '');
+    const DEPLOYMENT = (process.env.AZURE_OPENAI_DEPLOYMENT || '').replace(/^\uFEFF/, '').trim() || 'gpt-4o';
+    const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
+    const apiUrl = `${ENDPOINT}/openai/deployments/${DEPLOYMENT}/chat/completions?api-version=${API_VERSION}`;
+
+    const systemPrompt = `당신은 채용 담당자입니다. 주어진 "업무 내용"을 바탕으로, 이력서의 경력 적합도를 평가할 때 쓰일 **등급 기준**(최상, 상, 중, 하, 최하)을 생성해 주세요.
+
+규칙:
+1. **출력 형식**: 반드시 다음 JSON 형식으로만 응답하세요. 다른 텍스트는 포함하지 마세요.
+{"최상":"...","상":"...","중":"...","하":"...","최하":"..."}
+2. **각 등급 값**: 공백 포함 200자 내외의 하나의 연속된 문자열로 작성하세요. 줄바꿈 없이 한 문장/문단으로.
+3. **경력 햇수로 나누지 마세요**: 신입/경력 구분 없이 후보자들이 업무 경력이 길지 않을 수 있다는 전제로 작성하세요. "경력 10년 이상이면 최상", "경력 5년 이상이면 상"처럼 **관련 업무 경력 연차로 등급을 나누지 마세요**.
+4. **이력서만으로 판단 가능하게**: 실제 업무 수행 능력은 알 수 없으므로, **이력서에 기재된 정보**(경력·경력기술서·학력·자격증·지원분야 등)만으로 판단할 수 있는 기준을 세우세요. 예: "이력서의 경력·경력기술서에 업무 내용과 직접 관련된 직무·프로젝트가 구체적으로 기재된 경우", "지원분야·희망직무가 업무 내용과 일치하고 경력 중 관련 키워드가 있는 경우" 등.`;
+
+    const userPrompt = `다음 "업무 내용"을 바탕으로 경력 적합도 등급 기준(최상, 상, 중, 하, 최하)을 생성해 주세요. 위 규칙을 준수하고, JSON만 출력하세요.
+
+업무 내용:
+${desc}`;
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'api-key': API_KEY },
+      body: JSON.stringify({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 1500,
+        temperature: 0.5,
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('[generate-grade-criteria] API Error:', response.status, errText);
+      throw new Error(`API 호출 실패: ${response.status}`);
+    }
+
+    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    let content = (data.choices?.[0]?.message?.content || '').trim();
+    let jsonText = content;
+    if (content.startsWith('```')) {
+      const lines = content.split('\n');
+      const start = lines[0].includes('json') ? 1 : 0;
+      const end = lines[lines.length - 1].trim() === '```' ? lines.length - 1 : lines.length;
+      jsonText = lines.slice(start, end).join('\n').trim();
+    }
+    const parsed = JSON.parse(jsonText) as Record<string, string>;
+    const gradeCriteria = {
+      최상: (parsed.최상 && String(parsed.최상).trim()) || '',
+      상: (parsed.상 && String(parsed.상).trim()) || '',
+      중: (parsed.중 && String(parsed.중).trim()) || '',
+      하: (parsed.하 && String(parsed.하).trim()) || '',
+      최하: (parsed.최하 && String(parsed.최하).trim()) || '',
+    };
+    return { success: true, gradeCriteria };
+  } catch (error) {
+    console.error('[generate-grade-criteria] Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '알 수 없는 오류',
+    };
+  }
+});
+
 // 이력서 데이터를 AI 분석용 텍스트로 변환
 function formatResumeDataForAI(applicationData: any): string {
   if (!applicationData) return '이력서 데이터가 없습니다.';
