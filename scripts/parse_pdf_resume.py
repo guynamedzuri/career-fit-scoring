@@ -282,11 +282,14 @@ def split_into_sections_by_headers(
             if use_trailing and h.get("trailing_min_empty_lines", 0) > 0:
                 # 이 줄 뒤에 빈 줄이 최소 N개 이어지는지 확인 (표 행이면 0개)
                 # 자격/어학/수상·자격: PDF에서 헤더 다음이 폼피드(\f)+날짜로 바로 오는 경우가 있어 빈 줄 0개도 인정
+                # 학력·학력 고등학교 졸업: PDF에서 "학력 고등학교 졸업" 다음에 빈 줄 없이 날짜 줄이 오는 경우가 있어 빈 줄 0개 인정
                 required = h["trailing_min_empty_lines"]
                 if text.strip() == "자격/어학/수상":
                     required = 0
                 elif text.strip() == "자격":
                     required = min(required, 1)
+                elif text.strip() in ("학력 고등학교 졸업", "학력 고등학교", "학력"):
+                    required = 0
                 j = i + 1
                 empty_count = 0
                 while j < len(lines):
@@ -745,6 +748,28 @@ def parse_education_entries(block: str) -> list:
                     continue
                 else:
                     major = major + " " + part if major else part
+            # 날짜 줄에 졸업/재학/휴학이 없으면 이전 줄·다음 1~2줄에서 찾기 (PDF에서 "학력 고등학교 졸업" 다음에 날짜만 있는 경우)
+            if not degree:
+                # 이전 줄(헤더에 "학력 고등학교 졸업"이 있는 경우)
+                if i > 0:
+                    prev_line = lines[i - 1].strip()
+                    for d in ("졸업", "재학", "휴학"):
+                        if d in prev_line:
+                            degree = d
+                            break
+                for j in range(i + 1, min(i + 3, len(lines))):
+                    if degree:
+                        break
+                    next_line = lines[j].strip()
+                    if re.match(r"^\d{4}\.\d{2}\s*~\s*\d{4}\.\d{2}\s+", next_line):
+                        break  # 다음 학력 항목이면 중단
+                    for d in ("졸업", "재학", "휴학"):
+                        if d in next_line:
+                            degree = d
+                            break
+            # 고등학교인데 major가 "고등학교"만 있으면 전공으로 중복 표기하지 않음
+            if major.strip() == "고등학교" and (school.endswith("고등학교") or "고등학교" in school):
+                major = ""
             entries.append({
                 "startDate": start_date,
                 "endDate": end_date,
@@ -754,6 +779,42 @@ def parse_education_entries(block: str) -> list:
                 "gpa": gpa or None,
             })
         i += 1
+    # 날짜 없이 "고등학교 졸업"만 있는 블록 폴백: 항목이 없고 블록에 학교+졸업/재학이 있으면 1건 추가
+    if not entries and block.strip():
+        degree_cand = None
+        for d in ("졸업", "재학", "휴학"):
+            if d in block:
+                degree_cand = d
+                break
+        school_cand = ""
+        for raw_line in lines:
+            line = raw_line.strip()
+            if not line or (line.startswith("학력") and len(line) < 30):
+                continue
+            if not re.search(r"(고등학교|중학교|초등학교|대학교|대학)", line) or not degree_cand:
+                continue
+            # "○○고등학교 고등학교 졸업" 또는 "고등학교 졸업" 형태: 학교명은 학교 키워드 포함 토큰만 모음
+            tokens = line.replace(",", " ").split()
+            parts = []
+            for t in tokens:
+                if t in ("졸업", "재학", "휴학"):
+                    break
+                if "고등학교" in t or "중학교" in t or "초등학교" in t or "대학교" in t or "대학" in t:
+                    parts.append(t)
+            if parts:
+                school_cand = " ".join(parts)
+                break
+        if degree_cand and (school_cand or "고등학교" in block or "중학교" in block or "대학교" in block):
+            if not school_cand:
+                school_cand = "고등학교" if "고등학교" in block else ("중학교" if "중학교" in block else "대학교")
+            entries.append({
+                "startDate": "",
+                "endDate": "",
+                "school": school_cand,
+                "degree": degree_cand,
+                "major": "",
+                "gpa": None,
+            })
     return entries
 
 
