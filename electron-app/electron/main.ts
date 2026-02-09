@@ -2128,6 +2128,7 @@ function emptyAppKeys(): Record<string, string> {
   empty('careerDetailSalary', 4);
   empty('careerDetailReason', 4);
   empty('careerDetailDescription', 4);
+  app.careerDetailContent = ''; // PDF 전용: 경력기술서 섹션 통째로 (경력세부내용)
   for (let i = 1; i <= 10; i++) {
     app[`certificateName${i}`] = '';
     app[`certificateGrade${i}`] = '';
@@ -2224,6 +2225,12 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
   // 자기소개서 (1~4): PDF는 하나만 있으면 selfIntroduction1에
   if (selfIntroduction) {
     app.selfIntroduction1 = selfIntroduction;
+  }
+
+  // PDF 전용: 경력기술서 섹션 통째로 (경력세부내용)
+  const careerDetailContent = pdfResult.careerDetailContent;
+  if (careerDetailContent != null && String(careerDetailContent).trim() !== '') {
+    app.careerDetailContent = String(careerDetailContent).trim();
   }
 
   return app;
@@ -3717,19 +3724,30 @@ function formatResumeDataForAI(applicationData: any): string {
     text += `자격증:\n${certificates.join('\n')}\n\n`;
   }
 
-  // 경력
-  const careers: string[] = [];
+  // 경력 + 경력기술서 (각 경력 아래에 해당 경력기술서 붙임: [경력1]\n[경력기술서1]\n[경력2]\n[경력기술서2]...)
+  const careerBlocks: string[] = [];
   for (let i = 1; i <= 5; i++) {
     const company = applicationData[`careerCompanyName${i}`];
     const startDate = applicationData[`careerStartDate${i}`];
     const endDate = applicationData[`careerEndDate${i}`];
     const jobType = applicationData[`careerJobType${i}`];
-    if (company) {
-      careers.push(`${company} | ${startDate || ''} ~ ${endDate || '현재'} | ${jobType || ''}`);
+    const careerLine = company ? `${company} | ${startDate || ''} ~ ${endDate || '현재'} | ${jobType || ''}` : '';
+    const detail = applicationData[`careerDetailDescription${i}`];
+    const detailTrim = detail && typeof detail === 'string' ? detail.trim() : '';
+    if (careerLine || detailTrim) {
+      let block = `[경력 ${i}]\n${careerLine || '(경력 정보 없음)'}`;
+      if (detailTrim) block += `\n[경력기술서 ${i}]\n${detailTrim}`;
+      careerBlocks.push(block);
     }
   }
-  if (careers.length > 0) {
-    text += `경력:\n${careers.join('\n')}\n\n`;
+  if (careerBlocks.length > 0) {
+    text += `경력:\n${careerBlocks.join('\n\n')}\n\n`;
+  }
+
+  // PDF 전용: 경력세부내용 (경력기술서 섹션 통째로)
+  const careerDetailContent = applicationData.careerDetailContent;
+  if (careerDetailContent && typeof careerDetailContent === 'string' && careerDetailContent.trim()) {
+    text += `경력세부내용:\n${careerDetailContent.trim()}\n\n`;
   }
 
   // 학력
@@ -3773,19 +3791,7 @@ function formatResumeDataForAI(applicationData: any): string {
     text += `자기소개서:\n${selfIntroductions.join('\n\n')}\n\n`;
   }
 
-  // 경력기술서 상세 (PDF: careerDetailDescriptionN, DOCX: careerDetailDescriptionN)
-  const careerDetails: string[] = [];
-  for (let i = 1; i <= 5; i++) {
-    const careerDetail = applicationData[`careerDetailDescription${i}`];
-    if (careerDetail && careerDetail.trim()) {
-      careerDetails.push(`[경력기술서 ${i}]\n${careerDetail.trim()}`);
-    }
-  }
-  if (careerDetails.length > 0) {
-    text += `경력기술서:\n${careerDetails.join('\n\n')}\n\n`;
-  }
-
-    return text || '이력서 정보가 없습니다.';
+  return text || '이력서 정보가 없습니다.';
 }
 
 // CareerNet API 호출 IPC 핸들러

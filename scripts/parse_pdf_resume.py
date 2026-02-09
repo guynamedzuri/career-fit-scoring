@@ -142,6 +142,7 @@ def extract_text_with_layout(
 # --- 섹션 분할 (연속 빈 줄 기준 vs 공통 헤더 리스트) ---
 SECTION_HEADERS = [
     "경력 총 ",
+    "경력기술서",
     "학력 ",
     "자격/어학/수상",
     "취업우대사항",
@@ -153,6 +154,7 @@ SECTION_HEADERS = [
 CORPUS_HEADER_TO_SECTION = {
     "경력 총": "career_summary",
     "경력": "career_summary",
+    "경력기술서": "career_detail_content",
     "학력 고등학교 졸업": "education_header",
     "학력 고등학교": "education_header",
     "학력": "education_header",
@@ -179,6 +181,8 @@ def _identify_section_name(block: str) -> str:
     # 헤더 라벨 확인
     for h in SECTION_HEADERS:
         if h in first_lines:
+            if "경력기술서" in h:
+                return "career_detail_content"
             if "경력 총" in h or "경력" in h:
                 return "career_summary"
             elif "학력" in h:
@@ -892,8 +896,16 @@ def parse_pdf_resume(
     text, engine = extract_text_with_layout(pdf_path, pdftotext_exe)
     corpus_headers = load_section_headers_from_corpus() if use_corpus_headers else None
     if corpus_headers:
+        # 경력기술서 섹션도 감지하도록 헤더 목록에 추가 (PDF에 해당 항목이 있으면 파싱)
+        merged_headers = list(corpus_headers) if corpus_headers else []
+        if merged_headers and isinstance(merged_headers[0], dict):
+            if not any(h.get("text") == "경력기술서" for h in merged_headers if isinstance(h, dict)):
+                merged_headers.append({"text": "경력기술서", "trailing_min_empty_lines": 0})
+        elif merged_headers and isinstance(merged_headers[0], str):
+            if "경력기술서" not in merged_headers:
+                merged_headers.append("경력기술서")
         sections, blocks, block_section_names = split_into_sections_by_headers(
-            text, corpus_headers
+            text, merged_headers
         )
     else:
         sections, blocks, block_section_names = split_into_sections(text)
@@ -942,6 +954,15 @@ def parse_pdf_resume(
 
     self_intro = sections.get("self_introduction", "").strip() or ""
 
+    # PDF 전용: '경력기술서' 섹션이 있으면 통째로 추출 (경력세부내용으로 전달)
+    career_detail_content = (sections.get("career_detail_content", "") or "").strip()
+    if career_detail_content and career_detail_content.startswith("경력기술서"):
+        first_nl = career_detail_content.find("\n")
+        if first_nl >= 0:
+            career_detail_content = career_detail_content[first_nl + 1 :].strip()
+        else:
+            career_detail_content = ""
+
     out = {
         "basicInfo": basic,
         "skills": skills,
@@ -951,6 +972,8 @@ def parse_pdf_resume(
         "employmentPreference": employment_pref,
         "selfIntroduction": self_intro,
     }
+    if career_detail_content:
+        out["careerDetailContent"] = career_detail_content
     # 증명사진 후보 이미지 추출 (있으면 한 장만 저장)
     if photo_dir:
         profile_filename = _extract_profile_image_from_pdf(pdf_path, photo_dir)

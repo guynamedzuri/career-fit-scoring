@@ -1975,13 +1975,22 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                       </div>
                     ) : null;
                   })()}
+
+                  {/* 경력세부내용 (PDF 전용: 경력기술서 섹션 통째로) */}
+                  {selectedResult.applicationData.careerDetailContent?.trim() ? (
+                    <div className="detail-subsection">
+                      <h5>경력세부내용</h5>
+                      <p className="detail-career-detail-text">{selectedResult.applicationData.careerDetailContent.trim()}</p>
+                    </div>
+                  ) : null}
                   
                   {(!selectedResult.applicationData.certificateName1 && 
                     !selectedResult.applicationData.careerCompanyName1 && 
                     !selectedResult.applicationData.universityName1 && 
                     !selectedResult.applicationData.graduateSchoolName1 &&
                     !selectedResult.applicationData.selfIntroduction1 &&
-                    !selectedResult.applicationData.careerDetailDescription1) && (
+                    !selectedResult.applicationData.careerDetailDescription1 &&
+                    !selectedResult.applicationData.careerDetailContent) && (
                     <div className="detail-placeholder">
                       <p>추출된 데이터가 없습니다.</p>
                     </div>
