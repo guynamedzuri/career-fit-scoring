@@ -1446,27 +1446,29 @@ function getFileMetadata(filePath: string): { size: number; mtime: number } | nu
   }
 }
 
-// 폴더 내 이력서 파일 목록 가져오기 IPC 핸들러 (documentType: 'docx' | 'pdf')
+// 폴더 내 이력서 파일 목록 가져오기 IPC 핸들러 (documentType: 'docx' = 자체이력서폼 DOCX+PDF, 'pdf' = 사람인 PDF만)
 ipcMain.handle('get-docx-files', async (event, folderPath: string, documentType?: 'docx' | 'pdf') => {
   try {
     if (!folderPath || !fs.existsSync(folderPath)) {
       return [];
     }
     
-    const extToMatch = documentType === 'pdf' ? '.pdf' : '.docx';
     const files = fs.readdirSync(folderPath);
     const resumeFiles = files
       .filter(file => {
         const ext = path.extname(file).toLowerCase();
-        if (ext !== extToMatch) return false;
-        // DOCX: Word 임시/잠금 파일(~$로 시작) 제외
-        if (documentType === 'docx' && path.basename(file).startsWith('~$')) return false;
-        // PDF 모드일 때는 파일명(확장자 제외)이 '_이력서'로 끝나는 것만
         if (documentType === 'pdf') {
+          if (ext !== '.pdf') return false;
           const base = path.basename(file, ext);
           return base.endsWith('_이력서');
         }
-        return true;
+        // 자체이력서폼: .docx와 .pdf 모두 포함
+        if (ext === '.docx') {
+          if (path.basename(file).startsWith('~$')) return false;
+          return true;
+        }
+        if (ext === '.pdf') return true;
+        return false;
       })
       .map(file => ({
         name: file,
@@ -2236,13 +2238,121 @@ function mapPdfResumeToApplicationData(pdfResult: any): any {
   return app;
 }
 
-// 이력서 처리 IPC 핸들러 (documentType: 'docx' | 'pdf', 기본값 docx)
+// 이력서 처리 IPC 핸들러 (documentType: 'docx' = 자체이력서폼 DOCX+PDF, 'pdf' = 사람인 PDF)
 ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 'docx' | 'pdf') => {
   try {
+    const ext = path.extname(filePath).toLowerCase();
     const isPdf = documentType === 'pdf';
 
+    // 자체이력서폼 PDF: parse_docx_form_pdf.py (DOCX와 동일 applicationData 형식)
+    if (ext === '.pdf' && documentType === 'docx') {
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
+      const scriptPaths = [
+        path.join(__dirname, '..', '..', 'scripts', 'parse_docx_form_pdf.py'),
+        path.join(__dirname, '..', 'scripts', 'parse_docx_form_pdf.py'),
+        path.join(process.cwd(), 'scripts', 'parse_docx_form_pdf.py'),
+        path.join(app.getAppPath(), 'scripts', 'parse_docx_form_pdf.py'),
+        path.join(app.getAppPath(), '..', 'scripts', 'parse_docx_form_pdf.py'),
+      ];
+      let scriptPath: string | null = null;
+      for (const p of scriptPaths) {
+        if (fs.existsSync(p)) {
+          scriptPath = p;
+          break;
+        }
+      }
+      if (!scriptPath) {
+        throw new Error('parse_docx_form_pdf.py 스크립트를 찾을 수 없습니다.');
+      }
+      const isWindows = process.platform === 'win32';
+      let pythonCmd = isWindows ? 'python' : 'python3';
+      let pdftotextArg = '';
+      try {
+        if (app && app.getPath) {
+          const exePath = app.getPath('exe');
+          const appRoot = path.dirname(exePath);
+          const embedPython = path.join(appRoot, 'resources', 'python-embed', isWindows ? 'python.exe' : 'python3');
+          if (fs.existsSync(embedPython)) {
+            pythonCmd = embedPython;
+          }
+          const bundledCandidates = [
+            path.join(appRoot, 'resources', 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext'),
+            ...(process.resourcesPath ? [path.join(process.resourcesPath, 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext')] : []),
+          ].filter(Boolean);
+          for (const bundledPdftotext of bundledCandidates) {
+            if (bundledPdftotext && fs.existsSync(bundledPdftotext)) {
+              pdftotextArg = ` --pdftotext "${bundledPdftotext}"`;
+              break;
+            }
+          }
+        }
+      } catch (_e) {}
+      if (!pdftotextArg) {
+        const devPaths = [
+          path.join(__dirname, '..', '..', '..', 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext'),
+          path.join(process.cwd(), 'poppler-windows', 'bin', isWindows ? 'pdftotext.exe' : 'pdftotext'),
+        ];
+        for (const p of devPaths) {
+          if (fs.existsSync(p)) {
+            pdftotextArg = ` --pdftotext "${p}"`;
+            break;
+          }
+        }
+      }
+      const command = pdftotextArg
+        ? `"${pythonCmd}" "${scriptPath}"${pdftotextArg} "${filePath}"`
+        : `"${pythonCmd}" "${scriptPath}" "${filePath}"`;
+      writeLog('[Process Resume] 자체폼 PDF: ' + command, 'info');
+      const execOpts: any = { maxBuffer: 5 * 1024 * 1024, timeout: 30000 };
+      const execOptsEnv = { ...process.env, PYTHONIOENCODING: 'utf-8' };
+      const { stdout, stderr } = await execAsync(command, { ...execOpts, env: execOptsEnv });
+      if (stderr && stderr.trim()) writeLog('[Process Resume] 자체폼 PDF stderr: ' + stderr, 'warn');
+      let applicationData: any;
+      try {
+        const parsed = JSON.parse(stdout);
+        if (parsed.error) {
+          throw new Error(parsed.error);
+        }
+        applicationData = parsed;
+      } catch (e: any) {
+        if (e instanceof SyntaxError) {
+          throw new Error('자체폼 PDF 파싱 결과를 읽을 수 없습니다.');
+        }
+        throw e;
+      }
+      const birthDate = applicationData.birthDate || '';
+      const name = applicationData.name || path.basename(filePath, '.pdf').replace(/_이력서$/, '').split('_')[0] || '';
+      const age = birthDate ? calculateAge(birthDate) : undefined;
+      const lastCompany = applicationData.careerCompanyName1 || applicationData.careerCompanyName2 || undefined;
+      const lastSalary = applicationData.careerSalary1 || applicationData.lastSalary || undefined;
+      const residence =
+        applicationData.residence ||
+        (applicationData.address ? classifyResidenceFromAddress(applicationData.address) : undefined);
+      const searchableText = [
+        name,
+        lastCompany,
+        applicationData.universityName1,
+        applicationData.certificateName1,
+        applicationData.certificateName2,
+        applicationData.certificateName3,
+      ].filter(Boolean).join(' ');
+      return {
+        success: true,
+        applicationData,
+        name: name || undefined,
+        age,
+        lastCompany,
+        lastSalary,
+        residence,
+        searchableText,
+        photoPath: undefined,
+      };
+    }
+
     if (isPdf) {
-      // PDF: parse_pdf_resume.py 실행 후 applicationData로 매핑
+      // 사람인 이력서폼 PDF: parse_pdf_resume.py 실행 후 applicationData로 매핑
       const { exec } = require('child_process');
       const { promisify } = require('util');
       const execAsync = promisify(exec);
