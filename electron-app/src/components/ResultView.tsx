@@ -240,6 +240,10 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
   const [showPromptsModal, setShowPromptsModal] = useState(false);
   const [promptsPreview, setPromptsPreview] = useState<{ systemPrompt: string; userPromptText: string } | null>(null);
   const [promptsPreviewError, setPromptsPreviewError] = useState<string | null>(null);
+  /** 분석 실행 시 전달된 AI 프롬프트 (배치별). 프롬프트 보기에서 선택한 후보의 실제 전달 프롬프트 표시용 */
+  const [lastBatchPrompts, setLastBatchPrompts] = useState<Array<{ systemPrompt: string; userPromptText: string }>>([]);
+  /** 분석 요청 순서의 filePath 목록 (배치 인덱스 계산용) */
+  const [analysisOrderFilePaths, setAnalysisOrderFilePaths] = useState<string[]>([]);
   const [currentAiReport, setCurrentAiReport] = useState<string | {
     grade: string;
     summary: string;
@@ -1045,20 +1049,23 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         let aiCompletedCount = aiResults.length;
         const batchCount = Math.ceil(needsAnalysisForBatch.length / BATCH_SIZE);
         const batchTimes: number[] = [];
+        setAnalysisOrderFilePaths(needsAnalysisForBatch.map(r => r.filePath));
+        setLastBatchPrompts([]);
 
         for (let start = 0; start < needsAnalysisForBatch.length; start += BATCH_SIZE) {
           const chunk = needsAnalysisForBatch.slice(start, start + BATCH_SIZE);
           const batchStart = Date.now();
           let retryCount = 0;
-          let batchResponse: Awaited<ReturnType<typeof window.electron.aiCheckResumeBatch>> | null = null;
+          let batchPayload: { results: Array<{ success: boolean; grade?: string; report?: any; reportParsed?: boolean; fileName: string; error?: string }>; systemPrompt: string; userPromptText: string } | null = null;
 
           while (retryCount < MAX_RETRIES) {
             try {
-              batchResponse = await window.electron!.aiCheckResumeBatch({
+              const resp = await window.electron!.aiCheckResumeBatch({
                 userPrompt,
                 items: chunk.map(r => ({ applicationData: r.applicationData, fileName: r.fileName })),
                 debugFolder: selectedFolder || undefined,
               });
+              batchPayload = resp;
               break;
             } catch (err) {
               const msg = err instanceof Error ? err.message : 'AI 분석 실패';
@@ -1070,22 +1077,28 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                   continue;
                 }
               }
-              batchResponse = chunk.map(r => ({
-                success: false,
-                grade: 'C',
-                report: '',
-                reportParsed: false,
-                fileName: r.fileName,
-                error: msg,
-              }));
+              batchPayload = {
+                results: chunk.map(r => ({
+                  success: false,
+                  grade: 'C',
+                  report: '',
+                  reportParsed: false,
+                  fileName: r.fileName,
+                  error: msg,
+                })),
+                systemPrompt: '',
+                userPromptText: '',
+              };
               break;
             }
           }
 
-          if (batchResponse) {
+          if (batchPayload) {
+            setLastBatchPrompts(prev => [...prev, { systemPrompt: batchPayload!.systemPrompt, userPromptText: batchPayload!.userPromptText }]);
+            const batchResults = batchPayload.results;
             for (let i = 0; i < chunk.length; i++) {
               const r = chunk[i];
-              const res = batchResponse[i];
+              const res = batchResults[i];
               if (res?.success && res.grade != null && res.report != null) {
                 aiResults.push({
                   filePath: r.filePath,
@@ -1322,6 +1335,21 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
             setPromptsPreviewError(null);
             setPromptsPreview(null);
             setShowPromptsModal(true);
+            const BATCH_SIZE = 1;
+            if (lastBatchPrompts.length > 0 && selectedCandidates.size > 0) {
+              const firstFilePath = Array.from(selectedCandidates)[0];
+              const idx = analysisOrderFilePaths.indexOf(firstFilePath);
+              const chunkIndex = idx >= 0 ? Math.floor(idx / BATCH_SIZE) : 0;
+              const prompt = lastBatchPrompts[chunkIndex];
+              if (prompt) {
+                setPromptsPreview({ systemPrompt: prompt.systemPrompt, userPromptText: prompt.userPromptText });
+                return;
+              }
+            }
+            if (lastBatchPrompts.length > 0 && selectedCandidates.size === 0) {
+              setPromptsPreviewError('해당 후보의 분석 프롬프트를 보려면 후보 테이블에서 한 명을 선택한 뒤 다시 눌러 주세요.');
+              return;
+            }
             if (!window.electron?.getAiPromptsPreview || !userPrompt) {
               setPromptsPreviewError('userPrompt가 없거나 프롬프트 미리보기를 사용할 수 없습니다.');
               return;

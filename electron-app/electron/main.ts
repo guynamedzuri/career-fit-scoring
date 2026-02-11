@@ -2076,14 +2076,14 @@ ipcMain.handle('read-official-certificates', async () => {
   }
 });
 
-/** 주소 문자열로 거주지 분류 (DOCX 쪽 classifyResidence와 동일 규칙) */
+/** 주소 문자열로 거주지 분류. 안산 → 시흥 → 경기도 → 서울 순서로 첫 매칭값 사용 */
 function classifyResidenceFromAddress(address: string | undefined): string | undefined {
   if (!address || typeof address !== 'string') return undefined;
-  const a = address.toLowerCase();
-  if (a.includes('시흥') || a.includes('시흥시')) return '시흥';
+  const a = address;
   if (a.includes('안산') || a.includes('안산시')) return '안산';
-  if (a.includes('서울') || a.includes('서울시') || a.includes('서울특별시')) return '서울';
+  if (a.includes('시흥') || a.includes('시흥시')) return '시흥';
   if (a.includes('경기') || a.includes('경기도') || a.includes('인천') || a.includes('수원') || a.includes('성남') || a.includes('고양') || a.includes('용인') || a.includes('부천') || a.includes('안양') || a.includes('평택') || a.includes('의정부') || a.includes('광명') || a.includes('과천') || a.includes('구리') || a.includes('남양주') || a.includes('오산') || a.includes('의왕') || a.includes('이천') || a.includes('하남') || a.includes('화성')) return '수도권';
+  if (a.includes('서울') || a.includes('서울시') || a.includes('서울특별시')) return '서울';
   return '지방';
 }
 
@@ -2301,9 +2301,15 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
           }
         }
       }
+      const resumeDir = path.dirname(filePath);
+      const debugDir = path.join(resumeDir, 'debug');
+      if (!fs.existsSync(debugDir)) {
+        fs.mkdirSync(debugDir, { recursive: true });
+      }
+      const debugDirArg = ` --debug-dir "${debugDir}"`;
       const command = pdftotextArg
-        ? `"${pythonCmd}" "${scriptPath}"${pdftotextArg} "${filePath}"`
-        : `"${pythonCmd}" "${scriptPath}" "${filePath}"`;
+        ? `"${pythonCmd}" "${scriptPath}"${pdftotextArg}${debugDirArg} "${filePath}"`
+        : `"${pythonCmd}" "${scriptPath}"${debugDirArg} "${filePath}"`;
       writeLog('[Process Resume] 자체폼 PDF: ' + command, 'info');
       const execOpts: any = { maxBuffer: 5 * 1024 * 1024, timeout: 30000 };
       const execOptsEnv = { ...process.env, PYTHONIOENCODING: 'utf-8' };
@@ -2321,6 +2327,15 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
           throw new Error('자체폼 PDF 파싱 결과를 읽을 수 없습니다.');
         }
         throw e;
+      }
+      // 디버그: 파싱 결과 JSON 저장 (이력서 폴더/debug/파일명_docx_form_pdf.json, pdftotext 원문은 스크립트 --debug-dir로 저장됨)
+      try {
+        const baseName = path.basename(filePath, '.pdf');
+        const debugPath = path.join(debugDir, `${baseName}_docx_form_pdf.json`);
+        fs.writeFileSync(debugPath, JSON.stringify(applicationData, null, 2), 'utf-8');
+        writeLog('[Process Resume] 자체폼 PDF 디버그 저장: ' + debugPath, 'info');
+      } catch (debugErr: any) {
+        writeLog('[Process Resume] 자체폼 PDF 디버그 저장 실패: ' + (debugErr?.message ?? ''), 'warn');
       }
       const birthDate = applicationData.birthDate || '';
       const name = applicationData.name || path.basename(filePath, '.pdf').replace(/_이력서$/, '').split('_')[0] || '';
@@ -2772,13 +2787,21 @@ function calculateAge(birthDate: string): number | undefined {
       year = parseInt(parts[0]);
       month = parseInt(parts[1]);
       day = parseInt(parts[2]);
-    } else if (birthDate.length === 8) {
+    } else if (birthDate.length === 8 && /^\d{8}$/.test(birthDate)) {
       // YYYYMMDD 형식
       year = parseInt(birthDate.substring(0, 4));
       month = parseInt(birthDate.substring(4, 6));
       day = parseInt(birthDate.substring(6, 8));
     } else {
-      return undefined;
+      // 자체폼 PDF 등: "1990년 1월 15일" 형식
+      const krMatch = birthDate.match(/(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일/);
+      if (krMatch) {
+        year = parseInt(krMatch[1], 10);
+        month = parseInt(krMatch[2], 10);
+        day = parseInt(krMatch[3], 10);
+      } else {
+        return undefined;
+      }
     }
     
     if (isNaN(year) || isNaN(month) || isNaN(day)) {
@@ -3755,11 +3778,11 @@ ipcMain.handle('ai-check-resume-batch', async (event, data: {
     const fileNames = batchItems.map(i => i.fileName);
     const debugDir = data.debugFolder ? path.join(data.debugFolder, 'debug') : null;
     const results = await callAIAndParseBatch(systemPrompt, userPromptText, fileNames, 0, debugDir);
-    return results;
+    return { results, systemPrompt, userPromptText };
   } catch (error) {
     console.error('[AI Check Batch] IPC Error:', error);
     const errMsg = error instanceof Error ? error.message : '알 수 없는 오류';
-    return (data.items || []).map(({ fileName }) => ({
+    const results = (data.items || []).map(({ fileName }) => ({
       success: false,
       grade: 'C',
       report: '',
@@ -3767,6 +3790,7 @@ ipcMain.handle('ai-check-resume-batch', async (event, data: {
       fileName,
       error: errMsg,
     }));
+    return { results, systemPrompt: '', userPromptText: '' };
   }
 });
 

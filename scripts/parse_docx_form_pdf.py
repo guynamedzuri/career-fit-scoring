@@ -141,16 +141,16 @@ def parse_basic(section: str) -> dict:
     if m:
         out["militaryService"] = m.group(1).strip()
 
-    # residence: address 기반 간단 분류 (선택)
+    # residence: 주소에서 안산 → 시흥 → 경기도 → 서울 순서로 첫 매칭값 사용
     addr = out.get("address", "") or ""
-    if "서울" in addr or "서울시" in addr:
-        out["residence"] = "서울"
-    elif "경기" in addr or "인천" in addr or "수원" in addr:
-        out["residence"] = "수도권"
-    elif "시흥" in addr:
-        out["residence"] = "시흥"
-    elif "안산" in addr:
+    if "안산" in addr or "안산시" in addr:
         out["residence"] = "안산"
+    elif "시흥" in addr or "시흥시" in addr:
+        out["residence"] = "시흥"
+    elif "경기" in addr or "경기도" in addr or "인천" in addr or "수원" in addr:
+        out["residence"] = "수도권"
+    elif "서울" in addr or "서울시" in addr or "서울특별시" in addr:
+        out["residence"] = "서울"
     elif addr:
         out["residence"] = "지방"
     return out
@@ -419,6 +419,7 @@ def main():
     args = sys.argv[1:]
     pdftotext_exe = None
     text_path = None
+    debug_dir = None
     while args:
         if args[0] == "--pdftotext" and len(args) >= 3:
             pdftotext_exe = args[1]
@@ -426,10 +427,13 @@ def main():
         elif args[0] == "--text" and len(args) >= 2:
             text_path = args[1]
             args = args[2:]
+        elif args[0] == "--debug-dir" and len(args) >= 2:
+            debug_dir = args[1]
+            args = args[2:]
         else:
             break
     if not args and not text_path:
-        print(json.dumps({"error": "Usage: parse_docx_form_pdf.py [--pdftotext PATH] [--text <txt>] <pdf_path>"}))
+        print(json.dumps({"error": "Usage: parse_docx_form_pdf.py [--pdftotext PATH] [--text <txt>] [--debug-dir DIR] <pdf_path>"}))
         sys.exit(1)
     pdf_path = args[0] if args else None
     try:
@@ -441,6 +445,12 @@ def main():
         else:
             print(json.dumps({"error": f"File not found: {pdf_path}"}))
             sys.exit(1)
+        # 디버그: pdftotext 원문 저장 (중간 확인용)
+        if debug_dir:
+            Path(debug_dir).mkdir(parents=True, exist_ok=True)
+            base = Path(pdf_path).stem if pdf_path else Path(text_path).stem if text_path else "pdftotext"
+            raw_path = Path(debug_dir) / f"{base}_pdftotext.txt"
+            raw_path.write_text(text, encoding="utf-8")
         data = parse_docx_form_pdf_text(text)
         print(json.dumps(data, ensure_ascii=False, indent=2))
     except Exception as e:
