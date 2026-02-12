@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.invoke('load-cache', folderPath, filePaths),
   saveCache: (folderPath: string, results: Array<{ filePath: string; fileName: string; data: any }>) =>
     ipcRenderer.invoke('save-cache', folderPath, results),
+  exportCandidatesExcel: (payload: { headers: string[]; rows: string[][] }) =>
+    ipcRenderer.invoke('export-candidates-excel', payload),
   careernetSearchJobs: () => ipcRenderer.invoke('careernet-search-jobs'),
   careernetGetJobDetail: (jobdicSeq: string) => ipcRenderer.invoke('careernet-get-job-detail', jobdicSeq),
   // 자동 업데이트 관련

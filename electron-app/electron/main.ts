@@ -1361,6 +1361,34 @@ ipcMain.handle('select-folder', async () => {
   return result.filePaths[0];
 });
 
+/** 선택 후보를 엑셀 파일로 내보내기. payload: { headers: string[], rows: string[][] } */
+ipcMain.handle('export-candidates-excel', async (_event, payload: { headers: string[]; rows: string[][] }) => {
+  if (!mainWindow || !payload?.headers?.length) {
+    return { success: false, error: '데이터가 없습니다.' };
+  }
+  try {
+    const XLSX = require('xlsx');
+    const saveResult = await dialog.showSaveDialog(mainWindow, {
+      title: '엑셀 파일로 저장',
+      defaultPath: '후보자목록.xlsx',
+      filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+    });
+    if (saveResult.canceled || !saveResult.filePath) {
+      return { success: true, canceled: true };
+    }
+    const filePath = saveResult.filePath;
+    const aoa = [payload.headers, ...(payload.rows || [])];
+    const sheet = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, sheet, '후보자');
+    XLSX.writeFile(wb, filePath);
+    return { success: true, filePath };
+  } catch (error: any) {
+    console.error('[Export Excel]', error);
+    return { success: false, error: error?.message || '저장 실패' };
+  }
+});
+
 // 캐시 파일 인터페이스
 interface CacheEntry {
   filePath: string;
@@ -2302,11 +2330,12 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
         }
       }
       const resumeDir = path.dirname(filePath);
-      const debugDir = path.join(resumeDir, 'debug');
-      if (!fs.existsSync(debugDir)) {
+      const enableDebug = !app.isPackaged;
+      const debugDir = enableDebug ? path.join(resumeDir, 'debug') : '';
+      if (enableDebug && debugDir && !fs.existsSync(debugDir)) {
         fs.mkdirSync(debugDir, { recursive: true });
       }
-      const debugDirArg = ` --debug-dir "${debugDir}"`;
+      const debugDirArg = enableDebug && debugDir ? ` --debug-dir "${debugDir}"` : '';
       const command = pdftotextArg
         ? `"${pythonCmd}" "${scriptPath}"${pdftotextArg}${debugDirArg} "${filePath}"`
         : `"${pythonCmd}" "${scriptPath}"${debugDirArg} "${filePath}"`;
@@ -2328,14 +2357,15 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
         }
         throw e;
       }
-      // 디버그: 파싱 결과 JSON 저장 (이력서 폴더/debug/파일명_docx_form_pdf.json, pdftotext 원문은 스크립트 --debug-dir로 저장됨)
-      try {
-        const baseName = path.basename(filePath, '.pdf');
-        const debugPath = path.join(debugDir, `${baseName}_docx_form_pdf.json`);
-        fs.writeFileSync(debugPath, JSON.stringify(applicationData, null, 2), 'utf-8');
-        writeLog('[Process Resume] 자체폼 PDF 디버그 저장: ' + debugPath, 'info');
-      } catch (debugErr: any) {
-        writeLog('[Process Resume] 자체폼 PDF 디버그 저장 실패: ' + (debugErr?.message ?? ''), 'warn');
+      if (enableDebug && debugDir) {
+        try {
+          const baseName = path.basename(filePath, '.pdf');
+          const debugPath = path.join(debugDir, `${baseName}_docx_form_pdf.json`);
+          fs.writeFileSync(debugPath, JSON.stringify(applicationData, null, 2), 'utf-8');
+          writeLog('[Process Resume] 자체폼 PDF 디버그 저장: ' + debugPath, 'info');
+        } catch (debugErr: any) {
+          writeLog('[Process Resume] 자체폼 PDF 디버그 저장 실패: ' + (debugErr?.message ?? ''), 'warn');
+        }
       }
       const birthDate = applicationData.birthDate || '';
       const name = applicationData.name || path.basename(filePath, '.pdf').replace(/_이력서$/, '').split('_')[0] || '';
@@ -2442,8 +2472,9 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
         }
       }
       const resumeDir = path.dirname(filePath);
-      const debugDir = path.join(resumeDir, 'debug');
-      if (!fs.existsSync(debugDir)) {
+      const enablePdfDebug = !app.isPackaged;
+      const debugDir = enablePdfDebug ? path.join(resumeDir, 'debug') : '';
+      if (enablePdfDebug && debugDir && !fs.existsSync(debugDir)) {
         fs.mkdirSync(debugDir, { recursive: true });
       }
       if (!pdftotextArg) {
@@ -2456,7 +2487,7 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       const pdfBaseName = path.basename(filePath, path.extname(filePath));
       const photoTempDir = path.join(os.tmpdir(), 'career-fit-scoring', 'photos', pdfBaseName);
       fs.mkdirSync(photoTempDir, { recursive: true });
-      const debugDirArg = ` --debug-dir "${debugDir}"`;
+      const debugDirArg = enablePdfDebug && debugDir ? ` --debug-dir "${debugDir}"` : '';
       const corpusHeadersArg = ' --use-corpus-headers';
       const photoDirArg = ` --photo-dir "${photoTempDir}"`;
       const command = `"${pythonCmd}" "${scriptPath}"${pdftotextArg}${debugDirArg}${corpusHeadersArg}${photoDirArg} "${filePath}"`;
@@ -2478,24 +2509,26 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       }
 
       const baseName = path.basename(filePath, path.extname(filePath));
-      // 디버그: Python 파싱 원본 결과 저장 (2단계 최종 = _python.json, 1·2단계 중간은 --debug-dir로 Python이 저장)
-      try {
-        const pythonDebugPath = path.join(debugDir, `${baseName}_python.json`);
-        fs.writeFileSync(pythonDebugPath, JSON.stringify(pdfResult, null, 2), 'utf-8');
-        writeLog(`[Debug] Python 파싱 결과 저장: ${pythonDebugPath}`, 'info');
-      } catch (debugError: any) {
-        writeLog(`[Debug] Python 결과 저장 실패: ${debugError.message}`, 'warn');
+      if (enablePdfDebug && debugDir) {
+        try {
+          const pythonDebugPath = path.join(debugDir, `${baseName}_python.json`);
+          fs.writeFileSync(pythonDebugPath, JSON.stringify(pdfResult, null, 2), 'utf-8');
+          writeLog(`[Debug] Python 파싱 결과 저장: ${pythonDebugPath}`, 'info');
+        } catch (debugError: any) {
+          writeLog(`[Debug] Python 결과 저장 실패: ${debugError.message}`, 'warn');
+        }
       }
 
       const applicationData = mapPdfResumeToApplicationData(pdfResult);
 
-      // 디버그: Electron 재매핑 결과 저장 (3단계 = applicationData → _electron.json)
-      try {
-        const electronDebugPath = path.join(debugDir, `${baseName}_electron.json`);
-        fs.writeFileSync(electronDebugPath, JSON.stringify(applicationData, null, 2), 'utf-8');
-        writeLog(`[Debug] Electron 매핑 결과 저장: ${electronDebugPath}`, 'info');
-      } catch (debugError: any) {
-        writeLog(`[Debug] Electron 결과 저장 실패: ${debugError.message}`, 'warn');
+      if (enablePdfDebug && debugDir) {
+        try {
+          const electronDebugPath = path.join(debugDir, `${baseName}_electron.json`);
+          fs.writeFileSync(electronDebugPath, JSON.stringify(applicationData, null, 2), 'utf-8');
+          writeLog(`[Debug] Electron 매핑 결과 저장: ${electronDebugPath}`, 'info');
+        } catch (debugError: any) {
+          writeLog(`[Debug] Electron 결과 저장 실패: ${debugError.message}`, 'warn');
+        }
       }
       const basic = pdfResult.basicInfo || {};
       const careers = pdfResult.careers || [];
@@ -3749,7 +3782,7 @@ ipcMain.handle('ai-check-resume-batch', async (event, data: {
     }));
     const { systemPrompt, userPromptText } = buildAiPromptsForBatch(userPrompt, batchItems);
     const fileNames = batchItems.map(i => i.fileName);
-    const debugDir = data.debugFolder ? path.join(data.debugFolder, 'debug') : null;
+    const debugDir = !app.isPackaged && data.debugFolder ? path.join(data.debugFolder, 'debug') : null;
     const results = await callAIAndParseBatch(systemPrompt, userPromptText, fileNames, 0, debugDir);
     return { results, systemPrompt, userPromptText };
   } catch (error) {

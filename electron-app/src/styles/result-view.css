@@ -224,6 +224,32 @@
   border-color: #1383ff;
 }
 
+.export-excel-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: #0d9488;
+  color: #fff;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.export-excel-btn:hover:not(:disabled) {
+  background: #0f766e;
+}
+
+.export-excel-btn:disabled {
+  background: #d1d5db;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
 .status-move-btn {
   display: flex;
   align-items: center;

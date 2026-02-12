@@ -228,6 +228,37 @@ type SortOrder = 'asc' | 'desc';
 const aiGradeToLabel: Record<string, string> = { A: '상', B: '중', C: '하' };
 const aiGradeLabel = (g: string | undefined) => (g ? (aiGradeToLabel[g] ?? g) : '-');
 
+/** applicationData에서 최종학력 1건: educationEndDate 기준 가장 최근 항목의 학교명·학과 */
+function getFinalEducation(app: any): { school: string; major: string } {
+  if (!app) return { school: '', major: '' };
+  const entries: { end: string; school: string; major: string }[] = [];
+  for (let i = 1; i <= 6; i++) {
+    const end = (app[`educationEndDate${i}`] || '').trim();
+    const school = (app[`universityName${i}`] || '').trim();
+    const major = (app[`universityMajor${i}_1`] || '').trim();
+    if (school || end) entries.push({ end: end || '0000.00', school, major });
+  }
+  if (entries.length === 0) return { school: '', major: '' };
+  entries.sort((a, b) => (b.end < a.end ? -1 : b.end > a.end ? 1 : 0));
+  return { school: entries[0].school, major: entries[0].major };
+}
+
+/** applicationData에서 최근경력 1건: careerEndDate 기준 가장 최근 항목의 회사명·부서·연봉 */
+function getLatestCareer(app: any): { company: string; department: string; salary: string } {
+  if (!app) return { company: '', department: '', salary: '' };
+  const entries: { end: string; company: string; department: string; salary: string }[] = [];
+  for (let i = 1; i <= 5; i++) {
+    const end = (app[`careerEndDate${i}`] || app[`careerStartDate${i}`] || '').trim();
+    const company = (app[`careerCompanyName${i}`] || '').trim();
+    const department = (app[`careerDepartment${i}`] || '').trim();
+    const salary = (app[`careerSalary${i}`] || '').trim();
+    if (company || end) entries.push({ end: end || '9999.12', company, department, salary });
+  }
+  if (entries.length === 0) return { company: '', department: '', salary: '' };
+  entries.sort((a, b) => (b.end < a.end ? -1 : b.end > a.end ? 1 : 0));
+  return { company: entries[0].company, department: entries[0].department, salary: entries[0].salary };
+}
+
 export default function ResultView({ selectedFiles, userPrompt, selectedFolder, onBack, onProcessingChange, onProgressChange, jobMetadata }: ResultViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('totalScore');
@@ -865,6 +896,31 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     }
   };
 
+  // 엑셀로 내려받기: 선택한 후보를 테이블 순서대로 엑셀 export
+  const handleExportExcel = async () => {
+    const selectedInOrder = filteredAndSortedResults.filter(r => selectedCandidates.has(r.filePath));
+    if (selectedInOrder.length === 0 || !window.electron?.exportCandidatesExcel) return;
+    const headers = ['이름', '생년월일', '최종학력_학교명', '최종학력_학과', '경력_회사명', '경력_부서명', '경력_직전연봉'];
+    const rows = selectedInOrder.map(result => {
+      const app = result.applicationData;
+      const edu = getFinalEducation(app);
+      const career = getLatestCareer(app);
+      return [
+        (result.name ?? app?.name ?? '').trim(),
+        (app?.birthDate ?? '').trim(),
+        edu.school,
+        edu.major,
+        career.company,
+        career.department,
+        career.salary,
+      ];
+    });
+    const res = await window.electron.exportCandidatesExcel({ headers, rows });
+    if (res?.success && !(res as { canceled?: boolean }).canceled && (res as { filePath?: string }).filePath) {
+      // 저장 성공 시 파일 열기 등은 선택 사항
+    }
+  };
+
   // 상태 이동 모달 닫기
   const handleCloseStatusModal = () => {
     setShowStatusModal(false);
@@ -1395,6 +1451,15 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
             <Filter size={16} />
           </button>
         </div>
+        <button
+          type="button"
+          className="export-excel-btn"
+          onClick={handleExportExcel}
+          disabled={selectedCandidates.size === 0}
+          title="선택된 후보자를 엑셀 파일로 저장"
+        >
+          엑셀로 내려받기
+        </button>
         <button 
           className="status-move-btn"
           onClick={handleOpenStatusModal}
