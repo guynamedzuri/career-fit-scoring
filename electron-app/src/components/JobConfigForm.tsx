@@ -13,7 +13,7 @@ declare global {
       readImageAsBase64: (imagePath: string) => Promise<{ success: boolean; dataUrl?: string; error?: string }>;
       parseAdditionalNationalCertificates: (content: string) => Promise<string[]>;
       getAdditionalNationalCertificates: () => Promise<string>;
-      generateGradeCriteria: (jobDescription: string) => Promise<{ success: boolean; gradeCriteria?: { 최상: string; 상: string; 중: string; 하: string; 최하: string }; error?: string }>;
+      generateGradeCriteria: (jobDescription: string) => Promise<{ success: boolean; gradeCriteria?: { 상: string; 중: string; 하: string }; error?: string }>;
     };
   }
 }
@@ -23,22 +23,18 @@ interface JobConfigFormProps {
     folder?: boolean;
     jobDescription?: boolean;
     gradeCriteria?: {
-      최상?: boolean;
       상?: boolean;
       중?: boolean;
       하?: boolean;
-      최하?: boolean;
     };
   };
   setValidationErrors?: (errors: {
     folder?: boolean;
     jobDescription?: boolean;
     gradeCriteria?: {
-      최상?: boolean;
       상?: boolean;
       중?: boolean;
       하?: boolean;
-      최하?: boolean;
     };
   }) => void;
   selectedFolder?: string;
@@ -49,11 +45,9 @@ interface JobConfigFormProps {
     preferredQualifications: string;
     requiredCertifications: string[];
     gradeCriteria: {
-      최상: string;
       상: string;
       중: string;
       하: string;
-      최하: string;
     };
     scoringWeights: {
       career: number;
@@ -89,11 +83,9 @@ export default function JobConfigForm({
   const [preferredQualifications, setPreferredQualifications] = useState<string>('');
   const [requiredCertifications, setRequiredCertifications] = useState<string[]>([]);
   const [gradeCriteria, setGradeCriteria] = useState({
-    최상: '',
     상: '',
     중: '',
     하: '',
-    최하: '',
   });
   const [gradeCriteriaGenerating, setGradeCriteriaGenerating] = useState(false);
   const [gradeCriteriaError, setGradeCriteriaError] = useState<string | null>(null);
@@ -315,7 +307,12 @@ export default function JobConfigForm({
       setRequiredQualifications(prompt.requiredQualifications || '');
       setPreferredQualifications(prompt.preferredQualifications || '');
       setRequiredCertifications(prompt.requiredCertifications || []);
-      setGradeCriteria(prompt.gradeCriteria || { 최상: '', 상: '', 중: '', 하: '', 최하: '' });
+      const gc = prompt.gradeCriteria;
+      setGradeCriteria(gc ? {
+        상: (gc.최상 ?? gc.상 ?? '').trim() ? (gc.최상 ?? gc.상) : '',
+        중: (gc.중 ?? '').trim() ? (gc.중 ?? '') : '',
+        하: (gc.하 ?? gc.최하 ?? '').trim() ? (gc.하 ?? gc.최하) : '',
+      } : { 상: '', 중: '', 하: '' });
       
       // 가중치는 마지막에 설정하고, 약간의 지연 후 플래그 해제
       // 이렇게 하면 다른 필드들의 setState가 완료된 후 가중치가 설정됨
@@ -544,12 +541,8 @@ export default function JobConfigForm({
       hasError = true;
     }
 
-    // 등급 기준 검증
-    const gradeErrors: { 최상?: boolean; 상?: boolean; 중?: boolean; 하?: boolean; 최하?: boolean } = {};
-    if (!gradeCriteria.최상 || gradeCriteria.최상.trim() === '') {
-      gradeErrors.최상 = true;
-      hasError = true;
-    }
+    // 등급 기준 검증 (상·중·하 3단계)
+    const gradeErrors: { 상?: boolean; 중?: boolean; 하?: boolean } = {};
     if (!gradeCriteria.상 || gradeCriteria.상.trim() === '') {
       gradeErrors.상 = true;
       hasError = true;
@@ -560,10 +553,6 @@ export default function JobConfigForm({
     }
     if (!gradeCriteria.하 || gradeCriteria.하.trim() === '') {
       gradeErrors.하 = true;
-      hasError = true;
-    }
-    if (!gradeCriteria.최하 || gradeCriteria.최하.trim() === '') {
-      gradeErrors.최하 = true;
       hasError = true;
     }
     
@@ -734,7 +723,7 @@ export default function JobConfigForm({
                         if (res?.success && res.gradeCriteria) {
                           setGradeCriteria(res.gradeCriteria);
                           if (setValidationErrors && validationErrors.gradeCriteria) {
-                            setValidationErrors({ ...validationErrors, gradeCriteria: { 최상: false, 상: false, 중: false, 하: false, 최하: false } });
+                            setValidationErrors({ ...validationErrors, gradeCriteria: { 상: false, 중: false, 하: false } });
                           }
                         } else {
                           setGradeCriteriaError(res?.error || '기준 생성에 실패했습니다.');
@@ -753,30 +742,10 @@ export default function JobConfigForm({
                   <p className="grade-criteria-error">{gradeCriteriaError}</p>
                 ) : null}
                 <p className="grade-criteria-tip">
-                  ※ 높은 기준에 부합하기만 하면 우선순위를 주는 방식으로 작성하세요. 상 등급 기준만 만족해도 하 등급 기준을 만족하지 않아도 상 등급으로 평가됩니다.
+                  ※ 높은 기준에 부합하기만 하면 우선순위를 주는 방식으로 작성하세요. 상 등급 기준만 만족해도 중·하 등급 기준을 만족하지 않아도 상 등급으로 평가됩니다.
                 </p>
                 
                 <div className="grade-criteria-wrapper">
-                  <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.최상 ? 'error' : ''}`}>
-                    <label className="form-label">최상 등급 기준 *</label>
-                    <textarea
-                      className="grade-criteria-input"
-                      value={gradeCriteria.최상}
-                      onChange={(e) => {
-                        setGradeCriteria({ ...gradeCriteria, 최상: e.target.value });
-                        if (setValidationErrors && validationErrors.gradeCriteria?.최상) {
-                          setValidationErrors({
-                            ...validationErrors,
-                            gradeCriteria: { ...validationErrors.gradeCriteria, 최상: false },
-                          });
-                        }
-                      }}
-                      placeholder="예: 업무 내용과 거의 동일한 실무 경험이 3년 이상이고, 관련 자격증을 보유한 경우"
-                      rows={3}
-                      spellCheck={false}
-                    />
-                  </div>
-
                   <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.상 ? 'error' : ''}`}>
                     <label className="form-label">상 등급 기준 *</label>
                     <textarea
@@ -791,7 +760,7 @@ export default function JobConfigForm({
                           });
                         }
                       }}
-                      placeholder="예: 경력 중에 업무 내용과 거의 동일한 실무 경험이 있거나 업무내용과 관련있는 경력을 1년 이상 유지한 경우"
+                      placeholder="예: 업무 내용과 거의 동일한 실무 경험이 있거나 관련 경력을 1년 이상 유지한 경우"
                       rows={3}
                       spellCheck={false}
                     />
@@ -831,27 +800,7 @@ export default function JobConfigForm({
                           });
                         }
                       }}
-                      placeholder="예: 자기소개서의 문항마다 제한 글자수의 80% 이상 채웠으며 제조업, 현장 경력이 1개 이상인 경우"
-                      rows={3}
-                      spellCheck={false}
-                    />
-                  </div>
-
-                  <div className={`form-group grade-criteria-item ${validationErrors.gradeCriteria?.최하 ? 'error' : ''}`}>
-                    <label className="form-label">최하 등급 기준 *</label>
-                    <textarea
-                      className="grade-criteria-input"
-                      value={gradeCriteria.최하}
-                      onChange={(e) => {
-                        setGradeCriteria({ ...gradeCriteria, 최하: e.target.value });
-                        if (setValidationErrors && validationErrors.gradeCriteria?.최하) {
-                          setValidationErrors({
-                            ...validationErrors,
-                            gradeCriteria: { ...validationErrors.gradeCriteria, 최하: false },
-                          });
-                        }
-                      }}
-                      placeholder="예: 상위 등급 조건을 모두 만족하지 못하며 이력서가 빈약하고 성의가 없는 경우"
+                      placeholder="예: 상·중 등급 조건을 만족하지 못하며 이력서가 빈약하거나 성의가 없는 경우"
                       rows={3}
                       spellCheck={false}
                     />

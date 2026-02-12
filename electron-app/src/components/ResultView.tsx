@@ -189,7 +189,7 @@ interface ScoringResult {
       preferredQual?: string;
       certification?: string;
     };
-    gradeEvaluations?: Record<string, { satisfied?: boolean; reason?: string }>; // 등급별 판정·근거 (최상/상/중/하/최하)
+    gradeEvaluations?: Record<string, { satisfied?: boolean; reason?: string }>; // 등급별 판정·근거 (상/중/하)
   };
   aiReportParsed?: boolean; // AI 보고서가 JSON으로 파싱되었는지 여부
   aiChecked?: boolean; // AI 검사 완료 여부
@@ -203,11 +203,9 @@ interface ResultViewProps {
     preferredQualifications: string;
     requiredCertifications: string[];
     gradeCriteria: {
-      최상: string;
       상: string;
       중: string;
       하: string;
-      최하: string;
     };
     scoringWeights: {
       career: number;
@@ -636,7 +634,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       const rr = total > 0 ? weights.requirements / total : 0;
       const pr = total > 0 ? weights.preferred / total : 0;
       const certR = total > 0 ? weights.certifications / total : 0;
-      const gradeMap: Record<string, number> = { 'A': 100, 'B': 80, 'C': 60, 'D': 40, 'E': 0 };
+      const gradeMap: Record<string, number> = { 'A': 100, 'B': 80, 'C': 60 };
       const careerScore = r.aiGrade ? (gradeMap[r.aiGrade] ?? 0) : 0;
       let requiredScore = 0;
       if (userPrompt?.requiredQualifications?.trim()) requiredScore = ev.requiredQual === '◎' ? 100 : 0;
@@ -683,7 +681,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           break;
         case 'careerFit':
           // 경력 적합도 = cell-career-fit 값 (A~E)
-          const careerFitOrder = { 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5 };
+          const careerFitOrder = { 'A': 1, 'B': 2, 'C': 3 };
           compareA = a.aiGrade ? (careerFitOrder[a.aiGrade as keyof typeof careerFitOrder] ?? 6) : 6;
           compareB = b.aiGrade ? (careerFitOrder[b.aiGrade as keyof typeof careerFitOrder] ?? 6) : 6;
           break;
@@ -1661,15 +1659,13 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                   const certificationsRatio = totalWeight > 0 ? weights.certifications / totalWeight : 0;
                   
                   // 각 항목 점수 계산
-                  // 1. 경력 적합도 점수 (A=100, B=80, C=60, D=40, E=0)
+                  // 1. 경력 적합도 점수 (상=A=100, 중=B=80, 하=C=60)
                   let careerScore = 0;
                   if (result.aiGrade) {
                     const gradeMap: { [key: string]: number } = {
                       'A': 100,
                       'B': 80,
                       'C': 60,
-                      'D': 40,
-                      'E': 0,
                     };
                     careerScore = gradeMap[result.aiGrade] || 0;
                   }
@@ -2227,8 +2223,8 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                     <div className="ai-report-section ai-report-grade-evaluations">
                       <h4 className="ai-report-section-title">등급별 판정 및 근거</h4>
                       <div className="grade-evaluations-list">
-                        {['최상', '상', '중', '하', '최하'].map((gradeName, index) => {
-                          const labels: Record<string, string> = { '최상': 'A (최상)', '상': 'B (상)', '중': 'C (중)', '하': 'D (하)', '최하': 'E (최하)' };
+                        {['상', '중', '하'].map((gradeName, index) => {
+                          const labels: Record<string, string> = { '상': 'A (상)', '중': 'B (중)', '하': 'C (하)' };
                           const ev = (currentAiReport.gradeEvaluations as Record<string, { satisfied?: boolean; reason?: string }>)?.[gradeName];
                           if (!ev) return null;
                           const satisfied = ev.satisfied ? '✓ 만족' : '✗ 불만족';

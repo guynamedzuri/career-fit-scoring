@@ -2923,11 +2923,9 @@ async function callAIAndParse(
         certification?: string;
       };
       gradeEvaluations?: {
-        최상?: { satisfied: boolean; reason: string };
         상?: { satisfied: boolean; reason: string };
         중?: { satisfied: boolean; reason: string };
         하?: { satisfied: boolean; reason: string };
-        최하?: { satisfied: boolean; reason: string };
       };
     } | null = null;
     
@@ -2950,14 +2948,12 @@ async function callAIAndParse(
       // 유효한 객체인지 확인
       if (parsedReport && typeof parsedReport === 'object' && 'grade' in parsedReport) {
         const gradeMap: { [key: string]: string } = {
-          '최상': 'A',
-          '상': 'B',
-          '중': 'C',
-          '하': 'D',
-          '최하': 'E'
+          '상': 'A',
+          '중': 'B',
+          '하': 'C'
         };
         
-        grade = gradeMap[parsedReport.grade] || 'C';
+        grade = gradeMap[parsedReport.grade] || 'B';
         
         // 필수 필드가 모두 있는지 확인
         if (parsedReport.summary && parsedReport.summary.trim() && 
@@ -2978,20 +2974,17 @@ async function callAIAndParse(
       console.warn('[AI Check] Raw content:', aiContent.substring(0, 500));
       
       // 등급 추출 시도
-      const gradeMatch = aiContent.match(/등급[:\s]*([A-D최상중하])/i) || 
-                        aiContent.match(/["']grade["']:\s*["']([A-D최상중하])/i) ||
-                        aiContent.match(/\[([A-D])\]/i);
+      const gradeMatch = aiContent.match(/등급[:\s]*([A-C상중하])/i) ||
+                        aiContent.match(/["']grade["']:\s*["']([A-C상중하])/i) ||
+                        aiContent.match(/\[([A-C])\]/i);
       
       if (gradeMatch) {
-        const matchedGrade = gradeMatch[1].toUpperCase();
+        const matchedGrade = gradeMatch[1];
         const gradeMap: { [key: string]: string } = {
-          '최상': 'A',
-          '상': 'B',
-          '중': 'C',
-          '하': 'D',
-          '최하': 'E'
+          '상': 'A', '중': 'B', '하': 'C',
+          'A': 'A', 'B': 'B', 'C': 'C'
         };
-        grade = gradeMap[matchedGrade] || (matchedGrade.match(/[A-D]/) ? matchedGrade : 'C');
+        grade = gradeMap[matchedGrade] || (matchedGrade.match(/[A-C]/i) ? matchedGrade.toUpperCase() : 'B');
       }
       
       // evaluations 추출 시도
@@ -3172,17 +3165,15 @@ function buildAiPrompts(
 ): { systemPrompt: string; userPromptText: string } {
   const systemPrompt = `당신은 채용 담당자입니다. 이력서의 경력을 분석하여 업무 내용과의 적합도를 평가하고 등급을 부여해야 합니다.
 
-등급 체계:
-- 최상: ${userPrompt.gradeCriteria?.최상 || '하위 등급의 모든 조건을 만족하는 경우'}
-- 상: ${userPrompt.gradeCriteria?.상 || '중 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
-- 중: ${userPrompt.gradeCriteria?.중 || '하 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
-- 하: ${userPrompt.gradeCriteria?.하 || '기본 조건을 만족하는 경우'}
-- 최하: ${userPrompt.gradeCriteria?.최하 || '기본 조건을 만족하지 못하는 경우'}
+등급 체계 (상·중·하 3단계):
+- 상: ${userPrompt.gradeCriteria?.상 || '가장 높은 조건을 만족하는 경우'}
+- 중: ${userPrompt.gradeCriteria?.중 || '기본 이상의 조건을 만족하는 경우'}
+- 하: ${userPrompt.gradeCriteria?.하 || '기본 조건을 만족하지 못하는 경우'}
 
 응답 형식:
 반드시 다음 JSON 형식으로만 응답해야 합니다. 다른 텍스트나 설명은 포함하지 마세요:
 {
-  "grade": "최상|상|중|하|최하 중 하나",
+  "grade": "상|중|하 중 하나",
   "summary": "이력서 전체를 종합적으로 평가한 요약 (등급 근거가 아닌 전체적인 평가 내용)",
   "strengths": ["강점1", "강점2", "강점3", "강점4", "강점5"],
   "weaknesses": ["약점1", "약점2", "약점3", "약점4", "약점5"],
@@ -3195,10 +3186,6 @@ function buildAiPrompts(
     "certification": "◎|○|X 중 하나 (자격증 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 필수 자격증이 있는 경우에만 평가"
   },
   "gradeEvaluations": {
-    "최상": {
-      "satisfied": true|false,
-      "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
-    },
     "상": {
       "satisfied": true|false,
       "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
@@ -3210,10 +3197,6 @@ function buildAiPrompts(
     "하": {
       "satisfied": true|false,
       "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
-    },
-    "최하": {
-      "satisfied": true|false,
-      "reason": "해당 등급 조건을 만족하는지 여부에 대한 구체적인 근거 (조건과 이력서 내용을 비교한 상세 설명)"
     }
   }
 }
@@ -3221,7 +3204,7 @@ function buildAiPrompts(
 중요 사항:
 1. 반드시 유효한 JSON 형식으로만 응답하고, JSON 외의 다른 텍스트는 포함하지 마세요.
 2. summary와 opinion은 등급 근거가 아닌 이력서 전체에 대한 종합 평가여야 합니다. 등급 근거는 gradeEvaluations.reason에만 작성하세요.
-3. gradeEvaluations 객체에는 각 등급(최상, 상, 중, 하, 최하)의 조건을 만족하는지 여부(satisfied)와 그 근거(reason)를 반드시 포함해야 합니다. reason은 해당 등급의 조건과 이력서 내용을 구체적으로 비교한 설명이어야 합니다.
+3. gradeEvaluations 객체에는 각 등급(상, 중, 하)의 조건을 만족하는지 여부(satisfied)와 그 근거(reason)를 반드시 포함해야 합니다. reason은 해당 등급의 조건과 이력서 내용을 구체적으로 비교한 설명이어야 합니다.
 4. **업무 적합도 판단 시 참조 범위 (필수)**: 경력 적합도(careerFit), 필수 요구사항(requiredQual), 우대사항(preferredQual), 그리고 등급 조건 중 '업무 내용'과의 관련성을 판단할 때는 **오직 "경력"과 "경력기술서"에 적힌 내용만** 근거로 사용하세요. **자기소개서**에는 참조하지 마세요. 자기소개서에 "이 업무에 적합하다"는 식의 어필만 있고 경력·경력기술서에 해당 업무 경험이 없으면 적합하다고 판단하지 마세요. 학력·자격증·기타 항목도 경력 적합도·필수/우대(경력 관련) 판단에는 사용하지 마세요.`;
 
   let userPromptText = `업무 내용:
@@ -3268,17 +3251,15 @@ ${resumeText}
 
 3. opinion 작성: 등급 근거가 아닌 이력서 전체에 대한 평가 의견을 작성하세요. 등급 근거는 gradeEvaluations.reason에만 작성하세요.
 
-4. gradeEvaluations 작성: 각 등급(최상, 상, 중, 하, 최하)의 조건을 이력서 내용과 비교하여:
+4. gradeEvaluations 작성: 각 등급(상, 중, 하)의 조건을 이력서 내용과 비교하여:
    - satisfied: 해당 등급 조건을 만족하는지 true/false
-   - reason: 조건과 이력서 내용을 구체적으로 비교한 상세 근거 (예: "최상 등급 조건은 '시설관리 경력 3년 이상, 전기산업기사+소방안전관리자1급 보유'인데, 이력서에는 시설관리 경력이 5년이고 두 자격증 모두 보유하고 있어 조건을 만족합니다.")
+   - reason: 조건과 이력서 내용을 구체적으로 비교한 상세 근거
    - **등급 조건 중 업무·경력 관련(예: N년 경력, OO 업무 경험)은 "경력"과 "경력기술서"에만 근거를 두고 판단하세요. 자기소개서는 참조하지 마세요.**
    
    각 등급의 조건:
-   - 최상: ${userPrompt.gradeCriteria?.최상 || '조건 없음'}
    - 상: ${userPrompt.gradeCriteria?.상 || '조건 없음'}
    - 중: ${userPrompt.gradeCriteria?.중 || '조건 없음'}
    - 하: ${userPrompt.gradeCriteria?.하 || '조건 없음'}
-   - 최하: ${userPrompt.gradeCriteria?.최하 || '조건 없음'}
 
 5. 추가 평가 항목 (업무·경력 관련 판단은 경력+경력기술서만 참조, 자기소개서 무시):
 ${userPrompt.requiredQualifications && userPrompt.requiredQualifications.trim() ? '- 필수 요구사항 만족여부(requiredQual): **자격증 제외** - 위 "필수 요구사항" 텍스트에 적힌 항목(경력·학력·기타 조건 등)만 평가하세요. **경력·업무 관련 조건은 "경력"과 "경력기술서"에만 근거를 두고 판단하세요. 자기소개서는 참조하지 마세요.** 필수 자격증 보유 여부는 requiredQual에 반영하지 말고, certification 필드로만 평가하세요. 필수 요구사항을 모두 만족하면 ◎, 하나라도 불만족하면 X. 이력서에 명시되지 않은 항목은 불만족으로 평가.\n- 필수 요구사항 판단 근거(requiredQualReason): requiredQual이 ◎ 또는 X인 이유를 **필수 요구사항(자격증 제외)** 항목만 기준으로 작성하세요. 위 "필수 요구사항"에 나열된 항목별로 **경력·경력기술서** 대조 내용을 적어주세요. 자격증 관련 내용은 requiredQualReason에 넣지 마세요. 예: "① N년 이상 경력: 경력란에 A사 N년 근무 명시되어 만족. ② OO 관련 경험: 경력기술서에 △△ 프로젝트 기재되어 만족. ③ △△ 불만족: 경력·경력기술서에 해당 경험 없음."' : ''}
@@ -3306,7 +3287,7 @@ function buildAiPromptsForBatch(
   const singleSystemSuffix = `응답 형식:
 반드시 다음 JSON 형식으로만 응답해야 합니다. 다른 텍스트나 설명은 포함하지 마세요:
 {
-  "grade": "최상|상|중|하|최하 중 하나",
+  "grade": "상|중|하 중 하나",
   "summary": "이력서 전체를 종합적으로 평가한 요약 (등급 근거가 아닌 전체적인 평가 내용)",
   "strengths": ["강점1", "강점2", "강점3", "강점4", "강점5"],
   "weaknesses": ["약점1", "약점2", "약점3", "약점4", "약점5"],
@@ -3319,22 +3300,18 @@ function buildAiPromptsForBatch(
     "certification": "◎|○|X 중 하나 (자격증 만족여부: ◎=매우 만족, ○=만족, X=불만족) - 필수 자격증이 있는 경우에만 평가"
   },
   "gradeEvaluations": {
-    "최상": { "satisfied": true|false, "reason": "구체적인 근거" },
     "상": { "satisfied": true|false, "reason": "구체적인 근거" },
     "중": { "satisfied": true|false, "reason": "구체적인 근거" },
-    "하": { "satisfied": true|false, "reason": "구체적인 근거" },
-    "최하": { "satisfied": true|false, "reason": "구체적인 근거" }
+    "하": { "satisfied": true|false, "reason": "구체적인 근거" }
   }
 }`;
 
   const systemPrompt = `당신은 채용 담당자입니다. **여러 건의 이력서**가 제시됩니다. 각 이력서를 **순서대로** 평가하고, 응답은 반드시 **동일한 순서의 JSON 배열**로만 주세요. 배열의 각 요소는 아래와 같은 단일 이력서 평가 객체입니다.
 
-등급 체계:
-- 최상: ${userPrompt.gradeCriteria?.최상 || '하위 등급의 모든 조건을 만족하는 경우'}
-- 상: ${userPrompt.gradeCriteria?.상 || '중 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
-- 중: ${userPrompt.gradeCriteria?.중 || '하 등급 조건을 만족하면서 추가 조건을 충족하는 경우'}
-- 하: ${userPrompt.gradeCriteria?.하 || '기본 조건을 만족하는 경우'}
-- 최하: ${userPrompt.gradeCriteria?.최하 || '기본 조건을 만족하지 못하는 경우'}
+등급 체계 (상·중·하 3단계):
+- 상: ${userPrompt.gradeCriteria?.상 || '가장 높은 조건을 만족하는 경우'}
+- 중: ${userPrompt.gradeCriteria?.중 || '기본 이상의 조건을 만족하는 경우'}
+- 하: ${userPrompt.gradeCriteria?.하 || '기본 조건을 만족하지 못하는 경우'}
 
 응답 형식:
 반드시 **JSON 배열**로만 응답하세요. 배열 길이는 제시된 이력서 개수(${items.length}개)와 같아야 합니다. 각 요소는 다음 구조의 객체입니다:
@@ -3383,16 +3360,14 @@ ${userPrompt.requiredCertifications.join(', ')}
   userPromptText += `평가 지침:
 1. 등급 부여: 위에 제시된 등급 체계를 참고하여, 각 이력서가 어느 등급에 해당하는지 판단하세요.
 2. summary/opinion: 등급 근거가 아닌 이력서 전체에 대한 종합 평가 요약·의견을 작성하세요. 등급 근거는 gradeEvaluations.reason에만 작성하세요.
-3. gradeEvaluations: 각 등급(최상, 상, 중, 하, 최하)의 조건을 이력서 내용과 비교하여 satisfied와 reason을 작성하세요. **등급 조건 중 업무·경력 관련은 "경력"과 "경력기술서"만 참조하고 자기소개서는 무시하세요.**
+3. gradeEvaluations: 각 등급(상, 중, 하)의 조건을 이력서 내용과 비교하여 satisfied와 reason을 작성하세요. **등급 조건 중 업무·경력 관련은 "경력"과 "경력기술서"만 참조하고 자기소개서는 무시하세요.**
 4. **경력 적합도·필수/우대(경력 관련)·등급(업무 관련) 판단 시**: **오직 "경력"과 "경력기술서"에 적힌 내용만** 근거로 사용하세요. **자기소개서는 절대 참조하지 마세요.** 자기소개서에 적합성 어필만 있고 경력·경력기술서에 해당 업무 경험이 없으면 적합하다고 판단하지 마세요.
 5. 각 이력서 평가 결과를 **제시된 순서와 동일한 순서**로 JSON 배열에 넣어 주세요.
 
 각 등급의 조건:
-- 최상: ${userPrompt.gradeCriteria?.최상 || '조건 없음'}
 - 상: ${userPrompt.gradeCriteria?.상 || '조건 없음'}
 - 중: ${userPrompt.gradeCriteria?.중 || '조건 없음'}
 - 하: ${userPrompt.gradeCriteria?.하 || '조건 없음'}
-- 최하: ${userPrompt.gradeCriteria?.최하 || '조건 없음'}
 
 아래 이력서들을 **순서대로** 평가한 뒤, 위 형식의 **JSON 배열**로만 응답하세요.
 
@@ -3411,11 +3386,11 @@ function normalizeParsedReport(
   _fileName: string
 ): { grade: string; report: any; reportParsed: boolean } {
   const gradeMap: { [key: string]: string } = {
-    '최상': 'A', '상': 'B', '중': 'C', '하': 'D', '최하': 'E'
+    '상': 'A', '중': 'B', '하': 'C'
   };
-  let grade = 'C';
+  let grade = 'B';
   if (parsed && typeof parsed === 'object' && 'grade' in parsed) {
-    grade = gradeMap[parsed.grade] || 'C';
+    grade = gradeMap[parsed.grade] || 'B';
   }
   const hasRequired = parsed?.summary?.trim() && parsed?.opinion?.trim();
   const report = parsed && typeof parsed === 'object' ? parsed : {};
@@ -3628,11 +3603,9 @@ ipcMain.handle('ai-check-resume', async (event, data: {
     preferredQualifications: string;
     requiredCertifications: string[];
     gradeCriteria: {
-      최상: string;
       상: string;
       중: string;
       하: string;
-      최하: string;
     };
     scoringWeights: {
       career: number;
@@ -3701,8 +3674,8 @@ ipcMain.handle('ai-check-resume', async (event, data: {
     // 등급별 조건 만족 여부 로그 출력
     if (result.report && typeof result.report === 'object' && 'gradeEvaluations' in result.report) {
       const gradeEvaluations = result.report.gradeEvaluations;
-      const gradeNames = ['최상', '상', '중', '하', '최하'];
-      const gradeLabels = ['A (최상)', 'B (상)', 'C (중)', 'D (하)', 'E (최하)'];
+      const gradeNames = ['상', '중', '하'];
+      const gradeLabels = ['A (상)', 'B (중)', 'C (하)'];
       
       writeLog(`[AI Check] 등급별 조건 평가 결과 (${data.fileName}):`, 'info');
       
@@ -3747,7 +3720,7 @@ ipcMain.handle('ai-check-resume-batch', async (event, data: {
     requiredQualifications: string;
     preferredQualifications: string;
     requiredCertifications: string[];
-    gradeCriteria: { 최상: string; 상: string; 중: string; 하: string; 최하: string };
+    gradeCriteria: { 상: string; 중: string; 하: string };
     scoringWeights?: Record<string, number>;
   };
   items: Array<{ applicationData: any; fileName: string }>;
@@ -3825,7 +3798,7 @@ ipcMain.handle('get-ai-prompts-preview', async (event, data: { userPrompt: any; 
   }
 });
 
-/** 업무 내용을 바탕으로 경력 적합도 등급 기준(최상~최하) 생성. 각 등급당 공백 포함 약 200자 이내, 이력서만으로 판단 가능한 기준으로 생성 */
+/** 업무 내용을 바탕으로 경력 적합도 등급 기준(상·중·하 3단계) 생성. 각 등급당 공백 포함 약 200자 이내, 이력서만으로 판단 가능한 기준으로 생성 */
 ipcMain.handle('generate-grade-criteria', async (event, jobDescription: string) => {
   try {
     loadEnvFile();
@@ -3842,20 +3815,20 @@ ipcMain.handle('generate-grade-criteria', async (event, jobDescription: string) 
     const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
     const apiUrl = `${ENDPOINT}/openai/deployments/${DEPLOYMENT}/chat/completions?api-version=${API_VERSION}`;
 
-    const systemPrompt = `당신은 채용 담당자입니다. 주어진 "업무 내용"을 바탕으로, 이력서의 경력 적합도를 평가할 때 쓰일 **등급 기준**(최상, 상, 중, 하, 최하)을 생성해 주세요.
+    const systemPrompt = `당신은 채용 담당자입니다. 주어진 "업무 내용"을 바탕으로, 이력서의 경력 적합도를 평가할 때 쓰일 **등급 기준**(상, 중, 하 3단계)을 생성해 주세요.
 
 규칙:
 1. **출력 형식**: 반드시 다음 JSON 형식으로만 응답하세요. 다른 텍스트는 포함하지 마세요.
-{"최상":"...","상":"...","중":"...","하":"...","최하":"..."}
+{"상":"...","중":"...","하":"..."}
 2. **각 등급 값**: 공백 포함 200자 내외의 하나의 연속된 문자열로 작성하세요. 줄바꿈 없이 한 문장/문단으로.
-3. **경력 햇수로 나누지 마세요**: "경력 N년 이상이면 최상"처럼 관련 업무 경력 연차로 등급을 나누지 마세요.
+3. **경력 햇수로 나누지 마세요**: "경력 N년 이상이면 상"처럼 관련 업무 경력 연차로만 등급을 나누지 마세요.
 4. **fact 기반·boolean 판단 가능하게**: 평가자가 이력서만 보고 예/아니오로 답할 수 있는 **명제**로 작성하세요. 애매한 수식어는 쓰지 마세요.
    - **쓰지 말 것**: "구체적으로 기재되어 있으며", "명확하게 기술된 경우", "일부 기재된 경우", "언급이 있으며", "~한 수준" 등 → 무엇이 구체적/명확/일부인지 기준이 없어 판단이 불가능함.
    - **쓸 것**: 이력서에서 확인 가능한 사실만. 예: "경력·경력기술서에 [업무 키워드 A]와 [업무 키워드 B]가 모두 1회 이상 등장하는가", "지원분야·희망직무가 [업무명]과 일치하는가", "경력기술서에 [업무명]이 문장으로 서술되어 있는가", "관련 키워드가 2개 이상 등장하는가", "경력 1건 이상에서 해당 업무가 기재되어 있는가" 등. 개수·키워드 유무·문장 유무·일치 여부처럼 **확인 가능한 조건**으로만 등급을 구분하세요.
-5. 등급별로 **조건 개수·키워드 수·포함 범위** 등을 단계적으로 조정해, 최상(가장 많이/넓게 만족) → 최하(전혀 만족하지 않음) 순으로 명확히 구분되게 하세요.
-6. **업무 내용에만 한정하지 마세요**: 최상·상은 업무 내용과의 직접 연관을 강하게 두되, **중·하 등급**은 조금 더 기본적·인적 요소를 넣어도 좋습니다. 예: 관련 자격증 유무(이력서 자격사항에 [관련 자격명]이 1개 이상 있는가), 자기소개서 분량·충실함(자기소개서 문항이 N자 이상 채워져 있는가, 또는 문항 수 대비 비어 있지 않은가), 제조업·현장 경력 1건 이상 유무, 지원분야가 업무와 관련이 있는가 등. 이력서에서 확인 가능한 사실만 사용하세요.`;
+5. 등급별로 **조건 개수·키워드 수·포함 범위** 등을 단계적으로 조정해, 상(가장 많이/넓게 만족) → 하(전혀 만족하지 않음) 순으로 명확히 구분되게 하세요.
+6. **업무 내용에만 한정하지 마세요**: 상은 업무 내용과의 직접 연관을 강하게 두되, **중·하 등급**은 조금 더 기본적·인적 요소를 넣어도 좋습니다. 예: 관련 자격증 유무(이력서 자격사항에 [관련 자격명]이 1개 이상 있는가), 자기소개서 분량·충실함(자기소개서 문항이 N자 이상 채워져 있는가, 또는 문항 수 대비 비어 있지 않은가), 제조업·현장 경력 1건 이상 유무, 지원분야가 업무와 관련이 있는가 등. 이력서에서 확인 가능한 사실만 사용하세요.`;
 
-    const userPrompt = `다음 "업무 내용"을 바탕으로 경력 적합도 등급 기준(최상, 상, 중, 하, 최하)을 생성해 주세요. 위 규칙을 준수하고, **애매한 수식어 없이 fact·boolean 판단 가능한 명제**로만 작성한 뒤 JSON만 출력하세요.
+    const userPrompt = `다음 "업무 내용"을 바탕으로 경력 적합도 등급 기준(상, 중, 하 3단계)을 생성해 주세요. 위 규칙을 준수하고, **애매한 수식어 없이 fact·boolean 판단 가능한 명제**로만 작성한 뒤 JSON만 출력하세요.
 
 업무 내용:
 ${desc}`;
@@ -3890,11 +3863,9 @@ ${desc}`;
     }
     const parsed = JSON.parse(jsonText) as Record<string, string>;
     const gradeCriteria = {
-      최상: (parsed.최상 && String(parsed.최상).trim()) || '',
       상: (parsed.상 && String(parsed.상).trim()) || '',
       중: (parsed.중 && String(parsed.중).trim()) || '',
       하: (parsed.하 && String(parsed.하).trim()) || '',
-      최하: (parsed.최하 && String(parsed.최하).trim()) || '',
     };
     return { success: true, gradeCriteria };
   } catch (error) {

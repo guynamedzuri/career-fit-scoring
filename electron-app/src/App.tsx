@@ -316,11 +316,9 @@ function App() {
                 preferredQualifications: (up.preferredQualifications && String(up.preferredQualifications).trim()) ? up.preferredQualifications : placeholders.preferredQualifications,
                 requiredCertifications: Array.isArray(up.requiredCertifications) ? up.requiredCertifications : [],
                 gradeCriteria: {
-                  최상: (up.gradeCriteria?.최상 && String(up.gradeCriteria.최상).trim()) ? up.gradeCriteria.최상 : gradePlaceholder,
                   상: (up.gradeCriteria?.상 && String(up.gradeCriteria.상).trim()) ? up.gradeCriteria.상 : gradePlaceholder,
                   중: (up.gradeCriteria?.중 && String(up.gradeCriteria.중).trim()) ? up.gradeCriteria.중 : gradePlaceholder,
                   하: (up.gradeCriteria?.하 && String(up.gradeCriteria.하).trim()) ? up.gradeCriteria.하 : gradePlaceholder,
-                  최하: (up.gradeCriteria?.최하 && String(up.gradeCriteria.최하).trim()) ? up.gradeCriteria.최하 : gradePlaceholder,
                 },
                 scoringWeights: up.scoringWeights || {},
               };

@@ -1612,29 +1612,26 @@
   backdrop-filter: blur(10px);
 }
 
-.ai-report-grade-value.grade-최상,
-.ai-report-grade-value.grade-A {
+/* 등급 3단계: 상=A, 중=B, 하=C */
+.ai-report-grade-value.grade-상,
+.ai-report-grade-value.grade-a {
   background: rgba(34, 197, 94, 0.3);
 }
 
-.ai-report-grade-value.grade-상,
-.ai-report-grade-value.grade-B {
+.ai-report-grade-value.grade-중,
+.ai-report-grade-value.grade-b {
   background: rgba(59, 130, 246, 0.3);
 }
 
-.ai-report-grade-value.grade-중,
-.ai-report-grade-value.grade-C {
+.ai-report-grade-value.grade-하,
+.ai-report-grade-value.grade-c {
   background: rgba(251, 191, 36, 0.3);
 }
 
-.ai-report-grade-value.grade-하,
-.ai-report-grade-value.grade-D {
-  background: rgba(249, 115, 22, 0.3);
-}
-
-.ai-report-grade-value.grade-최하,
-.ai-report-grade-value.grade-E {
-  background: rgba(239, 68, 68, 0.3);
+/* 이전 5단계 캐시 호환 (D/E) */
+.ai-report-grade-value.grade-d,
+.ai-report-grade-value.grade-e {
+  background: rgba(239, 68, 68, 0.2);
 }
 
 .ai-report-section {
