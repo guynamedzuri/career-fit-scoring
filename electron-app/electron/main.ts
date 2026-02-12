@@ -2312,6 +2312,7 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       const { promisify } = require('util');
       const execAsync = promisify(exec);
       const scriptPaths = [
+        path.join(app.getAppPath(), 'py-scripts', 'parse_docx_form_pdf.py'),
         path.join(__dirname, '..', '..', 'scripts', 'parse_docx_form_pdf.py'),
         path.join(__dirname, '..', 'scripts', 'parse_docx_form_pdf.py'),
         path.join(process.cwd(), 'scripts', 'parse_docx_form_pdf.py'),
@@ -2439,6 +2440,7 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       const execAsync = promisify(exec);
 
       const scriptPaths = [
+        path.join(app.getAppPath(), 'py-scripts', 'parse_pdf_resume.py'),
         path.join(__dirname, '..', '..', 'scripts', 'parse_pdf_resume.py'),
         path.join(__dirname, '..', 'scripts', 'parse_pdf_resume.py'),
         path.join(process.cwd(), 'scripts', 'parse_pdf_resume.py'),
@@ -2656,6 +2658,7 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       
       // Python 스크립트 경로 찾기
       const scriptPaths = [
+        path.join(app.getAppPath(), 'py-scripts', 'extract_images_from_docx.py'),
         path.join(__dirname, '..', '..', 'scripts', 'extract_images_from_docx.py'),
         path.join(__dirname, '..', 'scripts', 'extract_images_from_docx.py'),
         path.join(process.cwd(), 'scripts', 'extract_images_from_docx.py'),
