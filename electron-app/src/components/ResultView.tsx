@@ -224,6 +224,10 @@ interface ResultViewProps {
 type SortField = 'name' | 'age' | 'lastCompany' | 'residence' | 'totalScore' | 'aiGrade' | 'status' | 'careerFit' | 'requiredQual' | 'preferredQual' | 'certification';
 type SortOrder = 'asc' | 'desc';
 
+/** 내부 등급 A/B/C → 표시용 '상'/'중'/'하' */
+const aiGradeToLabel: Record<string, string> = { A: '상', B: '중', C: '하' };
+const aiGradeLabel = (g: string | undefined) => (g ? (aiGradeToLabel[g] ?? g) : '-');
+
 export default function ResultView({ selectedFiles, userPrompt, selectedFolder, onBack, onProcessingChange, onProgressChange, jobMetadata }: ResultViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<SortField>('totalScore');
@@ -1583,7 +1587,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
               <div className="table-cell cell-career-fit" data-field="career-fit">
                 {result.aiChecked && result.aiGrade ? (
                   <span className={`evaluation-grade grade-${result.aiGrade.toLowerCase()}`} data-grade={result.aiGrade}>
-                    {result.aiGrade}
+                    {aiGradeLabel(result.aiGrade)}
                   </span>
                 ) : (
                   <span className="evaluation-grade grade--" data-grade="-">-</span>
@@ -2207,8 +2211,8 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                 <div className="ai-report-structured">
                   <div className="ai-report-grade">
                     <span className="ai-report-grade-label">등급</span>
-                    <span className={`ai-report-grade-value grade-${currentAiReport.grade}`}>
-                      {currentAiReport.grade}
+                    <span className={`ai-report-grade-value grade-${(currentAiReport.grade || '').toLowerCase()}`}>
+                      {aiGradeLabel(currentAiReport.grade)}
                     </span>
                   </div>
                   
