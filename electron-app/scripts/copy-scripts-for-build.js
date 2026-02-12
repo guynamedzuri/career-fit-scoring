@@ -1,41 +1,68 @@
 #!/usr/bin/env node
 /**
- * 빌드 전에 career-fit-scoring/scripts/*.py를 electron-app/py-scripts/로 복사.
- * asarUnpack은 electron-app 디렉터리 안의 파일만 처리할 수 있으므로,
- * 상위(../)의 Python 스크립트를 로컬에 복사한 뒤 asar + asarUnpack이 동작하도록 함.
+ * 빌드 전에 상위 디렉터리(career-fit-scoring/)의 파일을 electron-app/ 안으로 복사.
+ * asar: true일 때 files의 "../" 경로가 제대로 패키징되지 않을 수 있으므로,
+ * 로컬에 복사한 뒤 electron-builder가 asar에 포함하도록 함.
+ *
+ * 복사 대상:
+ *   ../scripts/*.py       → electron-app/py-scripts/    (asarUnpack — python.exe가 직접 읽음)
+ *   ../.env                → electron-app/build-env/.env (asar 안 — Node fs로 읽음)
+ *   ../certificate_official.txt → electron-app/build-env/certificate_official.txt (asar 안)
  */
 const fs = require('fs');
 const path = require('path');
 
-const projectRoot = path.resolve(__dirname, '..');
-const source = path.join(projectRoot, '..', 'scripts');
-const dest = path.join(projectRoot, 'py-scripts');
+const electronAppRoot = path.resolve(__dirname, '..');
+const projectRoot = path.join(electronAppRoot, '..');
 
-console.log('[copy-scripts] source:', source);
-console.log('[copy-scripts] source 존재:', fs.existsSync(source));
-console.log('[copy-scripts] dest:', dest);
+// ──────────────────────────────────────────────
+// 1. Python 스크립트 복사
+// ──────────────────────────────────────────────
+const scriptsSrc = path.join(projectRoot, 'scripts');
+const scriptsDest = path.join(electronAppRoot, 'py-scripts');
 
-if (!fs.existsSync(source)) {
-  console.error('[copy-scripts] ERROR: scripts 디렉터리를 찾을 수 없습니다:', source);
+console.log('[copy-build-assets] === Python 스크립트 ===');
+console.log('[copy-build-assets] source:', scriptsSrc, '존재:', fs.existsSync(scriptsSrc));
+
+if (!fs.existsSync(scriptsSrc)) {
+  console.error('[copy-build-assets] ERROR: scripts 디렉터리를 찾을 수 없습니다:', scriptsSrc);
   process.exit(1);
 }
 
-// 기존 dest 삭제
-if (fs.existsSync(dest)) {
-  fs.rmSync(dest, { recursive: true });
+if (fs.existsSync(scriptsDest)) {
+  fs.rmSync(scriptsDest, { recursive: true });
 }
-fs.mkdirSync(dest, { recursive: true });
+fs.mkdirSync(scriptsDest, { recursive: true });
 
-// .py 파일만 복사
-const files = fs.readdirSync(source);
-let copied = 0;
-for (const file of files) {
+const scriptFiles = fs.readdirSync(scriptsSrc);
+let scriptCount = 0;
+for (const file of scriptFiles) {
   if (file.endsWith('.py')) {
-    fs.copyFileSync(path.join(source, file), path.join(dest, file));
-    copied++;
+    fs.copyFileSync(path.join(scriptsSrc, file), path.join(scriptsDest, file));
+    scriptCount++;
   }
 }
+console.log(`[copy-build-assets] OK: ${scriptCount}개 .py 파일 → ${scriptsDest}`);
 
-console.log(`[copy-scripts] OK: ${copied}개 .py 파일 복사 완료 → ${dest}`);
-const destContents = fs.readdirSync(dest);
-console.log('[copy-scripts] dest 내용:', destContents.join(', '));
+// ──────────────────────────────────────────────
+// 2. .env + certificate_official.txt 복사
+// ──────────────────────────────────────────────
+const buildEnvDest = path.join(electronAppRoot, 'build-env');
+if (fs.existsSync(buildEnvDest)) {
+  fs.rmSync(buildEnvDest, { recursive: true });
+}
+fs.mkdirSync(buildEnvDest, { recursive: true });
+
+console.log('[copy-build-assets] === .env / certificate ===');
+
+const filesToCopy = ['.env', 'certificate_official.txt'];
+for (const fileName of filesToCopy) {
+  const src = path.join(projectRoot, fileName);
+  const dest = path.join(buildEnvDest, fileName);
+  if (fs.existsSync(src)) {
+    fs.copyFileSync(src, dest);
+    console.log(`[copy-build-assets] OK: ${fileName} → ${dest}`);
+  } else {
+    console.warn(`[copy-build-assets] WARN: ${fileName} 없음 (${src}) — 건너뜀`);
+  }
+}

@@ -619,6 +619,8 @@ function loadEnvFile(): void {
     
     // .env 파일 경로들 시도
     const envPaths = [
+      // asar 안 build-env/ (빌드 시 copy-scripts-for-build.js가 복사)
+      appPath ? path.join(appPath, 'build-env', '.env') : null,
       projectRoot ? path.join(projectRoot, '.env') : null,
       path.join(__dirname, '../../.env'),
       path.join(__dirname, '../../../.env'),
@@ -626,9 +628,9 @@ function loadEnvFile(): void {
       // packaged/installer 환경에서 흔한 위치들
       appPath ? path.join(appPath, '.env') : null, // e.g. .../resources/app.asar/.env
       resourcesPath ? path.join(resourcesPath, '.env') : null, // e.g. .../resources/.env
-      resourcesPath ? path.join(resourcesPath, 'app.asar', '.env') : null, // 일부 환경에서 appPath 대신 필요
-      resourcesPath ? path.join(resourcesPath, 'app', '.env') : null, // asar 비활성/특정 빌드 구조
-      exeDir ? path.join(exeDir, '.env') : null, // exe 옆에 두는 운영 방식도 지원
+      resourcesPath ? path.join(resourcesPath, 'app.asar', '.env') : null,
+      resourcesPath ? path.join(resourcesPath, 'app', '.env') : null,
+      exeDir ? path.join(exeDir, '.env') : null,
       exeDir ? path.join(exeDir, 'resources', '.env') : null,
     ].filter((p): p is string => p !== null);
     
@@ -680,6 +682,19 @@ function loadEnvFile(): void {
  * certificate_official.txt 파일이 있는 디렉토리를 찾습니다.
  */
 function findProjectRoot(): string | null {
+  // asar 안 build-env/를 먼저 확인 (빌드 시 복사된 파일)
+  try {
+    const appPath = app?.getAppPath ? app.getAppPath() : null;
+    if (appPath) {
+      const buildEnvCert = path.join(appPath, 'build-env', 'certificate_official.txt');
+      if (fs.existsSync(buildEnvCert)) {
+        const buildEnvDir = path.join(appPath, 'build-env');
+        console.log('[Find Project Root] Found at (build-env):', buildEnvDir);
+        return buildEnvDir;
+      }
+    }
+  } catch {}
+
   let currentDir = __dirname;
   const maxDepth = 10; // 최대 탐색 깊이
   
@@ -2054,6 +2069,8 @@ ipcMain.handle('read-official-certificates', async () => {
     const resourcesPath = (process as any).resourcesPath ? (process as any).resourcesPath : null;
     
     const possiblePaths = [
+      // asar 안 build-env/ (빌드 시 copy-scripts-for-build.js가 복사)
+      path.join(appPath, 'build-env', 'certificate_official.txt'),
       // 빌드된 앱의 resources/app 경로 (files에 포함된 파일들)
       path.join(appPath, 'certificate_official.txt'),
       path.join(appPath, '..', 'certificate_official.txt'),

@@ -19,3 +19,5 @@ electron/electron-app/
 poppler-windows/
 # 빌드 시 copy-scripts-for-build.js가 복사하는 Python 스크립트 (원본은 프로젝트 루트 scripts/)
 py-scripts/
+# 빌드 시 복사되는 .env, certificate_official.txt (원본은 프로젝트 루트)
+build-env/
