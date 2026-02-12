@@ -2,8 +2,11 @@ appId: com.career-fit-scoring.app
 productName: 이력서 적합도 평가 시스템
 copyright: Copyright Ⓒ 2016 LS Automotive Technologies. All rights reserved.
 
-# 파일 크기 최적화 - asar 비활성화로 단순화
-asar: false  # asar 사용 안함 - electron-updater 문제 해결을 위함
+# 앱 소스는 app.asar로 패키징. electron-updater는 asarUnpack으로 풀어서 로드 안정화
+asar: true
+asarUnpack:
+  - "node_modules/electron-updater/**/*"
+  - "node_modules/builder-util-runtime/**/*"
 compression: maximum  # 최대 압축
 
 # 자동 업데이트 설정 (GitHub Releases 사용)
@@ -26,7 +29,7 @@ files:
   - package.json
   - "../.env"
   - "../certificate_official.txt"
-  # icon.ico와 favicon.ico는 extraResources로 루트에 복사 (files는 resources/app에 감)
+  # extraResources는 resources 루트에 복사 (files는 app.asar에 포함)
   # 모든 node_modules 포함
   - "node_modules/**/*"
   # career-fit-scoring 패키지 포함 (필수)
