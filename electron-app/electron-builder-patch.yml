@@ -37,8 +37,11 @@ files:
   - "../src/**/*.js"
   # career-fit-scoring 패키지의 빌드된 파일들 명시적 포함
   - "../node_modules/career-fit-scoring/**/*"
-  # Python 스크립트 포함 (DOCX 파싱에 필요)
-  - "../scripts/**/*.py"
+  # Python 스크립트 포함 (DOCX 파싱에 필요) — from/to로 asar 안 경로를 scripts/로 확정
+  - from: "../scripts"
+    to: "scripts"
+    filter:
+      - "**/*.py"
   # 개발 도구 설정 파일만 제외
   - "!**/.vscode/**/*"
   - "!**/.idea/**/*"
