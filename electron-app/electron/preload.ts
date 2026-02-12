@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.invoke('save-cache', folderPath, results),
   exportCandidatesExcel: (payload: { headers: string[]; rows: string[][] }) =>
     ipcRenderer.invoke('export-candidates-excel', payload),
+  appendElapsedTime: (payload: { folderPath: string; count: number; totalSeconds: number }) =>
+    ipcRenderer.invoke('append-elapsed-time', payload),
   careernetSearchJobs: () => ipcRenderer.invoke('careernet-search-jobs'),
   careernetGetJobDetail: (jobdicSeq: string) => ipcRenderer.invoke('careernet-get-job-detail', jobdicSeq),
   // 자동 업데이트 관련

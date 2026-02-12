@@ -1361,6 +1361,31 @@ ipcMain.handle('select-folder', async () => {
   return result.filePaths[0];
 });
 
+/** 파싱+AI 분석 소요 시간을 이력서 폴더의 elapsed_time.txt에 한 줄 추가 (빌드 여부 무관 기록) */
+ipcMain.handle('append-elapsed-time', async (_event, payload: { folderPath: string; count: number; totalSeconds: number }) => {
+  try {
+    if (!payload?.folderPath || typeof payload.count !== 'number' || typeof payload.totalSeconds !== 'number') {
+      return { success: false, error: 'invalid payload' };
+    }
+    const filePath = path.join(payload.folderPath, 'elapsed_time.txt');
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const hh = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const n = Math.max(1, payload.count);
+    const t = Math.round(payload.totalSeconds);
+    const perItem = (payload.totalSeconds / n).toFixed(1);
+    const line = `${yyyy}-${mm}-${dd} ${hh}:${min} ${n}건 이력서 분석에 걸린 시간 ${t}초, 건당 ${perItem}초 소요\n`;
+    fs.appendFileSync(filePath, line, 'utf-8');
+    return { success: true };
+  } catch (error: any) {
+    console.error('[append-elapsed-time]', error);
+    return { success: false, error: error?.message };
+  }
+});
+
 /** 선택 후보를 엑셀 파일로 내보내기. payload: { headers: string[], rows: string[][] } */
 ipcMain.handle('export-candidates-excel', async (_event, payload: { headers: string[]; rows: string[][] }) => {
   if (!mainWindow || !payload?.headers?.length) {

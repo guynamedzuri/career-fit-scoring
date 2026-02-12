@@ -390,7 +390,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         
         // 처리할 파일이 있으면 처리 시작
         if (toProcess.length > 0 && window.electron?.processResume) {
-          // 로딩 시작
+          runStartTimeRef.current = Date.now();
           if (onProcessingChange) {
             onProcessingChange(true);
           }
@@ -1001,6 +1001,8 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
 
   // AI 분석 실행 중 추적을 위한 ref
   const isAiAnalysisRunning = useRef(false);
+  /** 파싱 시작 ~ AI 분석 완료 소요 시간 기록용 (elapsed_time.txt). 파싱 시작 또는 AI 시작 시 설정 */
+  const runStartTimeRef = useRef<number>(0);
 
   // 이력서 처리 완료 후 AI 분석 실행
   useEffect(() => {
@@ -1055,6 +1057,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       }
 
       console.log(`[AI Analysis] Starting analysis for ${needsAnalysis.length} files:`, needsAnalysis.map(r => r.fileName));
+      if (!runStartTimeRef.current) runStartTimeRef.current = Date.now();
       isAiAnalysisRunning.current = true;
       setAiProcessing(true);
       
@@ -1259,6 +1262,12 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       } catch (error) {
         console.error('[AI Analysis] Overall error:', error);
       } finally {
+        if (runStartTimeRef.current && selectedFolder && window.electron?.appendElapsedTime) {
+          const elapsedSec = (Date.now() - runStartTimeRef.current) / 1000;
+          const n = selectedFiles.length;
+          window.electron.appendElapsedTime({ folderPath: selectedFolder, count: n, totalSeconds: elapsedSec }).catch(() => {});
+        }
+        runStartTimeRef.current = 0;
         isAiAnalysisRunning.current = false;
         setAiProcessing(false);
         const emptyProgress = { current: 0, total: 0, currentFile: '', estimatedTimeRemainingMs: undefined };
@@ -1277,9 +1286,6 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         
         if (onProgressChange) {
           onProgressChange(emptyProgress);
-        }
-        if (onProcessingChange) {
-          onProcessingChange(false);
         }
         if (onProcessingChange) {
           onProcessingChange(false);
