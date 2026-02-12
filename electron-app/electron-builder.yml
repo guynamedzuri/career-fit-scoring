@@ -7,6 +7,7 @@ asar: true
 asarUnpack:
   - "node_modules/electron-updater/**/*"
   - "node_modules/builder-util-runtime/**/*"
+  - "scripts/**/*"
 compression: maximum  # 최대 압축
 
 # 자동 업데이트 설정 (GitHub Releases 사용)
@@ -92,18 +93,9 @@ win:
   extraResources:
     - from: icon.ico
       to: .
-    # .env를 resources 루트에 복사 (런타임에서 안정적으로 찾기 위함)
-    - from: ../.env
-      to: .env
-    # certificate_official.txt를 resources 루트에 복사 (런타임에서 안정적으로 찾기 위함)
-    - from: ../certificate_official.txt
-      to: certificate_official.txt
-    # Python 스크립트를 extraResources로 복사 (resources/scripts에 위치)
-    - from: ../scripts
-      to: scripts
-      filter:
-        - "**/*.py"
-    # Python embeddable 포함 (프로젝트 루트의 python-embed 폴더)
+    # .env, certificate_official.txt → app.asar 안에 포함 (files). Node fs가 asar 안에서 읽을 수 있음.
+    # scripts/*.py → asarUnpack으로 app.asar.unpacked에 풀림 (python.exe가 직접 읽어야 하므로)
+    # Python embeddable 포함 (프로젝트 루트의 python-embed 폴더) - 실행 파일이라 extraResources 필수
     - from: ../python-embed
       to: python-embed
       filter:

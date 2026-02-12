@@ -99,6 +99,15 @@ function writeLog(message: string, level: 'info' | 'error' | 'warn' = 'info') {
 }
 
 /**
+ * asar 안쪽 경로를 asar.unpacked 경로로 변환.
+ * asarUnpack 대상 파일(scripts 등)을 python 같은 외부 프로세스에 넘길 때 사용.
+ * Node fs는 asar-aware지만, 외부 프로세스는 실제 디스크 경로가 필요함.
+ */
+function toUnpackedPath(p: string): string {
+  return p.replace(/\.asar([\\/])/, '.asar.unpacked$1');
+}
+
+/**
  * electron-updater 모듈 로드 (프로덕션 빌드에서 올바른 경로 찾기)
  */
 function loadElectronUpdater(): any {
@@ -2319,6 +2328,8 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       if (!scriptPath) {
         throw new Error('parse_docx_form_pdf.py 스크립트를 찾을 수 없습니다.');
       }
+      // asarUnpack 대상이므로 외부 프로세스용 실제 디스크 경로로 변환
+      scriptPath = toUnpackedPath(scriptPath);
       const isWindows = process.platform === 'win32';
       let pythonCmd = isWindows ? 'python' : 'python3';
       let pdftotextArg = '';
@@ -2444,6 +2455,8 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       if (!scriptPath) {
         throw new Error('parse_pdf_resume.py 스크립트를 찾을 수 없습니다.');
       }
+      // asarUnpack 대상이므로 외부 프로세스용 실제 디스크 경로로 변환
+      scriptPath = toUnpackedPath(scriptPath);
       const isWindows = process.platform === 'win32';
       let pythonCmd = isWindows ? 'python' : 'python3';
       let pdftotextArg = '';
@@ -2662,6 +2675,8 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       if (!scriptPath) {
         writeLog(`[Photo Extract] Python 스크립트를 찾을 수 없습니다. 시도한 경로: ${scriptPaths.join(', ')}`, 'warn');
       } else {
+        // asarUnpack 대상이므로 외부 프로세스용 실제 디스크 경로로 변환
+        scriptPath = toUnpackedPath(scriptPath);
         // Python 실행 경로
         const isWindows = process.platform === 'win32';
         let pythonCmd = isWindows ? 'python' : 'python3';
