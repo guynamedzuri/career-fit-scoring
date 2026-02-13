@@ -440,6 +440,23 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     loadCachedData();
   }, [selectedFiles, selectedFolder]);
   
+  /** pdftotext/PDF 파싱 실패(손상·암호화 등)로 보이는 에러면 사용자 안내 문구 반환 */
+  const getResumeProcessErrorMessage = useCallback((rawMessage: string | undefined): string => {
+    if (!rawMessage || typeof rawMessage !== 'string') return '처리 실패';
+    const s = rawMessage.toLowerCase();
+    if (
+      s.includes('pdftotext failed') ||
+      s.includes('may not be a pdf') ||
+      s.includes('syntax error') ||
+      s.includes('trailer dictionary') ||
+      s.includes('xref table') ||
+      s.includes('illegal character')
+    ) {
+      return '파일이 암호화되어 있지 않은지 확인해 주세요.';
+    }
+    return rawMessage;
+  }, []);
+
   // 이력서 파일 처리 함수
   const processResumeFiles = useCallback(async (filePaths: string[]): Promise<void> => {
     if (!window.electron?.processResume) {
@@ -537,7 +554,8 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         }
       } catch (error: any) {
         console.error(`[Process] Error processing ${filePath}:`, error);
-        setResults(prev => prev.map(r => r.filePath === filePath ? { ...r, status: 'error' as const, errorMessage: error.message || '처리 실패' } : r));
+        const displayMessage = getResumeProcessErrorMessage(error.message);
+        setResults(prev => prev.map(r => r.filePath === filePath ? { ...r, status: 'error' as const, errorMessage: displayMessage } : r));
       }
       completedCount++;
       updateOverallProgress(completedCount, 0);
@@ -570,7 +588,7 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         onProcessingChange(false);
       }
     }
-  }, [selectedFiles, selectedFolder, jobMetadata?.documentType, onProcessingChange, onProgressChange]);
+  }, [selectedFiles, selectedFolder, jobMetadata?.documentType, onProcessingChange, onProgressChange, getResumeProcessErrorMessage]);
 
   // 검색 및 정렬된 결과
   const filteredAndSortedResults = useMemo(() => {
