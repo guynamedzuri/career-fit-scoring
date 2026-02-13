@@ -73,6 +73,13 @@ files:
   - "!**/vite.config.*"
   - "!**/webpack.config.*"
   - "!**/rollup.config.*"
+  # career-fit-scoring file:.. 의존성이 상위 디렉터리 전체를 복사하는 문제 방지
+  - "!**/node_modules/career-fit-scoring/electron-app/**"
+  - "!**/node_modules/career-fit-scoring/python-embed/**"
+  - "!**/node_modules/career-fit-scoring/generated_resumes/**"
+  - "!**/node_modules/career-fit-scoring/pdf_resume/**"
+  - "!**/node_modules/career-fit-scoring/poppler-windows/**"
+  - "!**/node_modules/career-fit-scoring/.git/**"
 
 win:
   target:
