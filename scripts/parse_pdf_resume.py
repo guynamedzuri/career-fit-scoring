@@ -118,24 +118,37 @@ def extract_text_with_layout(
 ) -> tuple[str, str]:
     """PDF에서 레이아웃 유사 텍스트 추출. pdftotext → pdfminer.six → PyMuPDF 순으로 시도.
     반환: (추출된_문자열, 사용된_엔진명 'pdftotext'|'pdfminer'|'pymupdf')."""
+    errors: list[str] = []
     try:
         text = _extract_with_pdftotext(pdf_path, pdftotext_exe)
-        return (text, "pdftotext")
+        if text and text.strip():
+            return (text, "pdftotext")
+        errors.append("pdftotext: 추출 결과가 비어 있음")
     except FileNotFoundError:
-        pass
+        errors.append("pdftotext: 실행 파일을 찾을 수 없음")
+    except Exception as e:
+        errors.append(f"pdftotext: {e}")
     try:
         text = _extract_with_pdfminer(pdf_path)
-        return (text, "pdfminer")
+        if text and text.strip():
+            return (text, "pdfminer")
+        errors.append("pdfminer: 추출 결과가 비어 있음")
     except ImportError:
-        pass
+        errors.append("pdfminer: 모듈 미설치")
+    except Exception as e:
+        errors.append(f"pdfminer: {e}")
     try:
         text = _extract_with_pymupdf(pdf_path)
-        return (text, "pymupdf")
+        if text and text.strip():
+            return (text, "pymupdf")
+        errors.append("pymupdf: 추출 결과가 비어 있음")
     except ImportError:
-        pass
+        errors.append("pymupdf: 모듈 미설치")
+    except Exception as e:
+        errors.append(f"pymupdf: {e}")
     raise RuntimeError(
-        "PDF 텍스트 추출에 pdftotext(poppler), pdfminer.six, PyMuPDF 중 하나가 필요합니다. "
-        "예: pip install pdfminer.six 또는 pip install pymupdf"
+        "PDF 텍스트 추출 실패 (모든 엔진 시도 완료). "
+        + "; ".join(errors)
     )
 
 
