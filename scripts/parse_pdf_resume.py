@@ -1085,7 +1085,9 @@ def main():
         )
         print(json.dumps(data, ensure_ascii=False, indent=2))
     except Exception as e:
-        print(json.dumps({"error": str(e)}, ensure_ascii=False, indent=2))
+        import traceback
+        tb = traceback.format_exc()
+        print(json.dumps({"error": str(e), "traceback": tb}, ensure_ascii=False, indent=2))
         sys.exit(1)
 
 

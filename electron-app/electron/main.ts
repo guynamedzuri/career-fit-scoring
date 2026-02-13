@@ -2409,7 +2409,28 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       writeLog('[Process Resume] 자체폼 PDF: ' + command, 'info');
       const execOpts: any = { maxBuffer: 5 * 1024 * 1024, timeout: 30000 };
       const execOptsEnv = { ...process.env, PYTHONIOENCODING: 'utf-8' };
-      const { stdout, stderr } = await execAsync(command, { ...execOpts, env: execOptsEnv });
+      let stdout: string;
+      let stderr: string;
+      try {
+        const result = await execAsync(command, { ...execOpts, env: execOptsEnv });
+        stdout = result.stdout;
+        stderr = result.stderr;
+      } catch (execErr: any) {
+        const errStdout = execErr.stdout || '';
+        const errStderr = execErr.stderr || '';
+        writeLog(`[Process Resume] 자체폼 PDF exec failed (code=${execErr.code}): ${execErr.message}`, 'error');
+        if (errStderr) writeLog(`[Process Resume] 자체폼 PDF stderr: ${errStderr}`, 'error');
+        if (errStdout) writeLog(`[Process Resume] 자체폼 PDF stdout: ${errStdout.substring(0, 2000)}`, 'error');
+        if (errStdout && errStdout.trim()) {
+          try {
+            const parsed = JSON.parse(errStdout);
+            if (parsed.error) throw new Error(parsed.error);
+          } catch (parseErr: any) {
+            if (parseErr.message && !parseErr.message.includes('JSON')) throw parseErr;
+          }
+        }
+        throw new Error(`자체폼 PDF 파싱 스크립트 실행 실패: ${errStderr || execErr.message}`);
+      }
       if (stderr && stderr.trim()) writeLog('[Process Resume] 자체폼 PDF stderr: ' + stderr, 'warn');
       let applicationData: any;
       try {
@@ -2420,6 +2441,7 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
         applicationData = parsed;
       } catch (e: any) {
         if (e instanceof SyntaxError) {
+          writeLog(`[Process Resume] 자체폼 PDF stdout (처음 1000자): ${(stdout || '').substring(0, 1000)}`, 'error');
           throw new Error('자체폼 PDF 파싱 결과를 읽을 수 없습니다.');
         }
         throw e;
@@ -2564,7 +2586,34 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
       writeLog('[Process Resume PDF] ' + command, 'info');
       const execOpts: any = { maxBuffer: 10 * 1024 * 1024, timeout: 60000 };
       execOpts.env = { ...process.env, PYTHONIOENCODING: 'utf-8' };
-      const { stdout, stderr } = await execAsync(command, execOpts);
+      let stdout: string;
+      let stderr: string;
+      try {
+        const result = await execAsync(command, execOpts);
+        stdout = result.stdout;
+        stderr = result.stderr;
+      } catch (execErr: any) {
+        // exec가 exit code != 0으로 reject된 경우, stderr/stdout이 에러 객체에 포함됨
+        const errStdout = execErr.stdout || '';
+        const errStderr = execErr.stderr || '';
+        writeLog(`[Process Resume PDF] exec failed (code=${execErr.code}): ${execErr.message}`, 'error');
+        if (errStderr) writeLog(`[Process Resume PDF] stderr: ${errStderr}`, 'error');
+        if (errStdout) writeLog(`[Process Resume PDF] stdout: ${errStdout.substring(0, 2000)}`, 'error');
+        // Python 스크립트가 exit(1)하더라도 stdout에 JSON error를 출력할 수 있음
+        if (errStdout && errStdout.trim()) {
+          try {
+            const parsed = JSON.parse(errStdout);
+            if (parsed.error) {
+              throw new Error(parsed.error);
+            }
+          } catch (parseErr: any) {
+            if (parseErr.message && !parseErr.message.includes('JSON')) {
+              throw parseErr; // parsed.error에서 던진 에러
+            }
+          }
+        }
+        throw new Error(`PDF 파싱 스크립트 실행 실패: ${errStderr || execErr.message}`);
+      }
       if (stderr && stderr.trim()) writeLog(`[Process Resume PDF] stderr: ${stderr}`, 'warn');
 
       let pdfResult: any;
@@ -2572,6 +2621,7 @@ ipcMain.handle('process-resume', async (event, filePath: string, documentType?: 
         pdfResult = JSON.parse(stdout);
       } catch (e: any) {
         writeLog(`[Process Resume PDF] JSON parse error: ${e.message}`, 'error');
+        writeLog(`[Process Resume PDF] stdout 내용 (처음 1000자): ${(stdout || '').substring(0, 1000)}`, 'error');
         throw new Error('PDF 파싱 결과를 읽을 수 없습니다.');
       }
       if (pdfResult.error) {
