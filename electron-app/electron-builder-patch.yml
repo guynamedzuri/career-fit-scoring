@@ -38,6 +38,8 @@ files:
   - "../src/**/*.js"
   # career-fit-scoring 패키지의 빌드된 파일들 명시적 포함
   - "../node_modules/career-fit-scoring/**/*"
+  # xlsx가 상위 node_modules로 호이스팅된 경우 명시적 포함
+  - "../node_modules/xlsx/**/*"
   # Python 스크립트 포함 (DOCX 파싱에 필요) — copy-scripts-for-build.js가 빌드 전에 로컬에 복사
   - "py-scripts/**/*.py"
   # 개발 도구 설정 파일만 제외
