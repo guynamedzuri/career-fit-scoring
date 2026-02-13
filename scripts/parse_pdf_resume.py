@@ -9,7 +9,7 @@ PDF 이력서 1개를 구조 기반으로 파싱하여 JSON으로 출력하는 �
   3단계: (Electron 쪽) 파싱 결과를 DOCX와 동일한 applicationData·resumeText 형태로 재매핑
 
 비교 관측용: --debug-dir DIR 지정 시 해당 폴더에 다음 파일을 저장합니다.
-  <basename>.stage1_raw.txt   : 1단계 추출 원문 (첫 줄에 # engine: pdftotext|pdfminer|pymupdf)
+  <basename>.stage1_raw.txt   : 1단계 추출 원문 (첫 줄에 # engine: pdftotext)
   <basename>.stage1_meta.json : 1단계 메타 (engine, charCount)
   <basename>.stage2_sections.json : 2단계 중간 (blocks, sections, 블록별 할당 섹션명)
   (2단계 최종·3단계 결과는 Electron이 같은 폴더에 _python.json, _electron.json으로 저장)
@@ -19,8 +19,7 @@ PDF 이력서 1개를 구조 기반으로 파싱하여 JSON으로 출력하는 �
     python3 scripts/parse_pdf_resume.py --pdftotext /path/to/pdftotext.exe <pdf_path>
     python3 scripts/parse_pdf_resume.py [--pdftotext PATH] --debug-dir ./debug <pdf_path>
 
-의존: pdftotext (poppler) / pdfminer.six / PyMuPDF 중 하나.
-      추출 순서: pdftotext → pdfminer.six → PyMuPDF (레이아웃 품질 우선).
+의존: pdftotext (poppler).
 """
 
 import sys
@@ -47,29 +46,6 @@ def _extract_with_pdftotext(pdf_path: str, pdftotext_exe: Optional[str] = None) 
     return result.stdout or ""
 
 
-def _extract_with_pdfminer(pdf_path: str) -> str:
-    """pdfminer.six로 레이아웃 유지 텍스트 추출 (구분자/순서가 안정적)."""
-    from pdfminer.high_level import extract_text as pdfminer_extract_text
-    from pdfminer.layout import LAParams
-    laparams = LAParams(
-        line_margin=0.3,
-        word_margin=0.1,
-        char_margin=2.0,
-    )
-    return pdfminer_extract_text(pdf_path, laparams=laparams) or ""
-
-
-def _extract_with_pymupdf(pdf_path: str) -> str:
-    """PyMuPDF(fitz)로 텍스트 추출 (폴백)."""
-    import fitz
-    doc = fitz.open(pdf_path)
-    try:
-        parts = []
-        for page in doc:
-            parts.append(page.get_text("text"))
-        return "\n".join(parts)
-    finally:
-        doc.close()
 
 
 # 이력서 증명사진 표준 크기 (px)
@@ -116,40 +92,11 @@ def _extract_profile_image_from_pdf(pdf_path: str, photo_dir: str) -> Optional[s
 def extract_text_with_layout(
     pdf_path: str, pdftotext_exe: Optional[str] = None
 ) -> tuple[str, str]:
-    """PDF에서 레이아웃 유사 텍스트 추출. pdftotext → pdfminer.six → PyMuPDF 순으로 시도.
-    반환: (추출된_문자열, 사용된_엔진명 'pdftotext'|'pdfminer'|'pymupdf')."""
-    errors: list[str] = []
-    try:
-        text = _extract_with_pdftotext(pdf_path, pdftotext_exe)
-        if text and text.strip():
-            return (text, "pdftotext")
-        errors.append("pdftotext: 추출 결과가 비어 있음")
-    except FileNotFoundError:
-        errors.append("pdftotext: 실행 파일을 찾을 수 없음")
-    except Exception as e:
-        errors.append(f"pdftotext: {e}")
-    try:
-        text = _extract_with_pdfminer(pdf_path)
-        if text and text.strip():
-            return (text, "pdfminer")
-        errors.append("pdfminer: 추출 결과가 비어 있음")
-    except ImportError:
-        errors.append("pdfminer: 모듈 미설치")
-    except Exception as e:
-        errors.append(f"pdfminer: {e}")
-    try:
-        text = _extract_with_pymupdf(pdf_path)
-        if text and text.strip():
-            return (text, "pymupdf")
-        errors.append("pymupdf: 추출 결과가 비어 있음")
-    except ImportError:
-        errors.append("pymupdf: 모듈 미설치")
-    except Exception as e:
-        errors.append(f"pymupdf: {e}")
-    raise RuntimeError(
-        "PDF 텍스트 추출 실패 (모든 엔진 시도 완료). "
-        + "; ".join(errors)
-    )
+    """pdftotext(poppler)로 PDF 텍스트 추출. 반환: (추출된_문자열, 'pdftotext')."""
+    text = _extract_with_pdftotext(pdf_path, pdftotext_exe)
+    if not text or not text.strip():
+        raise RuntimeError("pdftotext 추출 결과가 비어 있습니다.")
+    return (text, "pdftotext")
 
 
 # --- 섹션 분할 (연속 빈 줄 기준 vs 공통 헤더 리스트) ---
