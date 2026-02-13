@@ -1416,7 +1416,17 @@ ipcMain.handle('export-candidates-excel', async (_event, payload: { headers: str
     return { success: false, error: '데이터가 없습니다.' };
   }
   try {
-    const XLSX = require('xlsx');
+    writeLog('[Export Excel] 엑셀 내보내기 시작', 'info');
+    let XLSX: any;
+    try {
+      XLSX = require('xlsx');
+    } catch (e: any) {
+      writeLog(`[Export Excel] xlsx 로드 실패: ${e.message}`, 'error');
+      // asar 안에서 못 찾으면 unpacked 경로로도 시도
+      const xlsxPath = path.join(app.getAppPath(), 'node_modules', 'xlsx');
+      writeLog(`[Export Excel] 대체 경로 시도: ${xlsxPath}`, 'info');
+      XLSX = require(xlsxPath);
+    }
     const saveResult = await dialog.showSaveDialog(mainWindow, {
       title: '엑셀 파일로 저장',
       defaultPath: '후보자목록.xlsx',
@@ -1431,10 +1441,13 @@ ipcMain.handle('export-candidates-excel', async (_event, payload: { headers: str
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, sheet, '후보자');
     XLSX.writeFile(wb, filePath);
+    writeLog(`[Export Excel] 저장 완료: ${filePath}`, 'info');
     return { success: true, filePath };
   } catch (error: any) {
+    const errMsg = error?.message || '저장 실패';
+    writeLog(`[Export Excel] 오류: ${errMsg}`, 'error');
     console.error('[Export Excel]', error);
-    return { success: false, error: error?.message || '저장 실패' };
+    return { success: false, error: errMsg };
   }
 });
 

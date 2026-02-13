@@ -915,9 +915,13 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         career.salary,
       ];
     });
-    const res = await window.electron.exportCandidatesExcel({ headers, rows });
-    if (res?.success && !(res as { canceled?: boolean }).canceled && (res as { filePath?: string }).filePath) {
-      // 저장 성공 시 파일 열기 등은 선택 사항
+    try {
+      const res = await window.electron.exportCandidatesExcel({ headers, rows });
+      if (res && !res.success && res.error) {
+        alert(`엑셀 저장 실패: ${res.error}`);
+      }
+    } catch (err: any) {
+      alert(`엑셀 내보내기 오류: ${err?.message || err}`);
     }
   };
 
