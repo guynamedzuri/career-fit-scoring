@@ -3923,6 +3923,128 @@ ipcMain.handle('ai-check-resume-batch', async (event, data: {
   }
 });
 
+const AI_BATCH_FULL_DEFAULT_SIZE = 1;
+const AI_BATCH_FULL_MAX_RETRIES = 3;
+
+/** 전체 AI 배치를 메인 프로세스에서 한 번에 실행 (창 최소화 시에도 throttle 없이 진행). 진행 시 ai-batch-progress 이벤트로 전송 */
+ipcMain.handle('ai-check-resume-batch-full', async (event, data: {
+  userPrompt: {
+    jobDescription: string;
+    requiredQualifications: string;
+    preferredQualifications: string;
+    requiredCertifications: string[];
+    gradeCriteria: { 상: string; 중: string; 하: string };
+    scoringWeights?: Record<string, number>;
+  };
+  items: Array<{ applicationData: any; fileName: string; filePath: string }>;
+  debugFolder?: string;
+  batchSize?: number;
+}) => {
+  const batchSize = Math.max(1, data.batchSize ?? AI_BATCH_FULL_DEFAULT_SIZE);
+  const items = data.items || [];
+  const totalBatches = Math.ceil(items.length / batchSize);
+  const allResults: Array<{ success: boolean; grade: string; report: any; reportParsed: boolean; fileName: string; error?: string }> = [];
+  let lastSystemPrompt = '';
+  let lastUserPromptText = '';
+
+  const sendProgress = (batchIndex: number, results: typeof allResults, chunk: typeof items, systemPrompt: string, userPromptText: string, completedCount: number) => {
+    try {
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('ai-batch-progress', {
+          batchIndex,
+          totalBatches,
+          results,
+          chunk: chunk.map(({ filePath, fileName }) => ({ filePath, fileName })),
+          systemPrompt,
+          userPromptText,
+          completedCount,
+        });
+      }
+    } catch (e) {
+      // ignore if window closed
+    }
+  };
+
+  try {
+    loadEnvFile();
+    const API_KEY = process.env.AZURE_OPENAI_API_KEY;
+    if (!API_KEY) {
+      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. .env 파일에 AZURE_OPENAI_API_KEY를 설정하세요.');
+    }
+    if (!data.userPrompt?.jobDescription?.trim()) {
+      throw new Error('jobDescription이 비어있습니다.');
+    }
+    const userPrompt = {
+      jobDescription: (data.userPrompt.jobDescription && typeof data.userPrompt.jobDescription === 'string') ? data.userPrompt.jobDescription : '',
+      requiredQualifications: (data.userPrompt.requiredQualifications && typeof data.userPrompt.requiredQualifications === 'string') ? data.userPrompt.requiredQualifications : '',
+      preferredQualifications: (data.userPrompt.preferredQualifications && typeof data.userPrompt.preferredQualifications === 'string') ? data.userPrompt.preferredQualifications : '',
+      requiredCertifications: Array.isArray(data.userPrompt.requiredCertifications) ? data.userPrompt.requiredCertifications : [],
+      gradeCriteria: data.userPrompt.gradeCriteria || {},
+      scoringWeights: data.userPrompt.scoringWeights || {},
+    };
+    const debugDir = !app.isPackaged && data.debugFolder ? path.join(data.debugFolder, 'debug') : null;
+
+    for (let start = 0; start < items.length; start += batchSize) {
+      const chunk = items.slice(start, start + batchSize);
+      const batchItems = chunk.map(({ applicationData, fileName }) => ({
+        resumeText: formatResumeDataForAI(applicationData),
+        fileName,
+      }));
+      const { systemPrompt, userPromptText } = buildAiPromptsForBatch(userPrompt, batchItems);
+      const fileNames = batchItems.map(i => i.fileName);
+      lastSystemPrompt = systemPrompt;
+      lastUserPromptText = userPromptText;
+
+      let batchResults: typeof allResults = [];
+      let retryCount = 0;
+      while (retryCount < AI_BATCH_FULL_MAX_RETRIES) {
+        try {
+          batchResults = await callAIAndParseBatch(systemPrompt, userPromptText, fileNames, 0, debugDir);
+          break;
+        } catch (err: any) {
+          const msg = err?.message || 'AI 분석 실패';
+          if (typeof msg === 'string' && msg.startsWith('RATE_LIMIT:')) {
+            const retryAfter = parseInt(msg.split(':')[1], 10) || 10;
+            retryCount++;
+            if (retryCount < AI_BATCH_FULL_MAX_RETRIES) {
+              writeLog(`[AI Batch Full] Rate limit, waiting ${retryAfter}s (retry ${retryCount})...`, 'warn');
+              await new Promise(r => setTimeout(r, retryAfter * 1000));
+              continue;
+            }
+          }
+          batchResults = fileNames.map(fn => ({
+            success: false,
+            grade: 'C',
+            report: '',
+            reportParsed: false,
+            fileName: fn,
+            error: msg,
+          }));
+          break;
+        }
+      }
+
+      for (const r of batchResults) allResults.push(r);
+      const batchIndex = Math.floor(start / batchSize);
+      sendProgress(batchIndex, batchResults, chunk, systemPrompt, userPromptText, allResults.length);
+    }
+
+    return { results: allResults, systemPrompt: lastSystemPrompt, userPromptText: lastUserPromptText };
+  } catch (error) {
+    console.error('[AI Check Batch Full] IPC Error:', error);
+    const errMsg = error instanceof Error ? error.message : '알 수 없는 오류';
+    const results = (items as Array<{ fileName: string }>).map(({ fileName }) => ({
+      success: false,
+      grade: 'C',
+      report: '',
+      reportParsed: false,
+      fileName,
+      error: errMsg,
+    }));
+    return { results, systemPrompt: '', userPromptText: '' };
+  }
+});
+
 /** AI 프롬프트 미리보기: systemPrompt / userPromptText 전문 반환. applicationData 없으면 이력서 영역은 플레이스홀더. */
 ipcMain.handle('get-ai-prompts-preview', async (event, data: { userPrompt: any; applicationData?: any }) => {
   try {

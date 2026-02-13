@@ -1049,12 +1049,12 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         return;
       }
       
-      if (!userPrompt || !userPrompt.jobDescription || userPrompt.jobDescription.trim() === '' || selectedFiles.length === 0 || !window.electron?.aiCheckResumeBatch) {
+      if (!userPrompt || !userPrompt.jobDescription || userPrompt.jobDescription.trim() === '' || selectedFiles.length === 0 || !window.electron?.aiCheckResumeBatchFull) {
         console.log('[AI Analysis] Skipping - missing requirements:', {
           hasUserPrompt: !!userPrompt,
           hasJobDescription: !!(userPrompt?.jobDescription),
           hasFiles: selectedFiles.length > 0,
-          hasElectron: !!window.electron?.aiCheckResumeBatch,
+          hasElectron: !!window.electron?.aiCheckResumeBatchFull,
         });
         if (onProcessingChange) {
           onProcessingChange(false);
@@ -1130,7 +1130,6 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
       try {
         const aiResults: Array<{ filePath: string; aiGrade?: string; aiReport?: any; aiReportParsed?: boolean; aiChecked: boolean; error?: string }> = [];
         const BATCH_SIZE = 1;
-        const MAX_RETRIES = 3;
         const totalFiles = selectedFiles.length;
         const totalSteps = totalFiles * 2;
 
@@ -1143,96 +1142,64 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
           return true;
         });
 
-        let aiCompletedCount = aiResults.length;
-        const batchCount = Math.ceil(needsAnalysisForBatch.length / BATCH_SIZE);
-        const batchTimes: number[] = [];
         setAnalysisOrderFilePaths(needsAnalysisForBatch.map(r => r.filePath));
         setLastBatchPrompts([]);
 
-        for (let start = 0; start < needsAnalysisForBatch.length; start += BATCH_SIZE) {
-          const chunk = needsAnalysisForBatch.slice(start, start + BATCH_SIZE);
-          const batchStart = Date.now();
-          let retryCount = 0;
-          let batchPayload: { results: Array<{ success: boolean; grade?: string; report?: any; reportParsed?: boolean; fileName: string; error?: string }>; systemPrompt: string; userPromptText: string } | null = null;
-
-          while (retryCount < MAX_RETRIES) {
-            try {
-              const resp = await window.electron!.aiCheckResumeBatch({
-                userPrompt,
-                items: chunk.map(r => ({ applicationData: r.applicationData, fileName: r.fileName })),
-                debugFolder: selectedFolder || undefined,
-              });
-              batchPayload = resp;
-              break;
-            } catch (err) {
-              const msg = err instanceof Error ? err.message : 'AI 분석 실패';
-              if (msg.startsWith('RATE_LIMIT:')) {
-                const retryAfter = parseInt(msg.split(':')[1], 10) || 10;
-                retryCount++;
-                if (retryCount < MAX_RETRIES) {
-                  await new Promise(r => setTimeout(r, retryAfter * 1000));
-                  continue;
-                }
-              }
-              batchPayload = {
-                results: chunk.map(r => ({
-                  success: false,
-                  grade: 'C',
-                  report: '',
-                  reportParsed: false,
-                  fileName: r.fileName,
-                  error: msg,
-                })),
-                systemPrompt: '',
-                userPromptText: '',
-              };
-              break;
-            }
-          }
-
-          if (batchPayload) {
-            setLastBatchPrompts(prev => [...prev, { systemPrompt: batchPayload!.systemPrompt, userPromptText: batchPayload!.userPromptText }]);
-            const batchResults = batchPayload.results;
-            for (let i = 0; i < chunk.length; i++) {
-              const r = chunk[i];
-              const res = batchResults[i];
-              if (res?.success && res.grade != null && res.report != null) {
-                aiResults.push({
-                  filePath: r.filePath,
-                  aiGrade: res.grade,
-                  aiReport: res.report,
-                  aiReportParsed: res.reportParsed ?? false,
-                  aiChecked: true,
-                });
-              } else {
-                aiResults.push({
-                  filePath: r.filePath,
-                  aiChecked: true,
-                  error: (res as any)?.error || 'AI 분석 실패',
-                });
-              }
-            }
-          }
-
-          aiCompletedCount = aiResults.length;
-          batchTimes.push(Date.now() - batchStart);
-          const avgBatchMs = batchTimes.length > 0 ? batchTimes.reduce((a, b) => a + b, 0) / batchTimes.length : 0;
-          const batchesLeft = batchCount - batchTimes.length;
-          const estimatedMs = avgBatchMs > 0 ? avgBatchMs * batchesLeft : undefined;
-          const lastInChunk = chunk[chunk.length - 1];
-          setAiProgress({ current: aiCompletedCount, total: needsAnalysis.length, currentFile: lastInChunk?.fileName ?? '', estimatedTimeRemainingMs: estimatedMs });
-          setOverallProgress(prev => {
-            const totalProgress = {
-              current: totalFiles + aiCompletedCount,
+        // 메인 프로세스에서 전체 배치 실행 (창 최소화 시에도 throttle 없음). 진행은 이벤트로 수신
+        const unsubProgress = window.electron?.onAiBatchProgress?.((data) => {
+          const completedCount = data.completedCount ?? (data.batchIndex + 1) * (data.results?.length ?? 0);
+          const lastChunk = data.chunk?.[data.chunk.length - 1];
+          setLastBatchPrompts(prev => [...prev, { systemPrompt: data.systemPrompt, userPromptText: data.userPromptText }]);
+          setAiProgress({ current: completedCount, total: needsAnalysis.length, currentFile: lastChunk?.fileName ?? '', estimatedTimeRemainingMs: undefined });
+          setOverallProgress(prev => ({
+            ...prev,
+            aiCompleted: completedCount,
+            currentFile: lastChunk?.fileName ?? '',
+            estimatedTimeRemainingMs: undefined,
+          }));
+          if (onProgressChange) {
+            onProgressChange({
+              current: totalFiles + completedCount,
               total: totalSteps,
-              currentFile: lastInChunk?.fileName ?? '',
-              estimatedTimeRemainingMs: estimatedMs,
-              phase: 'ai' as const,
+              currentFile: lastChunk?.fileName ?? '',
+              estimatedTimeRemainingMs: undefined,
+              phase: 'ai',
               concurrency: BATCH_SIZE,
-            };
-            if (onProgressChange) onProgressChange(totalProgress);
-            return { ...prev, aiCompleted: aiCompletedCount, currentFile: lastInChunk?.fileName ?? '', estimatedTimeRemainingMs: estimatedMs };
+            });
+          }
+        });
+
+        let resp: { results: any[]; systemPrompt: string; userPromptText: string };
+        try {
+          resp = await window.electron!.aiCheckResumeBatchFull({
+            userPrompt,
+            items: needsAnalysisForBatch.map(r => ({ applicationData: r.applicationData, fileName: r.fileName, filePath: r.filePath })),
+            debugFolder: selectedFolder || undefined,
+            batchSize: BATCH_SIZE,
           });
+        } finally {
+          if (typeof unsubProgress === 'function') unsubProgress();
+        }
+
+        // 메인에서 반환한 결과를 aiResults에 병합 (순서 동일)
+        for (let i = 0; i < needsAnalysisForBatch.length; i++) {
+          const r = needsAnalysisForBatch[i];
+          const res = resp.results[i];
+          if (res?.success && res.grade != null && res.report != null) {
+            aiResults.push({
+              filePath: r.filePath,
+              aiGrade: res.grade,
+              aiReport: res.report,
+              aiReportParsed: res.reportParsed ?? false,
+              aiChecked: true,
+            });
+          } else {
+            aiResults.push({
+              filePath: r.filePath,
+              aiChecked: true,
+              error: (res as any)?.error || 'AI 분석 실패',
+            });
+          }
         }
 
       // 결과를 results에 반영
