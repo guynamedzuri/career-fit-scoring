@@ -22,7 +22,7 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.invoke('load-cache', folderPath, filePaths),
   saveCache: (folderPath: string, results: Array<{ filePath: string; fileName: string; data: any }>) =>
     ipcRenderer.invoke('save-cache', folderPath, results),
-  exportCandidatesExcel: (payload: { headers: string[]; rows: string[][] }) =>
+  exportCandidatesExcel: (payload: { headers: string[]; rows: string[][]; defaultFileName?: string }) =>
     ipcRenderer.invoke('export-candidates-excel', payload),
   appendElapsedTime: (payload: { folderPath: string; count: number; totalSeconds: number }) =>
     ipcRenderer.invoke('append-elapsed-time', payload),

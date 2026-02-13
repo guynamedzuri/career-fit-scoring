@@ -1410,8 +1410,8 @@ ipcMain.handle('append-elapsed-time', async (_event, payload: { folderPath: stri
   }
 });
 
-/** 선택 후보를 엑셀 파일로 내보내기. payload: { headers: string[], rows: string[][] } */
-ipcMain.handle('export-candidates-excel', async (_event, payload: { headers: string[]; rows: string[][] }) => {
+/** 선택 후보를 엑셀 파일로 내보내기. payload: { headers: string[], rows: string[][], defaultFileName?: string } */
+ipcMain.handle('export-candidates-excel', async (_event, payload: { headers: string[]; rows: string[][]; defaultFileName?: string }) => {
   if (!mainWindow || !payload?.headers?.length) {
     return { success: false, error: '데이터가 없습니다.' };
   }
@@ -1429,7 +1429,7 @@ ipcMain.handle('export-candidates-excel', async (_event, payload: { headers: str
     }
     const saveResult = await dialog.showSaveDialog(mainWindow, {
       title: '엑셀 파일로 저장',
-      defaultPath: '후보자목록.xlsx',
+      defaultPath: payload.defaultFileName || '후보자목록.xlsx',
       filters: [{ name: 'Excel', extensions: ['xlsx'] }],
     });
     if (saveResult.canceled || !saveResult.filePath) {

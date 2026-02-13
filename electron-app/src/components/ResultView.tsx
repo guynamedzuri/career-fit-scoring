@@ -900,14 +900,25 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
   const handleExportExcel = async () => {
     const selectedInOrder = filteredAndSortedResults.filter(r => selectedCandidates.has(r.filePath));
     if (selectedInOrder.length === 0 || !window.electron?.exportCandidatesExcel) return;
-    const headers = ['이름', '생년월일', '최종학력_학교명', '최종학력_학과', '경력_회사명', '경력_부서명', '경력_직전연봉'];
+    const headers = ['이름', '나이', '최종학력_학교명', '최종학력_학과', '경력_회사명', '경력_부서명', '경력_직전연봉'];
     const rows = selectedInOrder.map(result => {
       const app = result.applicationData;
       const edu = getFinalEducation(app);
       const career = getLatestCareer(app);
+      // 생년월일 → 만 나이 계산
+      let age = '';
+      const bd = (app?.birthDate ?? '').trim();
+      if (bd) {
+        const match = bd.match(/(\d{4})/);
+        if (match) {
+          const birthYear = parseInt(match[1], 10);
+          const currentYear = new Date().getFullYear();
+          age = String(currentYear - birthYear);
+        }
+      }
       return [
         (result.name ?? app?.name ?? '').trim(),
-        (app?.birthDate ?? '').trim(),
+        age,
         edu.school,
         edu.major,
         career.company,
@@ -915,8 +926,11 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         career.salary,
       ];
     });
+    // 현재 이력서 디렉터리명을 기본 파일명에 포함
+    const folderName = selectedFolder ? selectedFolder.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '' : '';
+    const defaultFileName = folderName ? `${folderName}_후보자목록.xlsx` : '후보자목록.xlsx';
     try {
-      const res = await window.electron.exportCandidatesExcel({ headers, rows });
+      const res = await window.electron.exportCandidatesExcel({ headers, rows, defaultFileName });
       if (res && !res.success && res.error) {
         alert(`엑셀 저장 실패: ${res.error}`);
       }
