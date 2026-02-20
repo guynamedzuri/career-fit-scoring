@@ -4,7 +4,10 @@ dist-installer/
 *.log
 .DS_Store
 .env
+.env.example
 .env.local
+# 인증서 생성 스크립트(암호화 알고리즘 포함) — 백업 후 저장소 제외
+scripts/create-cert.js
 .venv/
 venv/
 __pycache__/
