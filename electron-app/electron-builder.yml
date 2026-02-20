@@ -88,6 +88,8 @@ files:
   - "!**/node_modules/career-fit-scoring/*.md"
   - "!**/node_modules/career-fit-scoring/*.txt"
   - "!**/node_modules/career-fit-scoring/*.docx"
+  # 인증서/민감 파일 빌드 제외 (app.asar·unpacked에 .enc 포함 방지)
+  - "!**/*.enc"
 
 win:
   target:
