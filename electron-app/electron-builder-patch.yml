@@ -28,8 +28,7 @@ files:
   - electron/**/*
   - dist/**/*
   - package.json
-  # .env, certificate_official.txt는 copy-scripts-for-build.js가 build-env/로 복사
-  - "build-env/.env"
+  # certificate_official.txt는 copy-scripts-for-build.js가 build-env/로 복사
   - "build-env/certificate_official.txt"
   # extraResources는 resources 루트에 복사 (files는 app.asar에 포함)
   # 모든 node_modules 포함

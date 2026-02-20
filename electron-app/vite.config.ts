@@ -35,10 +35,9 @@ export default defineConfig({
     },
   },
   define: {
-    // 브라우저 환경에서 process.env를 사용할 수 있도록 정의
-    'process.env.CAREERNET_API_KEY': JSON.stringify(process.env.CAREERNET_API_KEY || '83ae558eb34c7d75e2bde972db504fd5'),
-    'process.env.QNET_API_KEY': JSON.stringify(process.env.QNET_API_KEY || '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f'),
-    // package.json의 버전을 주입
+    // API 키는 메인 프로세스에서 cert로만 로드. 렌더러에는 주입하지 않음
+    'process.env.CAREERNET_API_KEY': JSON.stringify(process.env.CAREERNET_API_KEY || ''),
+    'process.env.QNET_API_KEY': JSON.stringify(process.env.QNET_API_KEY || ''),
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
   },
 });

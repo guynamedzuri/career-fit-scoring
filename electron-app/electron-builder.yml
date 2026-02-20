@@ -31,8 +31,7 @@ files:
   - electron/**/*
   - dist/**/*
   - package.json
-  # .env, certificate_official.txt는 copy-scripts-for-build.js가 build-env/로 복사
-  - "build-env/.env"
+  # certificate_official.txt는 copy-scripts-for-build.js가 build-env/로 복사 (API 키는 인증서 .enc만 사용)
   - "build-env/certificate_official.txt"
   # icon.ico와 favicon.ico는 extraResources로 루트에 복사 (files는 resources/app에 감)
   # 모든 node_modules 포함

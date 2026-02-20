@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('electron', {
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   selectCertFile: () => ipcRenderer.invoke('select-cert-file'),
+  certGateComplete: () => ipcRenderer.invoke('cert-gate-complete'),
   qnetSearchCertifications: () => ipcRenderer.invoke('qnet-search-certifications'),
   readOfficialCertificates: () => ipcRenderer.invoke('read-official-certificates'),
   parseOfficialCertificates: (fileContent: string) => ipcRenderer.invoke('parse-official-certificates', fileContent),

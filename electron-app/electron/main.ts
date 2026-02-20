@@ -72,6 +72,7 @@ let autoUpdater: any = null;
 
 let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
+let certGateWindow: BrowserWindow | null = null;
 let splashServer: http.Server | null = null;
 
 /**
@@ -588,94 +589,6 @@ async function setupAutoUpdater() {
   });
 }
 
-/**
- * .env 파일 로드
- */
-function loadEnvFile(): void {
-  try {
-    // packaged 환경에서의 경로 확보
-    // (main.ts 최상단에서 이미 app/path/fs를 사용하고 있으므로 여기서는 추가 require 없이 사용)
-    const exeDir = (() => {
-      try {
-        return app?.getPath ? path.dirname(app.getPath('exe')) : null;
-      } catch {
-        return null;
-      }
-    })();
-    const appPath = (() => {
-      try {
-        return app?.getAppPath ? app.getAppPath() : null;
-      } catch {
-        return null;
-      }
-    })();
-    const resourcesPath = (process as any).resourcesPath ? (process as any).resourcesPath : null;
-
-    // 프로젝트 루트 찾기
-    const projectRoot = findProjectRoot();
-    if (!projectRoot) {
-      console.warn('[Load Env] Project root not found, trying current directory');
-    }
-    
-    // .env 파일 경로들 시도
-    const envPaths = [
-      // asar 안 build-env/ (빌드 시 copy-scripts-for-build.js가 복사)
-      appPath ? path.join(appPath, 'build-env', '.env') : null,
-      projectRoot ? path.join(projectRoot, '.env') : null,
-      path.join(__dirname, '../../.env'),
-      path.join(__dirname, '../../../.env'),
-      path.join(process.cwd(), '.env'),
-      // packaged/installer 환경에서 흔한 위치들
-      appPath ? path.join(appPath, '.env') : null, // e.g. .../resources/app.asar/.env
-      resourcesPath ? path.join(resourcesPath, '.env') : null, // e.g. .../resources/.env
-      resourcesPath ? path.join(resourcesPath, 'app.asar', '.env') : null,
-      resourcesPath ? path.join(resourcesPath, 'app', '.env') : null,
-      exeDir ? path.join(exeDir, '.env') : null,
-      exeDir ? path.join(exeDir, 'resources', '.env') : null,
-    ].filter((p): p is string => p !== null);
-    
-    for (const envPath of envPaths) {
-      if (fs.existsSync(envPath)) {
-        console.log('[Load Env] Loading .env from:', envPath);
-        let envContent = fs.readFileSync(envPath, 'utf-8');
-        // Windows에서 UTF-8 BOM 제거 (BOM이 있으면 키가 매칭되지 않아 AZURE_OPENAI_DEPLOYMENT 등이 무시됨)
-        if (envContent.charCodeAt(0) === 0xFEFF) {
-          envContent = envContent.slice(1);
-        }
-        const lines = envContent.split('\n');
-        
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          // 주석이나 빈 줄 건너뛰기
-          if (!trimmedLine || trimmedLine.startsWith('#')) continue;
-          
-          // KEY=VALUE 형식 파싱
-          const match = trimmedLine.match(/^([^=]+)=(.*)$/);
-          if (match) {
-            const key = match[1].trim().replace(/^\uFEFF/, '');
-            let value = match[2].trim();
-            
-            // 따옴표 제거
-            if ((value.startsWith('"') && value.endsWith('"')) ||
-                (value.startsWith("'") && value.endsWith("'"))) {
-              value = value.slice(1, -1);
-            }
-            // cert에서 로드된 경우 API 키는 .env로 덮어쓰지 않음
-            const isAppKey = key.startsWith('AZURE_OPENAI_') || key.startsWith('CAREERNET_') || key.startsWith('QNET_');
-            if (isAppKey && process.env.CREDENTIALS_FROM_CERT) continue;
-            if (!process.env[key]) process.env[key] = value;
-          }
-        }
-        return;
-      }
-    }
-    
-    console.warn('[Load Env] .env file not found in:', envPaths);
-  } catch (error) {
-    console.warn('[Load Env] Error loading .env file:', error);
-  }
-}
-
 // ---------- 회사 인증서(cert) 기반 API 키 로드 ----------
 const CERT_SIGNATURE_EXPECTED = 'zuri';
 const CERT_ENCRYPT_KEY_STRING = 'encryptkey';
@@ -758,22 +671,11 @@ function saveCertPath(certPath: string): void {
   }
 }
 
-/** 인증서 또는 .env로 API 키 확보. cert 경로가 없거나 실패 시 파일 선택 다이얼로그, 취소 시 .env 시도 */
-async function ensureCredentials(): Promise<void> {
+/** 인증서로 API 키 확보. 저장된 cert만 시도. 성공 시 true, 없거나 실패 시 false(인증서 지정 창 필요) */
+function ensureCredentials(): boolean {
   const saved = getSavedCertPath();
-  if (saved && loadCertFromPath(saved)) return;
-  const result = await dialog.showOpenDialog((mainWindow ?? undefined) as any, {
-    title: '회사 인증서 파일 선택',
-    defaultPath: app.getPath('documents'),
-    filters: [{ name: '인증서', extensions: ['enc'] }, { name: '모든 파일', extensions: ['*'] }],
-    properties: ['openFile'],
-  });
-  const filePaths = result.filePaths;
-  if (filePaths && filePaths[0] && loadCertFromPath(filePaths[0])) {
-    saveCertPath(filePaths[0]);
-    return;
-  }
-  loadEnvFile();
+  if (saved && loadCertFromPath(saved)) return true;
+  return false;
 }
 
 /**
@@ -935,6 +837,138 @@ function createSplashWindow() {
   
   // 중앙에 배치
   splashWindow.center();
+}
+
+/** 인증서 지정 전용 작은 창(로그인 화면). 지정하기 → 검증 성공 시 시작하기 활성화 → 시작하기로 메인 창 오픈 */
+function createCertGateWindow() {
+  let iconPath: string | undefined;
+  if (app.isPackaged) {
+    const appPath = app.getAppPath();
+    if (appPath.includes('resources/app')) {
+      iconPath = path.join(path.dirname(path.dirname(appPath)), 'icon.ico');
+    } else {
+      iconPath = path.join(path.dirname(appPath), 'icon.ico');
+    }
+    if (!fs.existsSync(iconPath ?? '')) {
+      iconPath = path.join(process.resourcesPath || path.dirname(appPath), 'icon.ico');
+    }
+  } else {
+    iconPath = path.join(__dirname, '..', 'icon.ico');
+  }
+
+  certGateWindow = new BrowserWindow({
+    width: 420,
+    height: 320,
+    frame: true,
+    resizable: false,
+    icon: iconPath,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+    },
+  });
+
+  const certGateHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 100%;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+      background: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      color: #e8e8e8;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+    h2 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .msg { font-size: 14px; margin-bottom: 20px; text-align: center; color: #b0b0b0; }
+    .success { color: #4ade80; font-weight: 500; }
+    .error { color: #f87171; font-size: 13px; margin-top: 8px; }
+    .btns { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 200px; }
+    button {
+      padding: 12px 20px;
+      font-size: 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #3b82f6;
+      color: white;
+      font-weight: 500;
+    }
+    button:hover:not(:disabled) { background: #2563eb; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #btnStart { background: #059669; }
+    #btnStart:hover:not(:disabled) { background: #047857; }
+    #status { min-height: 22px; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <h2>인증서를 지정해 주세요</h2>
+  <p class="msg">회사 인증서 파일(.enc)을 선택하면 앱을 사용할 수 있습니다.</p>
+  <div id="status"></div>
+  <div class="btns">
+    <button id="btnSelect">지정하기</button>
+    <button id="btnStart" disabled>시작하기</button>
+  </div>
+  <script>
+    (function(){
+      var status = document.getElementById('status');
+      var btnSelect = document.getElementById('btnSelect');
+      var btnStart = document.getElementById('btnStart');
+      function setStatus(text, isError) {
+        status.innerHTML = text ? '<span class="' + (isError ? 'error' : 'success') + '">' + text + '</span>' : '';
+      }
+      if (typeof window.electron === 'undefined' || !window.electron.selectCertFile) {
+        setStatus('앱 환경을 불러오는 중…', false);
+        return;
+      }
+      btnSelect.addEventListener('click', function(){
+        setStatus('', false);
+        btnSelect.disabled = true;
+        window.electron.selectCertFile().then(function(r){
+          btnSelect.disabled = false;
+          if (r && r.success) {
+            setStatus('인증서가 확인되었습니다.', false);
+            btnStart.disabled = false;
+          } else if (r && r.cancelled) {
+            setStatus('', false);
+          } else {
+            setStatus(r && r.error ? r.error : '인증서 확인에 실패했습니다.', true);
+          }
+        }).catch(function(){
+          btnSelect.disabled = false;
+          setStatus('요청 처리 중 오류가 발생했습니다.', true);
+        });
+      });
+      btnStart.addEventListener('click', function(){
+        if (typeof window.electron.certGateComplete === 'function') {
+          window.electron.certGateComplete();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
+  `;
+
+  certGateWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(certGateHTML)}`);
+  certGateWindow.on('closed', () => { certGateWindow = null; });
+  certGateWindow.show();
+  certGateWindow.center();
 }
 
 function createWindow() {
@@ -1291,11 +1325,17 @@ app.whenReady().then(async () => {
     // 약간의 지연을 두어 스플래시가 보이도록 함
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    // API 키 확보: 저장된 cert 경로에서 로드, 없으면 인증서 선택 다이얼로그, 취소 시 .env
-    await ensureCredentials();
-    
-    // 메인 윈도우 생성
-    createWindow();
+    // API 키 확보: 저장된 cert만 시도. 없으면 인증서 지정 창 표시 후, 시작하기 시 메인 창 생성
+    const hasCert = ensureCredentials();
+    if (hasCert) {
+      createWindow();
+    } else {
+      if (splashWindow) {
+        splashWindow.close();
+        splashWindow = null;
+      }
+      createCertGateWindow();
+    }
   } catch (error: any) {
     const errorMsg = `[Init] Initialization error: ${error?.message || error}`;
     console.error(errorMsg);
@@ -1488,8 +1528,8 @@ ipcMain.handle('select-folder', async () => {
 });
 
 /** 회사 인증서 파일 다시 선택. 성공 시 process.env 적용 및 경로 저장 */
-ipcMain.handle('select-cert-file', async () => {
-  const win = mainWindow ?? undefined;
+ipcMain.handle('select-cert-file', async (_event) => {
+  const win = mainWindow ?? certGateWindow ?? undefined;
   const result = await dialog.showOpenDialog((win ?? undefined) as any, {
     title: '회사 인증서 파일 선택',
     defaultPath: app.getPath('documents'),
@@ -1502,6 +1542,15 @@ ipcMain.handle('select-cert-file', async () => {
   if (!loadCertFromPath(certPath)) return { success: false, error: '서명이 일치하지 않거나 파일이 손상되었습니다.' };
   saveCertPath(certPath);
   return { success: true };
+});
+
+/** 인증서 지정 창에서 시작하기 클릭: cert 창 닫고 메인 창 생성 */
+ipcMain.handle('cert-gate-complete', () => {
+  if (certGateWindow) {
+    certGateWindow.close();
+    certGateWindow = null;
+  }
+  createWindow();
 });
 
 /** 파싱+AI 분석 소요 시간을 이력서 폴더의 elapsed_time.txt에 한 줄 추가 (빌드 여부 무관 기록) */
@@ -1913,10 +1962,11 @@ function loadQNetBackup(): string[] | null {
 // Q-Net API 호출 IPC 핸들러
 ipcMain.handle('qnet-search-certifications', async () => {
   return new Promise((resolve, reject) => {
-    // .env 파일 로드 (이미 loadEnvFile이 호출되었을 수 있지만, 안전하게 다시 로드)
-    loadEnvFile();
-    
-    const apiKey = process.env.QNET_API_KEY || '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f';
+    const apiKey = process.env.QNET_API_KEY;
+    if (!apiKey) {
+      reject(new Error('QNET_API_KEY가 설정되지 않았습니다. 인증서 파일을 선택해 주세요.'));
+      return;
+    }
     const url = `http://openapi.q-net.or.kr/api/service/rest/InquiryListNationalQualifcationSVC/getList?ServiceKey=${apiKey}`;
     
     console.log('[Q-Net IPC] Calling API:', url);
@@ -3112,14 +3162,13 @@ async function callAIAndParse(
   reportParsed: boolean;
   error?: string;
 }> {
-  loadEnvFile();
   const MAX_RETRIES = 1; // 최대 1회 재시도
   const API_KEY = process.env.AZURE_OPENAI_API_KEY || '';
   const API_ENDPOINT = (process.env.AZURE_OPENAI_ENDPOINT || 'https://roar-mjm4cwji-swedencentral.openai.azure.com/').replace(/\/+$/, '');
   const DEPLOYMENT = (process.env.AZURE_OPENAI_DEPLOYMENT || '').replace(/^\uFEFF/, '').trim() || 'gpt-4o';
   const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
   if (retryCount === 0) {
-    console.log('[AI Check] Using deployment:', DEPLOYMENT, '(from AZURE_OPENAI_DEPLOYMENT)');
+    console.log('[AI Check] Using deployment:', DEPLOYMENT, '(from cert)');
   }
   const apiUrl = `${API_ENDPOINT}/openai/deployments/${DEPLOYMENT}/chat/completions?api-version=${API_VERSION}`;
 
@@ -3719,7 +3768,6 @@ async function callAIAndParseBatch(
   retryCount: number = 0,
   debugDir: string | null = null
 ): Promise<Array<{ success: boolean; grade: string; report: any; reportParsed: boolean; fileName: string; error?: string }>> {
-  loadEnvFile();
   const MAX_RETRIES = 1;
   const API_KEY = process.env.AZURE_OPENAI_API_KEY || '';
   const API_ENDPOINT = (process.env.AZURE_OPENAI_ENDPOINT || 'https://roar-mjm4cwji-swedencentral.openai.azure.com/').replace(/\/+$/, '');
@@ -3727,7 +3775,7 @@ async function callAIAndParseBatch(
   const API_VERSION = process.env.AZURE_OPENAI_API_VERSION || '2024-12-01-preview';
   const apiUrl = `${API_ENDPOINT}/openai/deployments/${DEPLOYMENT}/chat/completions?api-version=${API_VERSION}`;
   if (retryCount === 0) {
-    console.log('[AI Check Batch] Using deployment:', DEPLOYMENT, '(from AZURE_OPENAI_DEPLOYMENT)');
+    console.log('[AI Check Batch] Using deployment:', DEPLOYMENT, '(from cert)');
   }
 
   const emptyResult = (fileName: string, error: string) => ({
@@ -3892,17 +3940,10 @@ ipcMain.handle('ai-check-resume', async (event, data: {
   fileName: string;
 }) => {
   try {
-    // Azure OpenAI 설정 (.env 파일에서 읽기)
-    // .env 파일 로드 (빌드 시 포함됨)
-    loadEnvFile();
-    
     const API_KEY = process.env.AZURE_OPENAI_API_KEY;
     
     if (!API_KEY) {
-      throw new Error(
-        'Azure OpenAI API 키가 설정되지 않았습니다.\n' +
-        '인증서 파일을 선택하거나 .env에 AZURE_OPENAI_API_KEY를 설정하세요.'
-      );
+      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. 인증서 파일을 선택해 주세요.');
     }
     
     const ENDPOINT = process.env.AZURE_OPENAI_ENDPOINT || 'https://roar-mjm4cwji-swedencentral.openai.azure.com/';
@@ -4031,10 +4072,9 @@ ipcMain.handle('ai-check-resume-batch-full', async (event, data: {
   };
 
   try {
-    loadEnvFile();
     const API_KEY = process.env.AZURE_OPENAI_API_KEY;
     if (!API_KEY) {
-      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. 인증서 파일을 선택하거나 .env에 AZURE_OPENAI_API_KEY를 설정하세요.');
+      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. 인증서 파일을 선택해 주세요.');
     }
     if (!data.userPrompt?.jobDescription?.trim()) {
       throw new Error('jobDescription이 비어있습니다.');
@@ -4144,10 +4184,9 @@ ipcMain.handle('get-ai-prompts-preview', async (event, data: { userPrompt: any; 
 /** 업무 내용을 바탕으로 경력 적합도 등급 기준(상·중·하 3단계) 생성. 각 등급당 공백 포함 약 200자 이내, 이력서만으로 판단 가능한 기준으로 생성 */
 ipcMain.handle('generate-grade-criteria', async (event, jobDescription: string) => {
   try {
-    loadEnvFile();
     const API_KEY = process.env.AZURE_OPENAI_API_KEY;
     if (!API_KEY) {
-      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. 인증서 파일을 선택하거나 .env에 AZURE_OPENAI_API_KEY를 설정하세요.');
+      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. 인증서 파일을 선택해 주세요.');
     }
     const desc = (jobDescription && String(jobDescription).trim()) || '';
     if (!desc) {
@@ -4326,10 +4365,11 @@ function formatResumeDataForAI(applicationData: any): string {
 // CareerNet API 호출 IPC 핸들러
 ipcMain.handle('careernet-search-jobs', async () => {
   return new Promise((resolve, reject) => {
-    // .env 파일 로드
-    loadEnvFile();
-    
-    const apiKey = process.env.CAREERNET_API_KEY || '83ae558eb34c7d75e2bde972db504fd5';
+    const apiKey = process.env.CAREERNET_API_KEY;
+    if (!apiKey) {
+      reject(new Error('CAREERNET_API_KEY가 설정되지 않았습니다. 인증서 파일을 선택해 주세요.'));
+      return;
+    }
     const url = `https://www.career.go.kr/cnet/openapi/getOpenApi?apiKey=${apiKey}&svcType=api&svcCode=JOB&contentType=json&thisPage=1&perPage=9999`;
     
     console.log('[CareerNet IPC] Calling API:', url);
@@ -4436,10 +4476,10 @@ ipcMain.handle('careernet-search-jobs', async () => {
 // CareerNet 직종 상세 정보 조회 IPC 핸들러
 ipcMain.handle('careernet-get-job-detail', async (event, jobdicSeq: string) => {
   return new Promise((resolve, reject) => {
-    // .env 파일 로드
-    loadEnvFile();
-    
-    const apiKey = process.env.CAREERNET_API_KEY || '83ae558eb34c7d75e2bde972db504fd5';
+    const apiKey = process.env.CAREERNET_API_KEY;
+    if (!apiKey) {
+      return null;
+    }
     const url = `https://www.career.go.kr/cnet/openapi/getOpenApi?apiKey=${apiKey}&svcType=api&svcCode=JOB_VIEW&jobdicSeq=${jobdicSeq}`;
     
     console.log('[CareerNet IPC] Getting job detail:', url);

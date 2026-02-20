@@ -27,16 +27,12 @@ interface QNetApiResponse {
  * Q-Net API 키
  */
 const getApiKey = (): string => {
-  // Node.js 환경 또는 Vite에서 define으로 주입된 환경 변수
   try {
     if (typeof process !== 'undefined' && process.env && process.env.QNET_API_KEY) {
       return process.env.QNET_API_KEY;
     }
-  } catch (e) {
-    // process가 정의되지 않은 경우 무시
-  }
-  // 기본값 (Vite의 define으로 주입되거나 기본값 사용)
-  return '62577f38999a14613f5ded0c9b01b6ce6349e437323ebb4422825c429189ae5f';
+  } catch (e) {}
+  return '';
 };
 
 const QNET_API_KEY = getApiKey();

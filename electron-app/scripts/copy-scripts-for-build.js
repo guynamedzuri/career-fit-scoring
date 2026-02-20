@@ -6,8 +6,8 @@
  *
  * 복사 대상:
  *   ../scripts/*.py       → electron-app/py-scripts/    (asarUnpack — python.exe가 직접 읽음)
- *   ../.env                → electron-app/build-env/.env (asar 안 — Node fs로 읽음)
  *   ../certificate_official.txt → electron-app/build-env/certificate_official.txt (asar 안)
+ *   (.env는 사용하지 않음 — API 키는 인증서 .enc 파일로만 로드)
  */
 const fs = require('fs');
 const path = require('path');
@@ -53,16 +53,13 @@ if (fs.existsSync(buildEnvDest)) {
 }
 fs.mkdirSync(buildEnvDest, { recursive: true });
 
-console.log('[copy-build-assets] === .env / certificate ===');
+console.log('[copy-build-assets] === certificate_official.txt ===');
 
-const filesToCopy = ['.env', 'certificate_official.txt'];
-for (const fileName of filesToCopy) {
-  const src = path.join(projectRoot, fileName);
-  const dest = path.join(buildEnvDest, fileName);
-  if (fs.existsSync(src)) {
-    fs.copyFileSync(src, dest);
-    console.log(`[copy-build-assets] OK: ${fileName} → ${dest}`);
-  } else {
-    console.warn(`[copy-build-assets] WARN: ${fileName} 없음 (${src}) — 건너뜀`);
-  }
+const certOfficialSrc = path.join(projectRoot, 'certificate_official.txt');
+const certOfficialDest = path.join(buildEnvDest, 'certificate_official.txt');
+if (fs.existsSync(certOfficialSrc)) {
+  fs.copyFileSync(certOfficialSrc, certOfficialDest);
+  console.log('[copy-build-assets] OK: certificate_official.txt → ' + buildEnvDest);
+} else {
+  console.warn('[copy-build-assets] WARN: certificate_official.txt 없음 (' + certOfficialSrc + ') — 건너뜀');
 }
