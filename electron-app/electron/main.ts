@@ -593,8 +593,10 @@ async function setupAutoUpdater() {
 const CERT_SIGNATURE_EXPECTED = 'zuri';
 const CERT_ENCRYPT_KEY_STRING = 'encryptkey';
 
+/** 개발(dev)과 빌드된 앱이 서로 다른 설정 파일 사용 → 빌드 앱 실행 시 저장된 인증서 없음, 인증서 창 표시 */
 function getCertConfigPath(): string {
-  return path.join(app.getPath('userData'), 'cert-config.json');
+  const fileName = app.isPackaged ? 'cert-config.json' : 'cert-config-dev.json';
+  return path.join(app.getPath('userData'), fileName);
 }
 
 function deriveCertKey(keyString: string): Buffer {
@@ -1327,7 +1329,9 @@ app.whenReady().then(async () => {
     await new Promise(resolve => setTimeout(resolve, 500));
     
     // API 키 확보: 저장된 cert만 시도. 없으면 인증서 지정 창 표시 후, 시작하기 시 메인 창 생성
-    const hasCert = ensureCredentials();
+    // --show-cert-gate 이 있으면 저장된 cert 있어도 인증서 창부터 표시(테스트용)
+    const forceCertGate = process.argv.includes('--show-cert-gate');
+    const hasCert = forceCertGate ? false : ensureCredentials();
     if (hasCert) {
       createWindow();
     } else {
