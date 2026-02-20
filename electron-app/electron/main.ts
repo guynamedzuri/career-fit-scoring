@@ -660,11 +660,10 @@ function loadEnvFile(): void {
                 (value.startsWith("'") && value.endsWith("'"))) {
               value = value.slice(1, -1);
             }
-            // Azure OpenAI 등 앱 설정은 .env 값을 항상 우선 (기존 process.env 덮어씀)
-            const overwriteFromEnv = key.startsWith('AZURE_OPENAI_') || key.startsWith('CAREERNET_') || key.startsWith('QNET_');
-            if (overwriteFromEnv || !process.env[key]) {
-              process.env[key] = value;
-            }
+            // cert에서 로드된 경우 API 키는 .env로 덮어쓰지 않음
+            const isAppKey = key.startsWith('AZURE_OPENAI_') || key.startsWith('CAREERNET_') || key.startsWith('QNET_');
+            if (isAppKey && process.env.CREDENTIALS_FROM_CERT) continue;
+            if (!process.env[key]) process.env[key] = value;
           }
         }
         return;
@@ -675,6 +674,105 @@ function loadEnvFile(): void {
   } catch (error) {
     console.warn('[Load Env] Error loading .env file:', error);
   }
+}
+
+// ---------- 회사 인증서(cert) 기반 API 키 로드 ----------
+const CERT_SIGNATURE_EXPECTED = 'zuri';
+const CERT_ENCRYPT_KEY_STRING = 'encryptkey';
+
+function getCertConfigPath(): string {
+  return path.join(app.getPath('userData'), 'cert-config.json');
+}
+
+function deriveCertKey(keyString: string): Buffer {
+  const crypto = require('crypto');
+  return crypto.createHash('sha256').update(keyString, 'utf8').digest();
+}
+
+/** 암호화된 cert 버퍼를 복호화하고 signature + key=value 파싱. 서명 불일치 시 null */
+function decryptAndParseCert(encryptedBuffer: Buffer): { signature: string; env: Record<string, string> } | null {
+  try {
+    const crypto = require('crypto');
+    const key = deriveCertKey(CERT_ENCRYPT_KEY_STRING);
+    const ivLength = 16;
+    if (encryptedBuffer.length < ivLength) return null;
+    const iv = encryptedBuffer.subarray(0, ivLength);
+    const ciphertext = encryptedBuffer.subarray(ivLength);
+    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+    const plain = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+    const env: Record<string, string> = {};
+    let signature = '';
+    for (const part of plain.split(';')) {
+      const eq = part.indexOf('=');
+      if (eq <= 0) continue;
+      const k = part.slice(0, eq).trim();
+      const v = part.slice(eq + 1).trim();
+      if (k === 'signature') signature = v;
+      else env[k] = v;
+    }
+    return { signature, env };
+  } catch {
+    return null;
+  }
+}
+
+/** cert 파일 경로에서 읽어 서명 검증 후 process.env에 적용. 성공 시 true */
+function loadCertFromPath(certPath: string): boolean {
+  try {
+    if (!fs.existsSync(certPath)) return false;
+    const buf = fs.readFileSync(certPath);
+    const parsed = decryptAndParseCert(buf);
+    if (!parsed || parsed.signature !== CERT_SIGNATURE_EXPECTED) return false;
+    for (const [k, v] of Object.entries(parsed.env)) {
+      if (v) process.env[k] = v;
+    }
+    process.env.CREDENTIALS_FROM_CERT = '1';
+    console.log('[Cert] Loaded and applied from:', certPath);
+    writeLog('[Cert] Loaded from ' + certPath, 'info');
+    return true;
+  } catch (e) {
+    console.warn('[Cert] Load failed:', e);
+    return false;
+  }
+}
+
+/** 저장된 cert 경로 읽기 */
+function getSavedCertPath(): string | null {
+  try {
+    const configPath = getCertConfigPath();
+    if (!fs.existsSync(configPath)) return null;
+    const data = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    return typeof data?.certPath === 'string' ? data.certPath : null;
+  } catch {
+    return null;
+  }
+}
+
+/** cert 경로 저장 */
+function saveCertPath(certPath: string): void {
+  try {
+    const configPath = getCertConfigPath();
+    fs.writeFileSync(configPath, JSON.stringify({ certPath }, null, 2), 'utf-8');
+  } catch (e) {
+    console.warn('[Cert] Save config failed:', e);
+  }
+}
+
+/** 인증서 또는 .env로 API 키 확보. cert 경로가 없거나 실패 시 파일 선택 다이얼로그, 취소 시 .env 시도 */
+async function ensureCredentials(): Promise<void> {
+  const saved = getSavedCertPath();
+  if (saved && loadCertFromPath(saved)) return;
+  const { filePath } = await dialog.showOpenDialog(mainWindow || undefined, {
+    title: '회사 인증서 파일 선택',
+    defaultPath: app.getPath('documents'),
+    filters: [{ name: '인증서', extensions: ['enc'] }, { name: '모든 파일', extensions: ['*'] }],
+    properties: ['openFile'],
+  });
+  if (filePath && filePath[0] && loadCertFromPath(filePath[0])) {
+    saveCertPath(filePath[0]);
+    return;
+  }
+  loadEnvFile();
 }
 
 /**
@@ -1192,6 +1290,9 @@ app.whenReady().then(async () => {
     // 약간의 지연을 두어 스플래시가 보이도록 함
     await new Promise(resolve => setTimeout(resolve, 500));
     
+    // API 키 확보: 저장된 cert 경로에서 로드, 없으면 인증서 선택 다이얼로그, 취소 시 .env
+    await ensureCredentials();
+    
     // 메인 윈도우 생성
     createWindow();
   } catch (error: any) {
@@ -1383,6 +1484,22 @@ ipcMain.handle('select-folder', async () => {
   }
   
   return result.filePaths[0];
+});
+
+/** 회사 인증서 파일 다시 선택. 성공 시 process.env 적용 및 경로 저장 */
+ipcMain.handle('select-cert-file', async () => {
+  const win = mainWindow || undefined;
+  const { filePath } = await dialog.showOpenDialog(win, {
+    title: '회사 인증서 파일 선택',
+    defaultPath: app.getPath('documents'),
+    filters: [{ name: '인증서', extensions: ['enc'] }, { name: '모든 파일', extensions: ['*'] }],
+    properties: ['openFile'],
+  });
+  if (!filePath || filePath.length === 0) return { success: false, cancelled: true };
+  const certPath = filePath[0];
+  if (!loadCertFromPath(certPath)) return { success: false, error: '서명이 일치하지 않거나 파일이 손상되었습니다.' };
+  saveCertPath(certPath);
+  return { success: true };
 });
 
 /** 파싱+AI 분석 소요 시간을 이력서 폴더의 elapsed_time.txt에 한 줄 추가 (빌드 여부 무관 기록) */
@@ -3782,7 +3899,7 @@ ipcMain.handle('ai-check-resume', async (event, data: {
     if (!API_KEY) {
       throw new Error(
         'Azure OpenAI API 키가 설정되지 않았습니다.\n' +
-        '.env 파일에 AZURE_OPENAI_API_KEY를 설정하세요.'
+        '인증서 파일을 선택하거나 .env에 AZURE_OPENAI_API_KEY를 설정하세요.'
       );
     }
     
@@ -3915,7 +4032,7 @@ ipcMain.handle('ai-check-resume-batch-full', async (event, data: {
     loadEnvFile();
     const API_KEY = process.env.AZURE_OPENAI_API_KEY;
     if (!API_KEY) {
-      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. .env 파일에 AZURE_OPENAI_API_KEY를 설정하세요.');
+      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. 인증서 파일을 선택하거나 .env에 AZURE_OPENAI_API_KEY를 설정하세요.');
     }
     if (!data.userPrompt?.jobDescription?.trim()) {
       throw new Error('jobDescription이 비어있습니다.');
@@ -4028,7 +4145,7 @@ ipcMain.handle('generate-grade-criteria', async (event, jobDescription: string) 
     loadEnvFile();
     const API_KEY = process.env.AZURE_OPENAI_API_KEY;
     if (!API_KEY) {
-      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. .env 파일에 AZURE_OPENAI_API_KEY를 설정하세요.');
+      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. 인증서 파일을 선택하거나 .env에 AZURE_OPENAI_API_KEY를 설정하세요.');
     }
     const desc = (jobDescription && String(jobDescription).trim()) || '';
     if (!desc) {

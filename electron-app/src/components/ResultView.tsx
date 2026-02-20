@@ -1037,6 +1037,8 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
   const isAiAnalysisRunning = useRef(false);
   /** 파싱 시작 ~ AI 분석 완료 소요 시간 기록용 (elapsed_time.txt). 파싱 시작 또는 AI 시작 시 설정 */
   const runStartTimeRef = useRef<number>(0);
+  /** AI 배치 ETA 계산용: 배치 시작 시각 */
+  const aiBatchStartTimeRef = useRef<number>(0);
 
   // 이력서 처리 완료 후 AI 분석 실행
   useEffect(() => {
@@ -1143,24 +1145,33 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
         setAnalysisOrderFilePaths(needsAnalysisForBatch.map(r => r.filePath));
         setLastBatchPrompts([]);
 
+        aiBatchStartTimeRef.current = Date.now();
+        const totalToAnalyze = needsAnalysis.length;
+
         // 메인 프로세스에서 전체 배치 실행 (창 최소화 시에도 throttle 없음). 진행은 이벤트로 수신
         const unsubProgress = window.electron?.onAiBatchProgress?.((data) => {
           const completedCount = data.completedCount ?? (data.batchIndex + 1) * (data.results?.length ?? 0);
           const lastChunk = data.chunk?.[data.chunk.length - 1];
+          const elapsedMs = Date.now() - aiBatchStartTimeRef.current;
+          const remaining = Math.max(0, totalToAnalyze - completedCount);
+          const estimatedTimeRemainingMs =
+            completedCount >= 1 && remaining > 0 && elapsedMs > 0
+              ? Math.round((elapsedMs / completedCount) * remaining)
+              : undefined;
           setLastBatchPrompts(prev => [...prev, { systemPrompt: data.systemPrompt, userPromptText: data.userPromptText }]);
-          setAiProgress({ current: completedCount, total: needsAnalysis.length, currentFile: lastChunk?.fileName ?? '', estimatedTimeRemainingMs: undefined });
+          setAiProgress({ current: completedCount, total: totalToAnalyze, currentFile: lastChunk?.fileName ?? '', estimatedTimeRemainingMs });
           setOverallProgress(prev => ({
             ...prev,
             aiCompleted: completedCount,
             currentFile: lastChunk?.fileName ?? '',
-            estimatedTimeRemainingMs: undefined,
+            estimatedTimeRemainingMs,
           }));
           if (onProgressChange) {
             onProgressChange({
               current: totalFiles + completedCount,
               total: totalSteps,
               currentFile: lastChunk?.fileName ?? '',
-              estimatedTimeRemainingMs: undefined,
+              estimatedTimeRemainingMs,
               phase: 'ai',
               concurrency: BATCH_SIZE,
             });
