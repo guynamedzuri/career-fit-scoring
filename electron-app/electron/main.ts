@@ -918,7 +918,7 @@ function createCertGateWindow() {
 </head>
 <body>
   <h2>인증서를 지정해 주세요</h2>
-  <p class="msg">회사 인증서 파일(.enc)을 선택하면 앱을 사용할 수 있습니다.</p>
+  <p class="msg">인증서 파일(.enc)을 선택해주세요.</p>
   <div id="status"></div>
   <div class="btns">
     <button id="btnSelect">지정하기</button>
@@ -944,6 +944,7 @@ function createCertGateWindow() {
           if (r && r.success) {
             setStatus('인증서가 확인되었습니다.', false);
             btnStart.disabled = false;
+            btnSelect.disabled = true;
           } else if (r && r.cancelled) {
             setStatus('', false);
           } else {
