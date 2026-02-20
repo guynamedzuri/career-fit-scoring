@@ -49,20 +49,25 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
     try {
       const { app } = require('electron');
       if (app && app.getAppPath && app.getPath) {
-        const appPath = app.getAppPath(); // resources/app
+        const appPath = app.getAppPath(); // resources/app 또는 resources/app.asar
         const exePath = app.getPath('exe'); // 실행 파일 경로
         
-        // 1. extraResources 위치 (resources/scripts) - 가장 우선
+        // 1. asar.unpacked/py-scripts (빌드 시 copy-scripts-for-build로 복사된 위치, 외부 프로세스용)
+        const unpackedBase = path.join(path.dirname(appPath), 'app.asar.unpacked');
+        scriptPaths.push(path.join(unpackedBase, 'py-scripts', 'extract_resume_form_structure.py'));
+        scriptPaths.push(path.join(appPath, 'py-scripts', 'extract_resume_form_structure.py'));
+        
+        // 2. extraResources 위치 (resources/scripts)
         const resourcesPath = path.dirname(exePath);
         scriptPaths.push(path.join(resourcesPath, 'resources', 'scripts', 'extract_resume_form_structure.py'));
         
-        // 2. app.getAppPath() 기준 (resources/app/scripts)
+        // 3. app.getAppPath() 기준 (resources/app/scripts)
         scriptPaths.push(path.join(appPath, 'scripts', 'extract_resume_form_structure.py'));
         
-        // 3. app.getAppPath() 상위 (resources/scripts)
+        // 4. app.getAppPath() 상위 (resources/scripts)
         scriptPaths.push(path.join(appPath, '..', 'scripts', 'extract_resume_form_structure.py'));
         
-        // 4. 프로젝트 루트 찾기 (개발 모드)
+        // 5. 프로젝트 루트 찾기 (개발 모드)
         const projectRoot = findProjectRoot();
         if (projectRoot) {
           scriptPaths.push(path.join(projectRoot, 'scripts', 'extract_resume_form_structure.py'));
@@ -94,6 +99,10 @@ export async function extractTablesFromDocx(filePath: string): Promise<RawTableD
         console.log(`[DOCX Parser] Found Python script at: ${scriptPath}`);
         break;
       }
+    }
+    // 외부 프로세스(Python)는 asar 내부 파일을 읽을 수 없으므로 unpacked 경로로 변환
+    if (scriptPath && scriptPath.includes('.asar') && !scriptPath.includes('.asar.unpacked')) {
+      scriptPath = scriptPath.replace(/\.asar([\\/])/, '.asar.unpacked$1');
     }
     
     if (!scriptPath) {
