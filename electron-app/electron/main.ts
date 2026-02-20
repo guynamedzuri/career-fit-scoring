@@ -762,14 +762,15 @@ function saveCertPath(certPath: string): void {
 async function ensureCredentials(): Promise<void> {
   const saved = getSavedCertPath();
   if (saved && loadCertFromPath(saved)) return;
-  const { filePath } = await dialog.showOpenDialog(mainWindow || undefined, {
+  const result = await dialog.showOpenDialog((mainWindow ?? undefined) as any, {
     title: '회사 인증서 파일 선택',
     defaultPath: app.getPath('documents'),
     filters: [{ name: '인증서', extensions: ['enc'] }, { name: '모든 파일', extensions: ['*'] }],
     properties: ['openFile'],
   });
-  if (filePath && filePath[0] && loadCertFromPath(filePath[0])) {
-    saveCertPath(filePath[0]);
+  const filePaths = result.filePaths;
+  if (filePaths && filePaths[0] && loadCertFromPath(filePaths[0])) {
+    saveCertPath(filePaths[0]);
     return;
   }
   loadEnvFile();
@@ -1475,7 +1476,7 @@ ipcMain.handle('check-for-updates', async () => {
 ipcMain.handle('select-folder', async () => {
   if (!mainWindow) return null;
   
-  const result = await dialog.showOpenDialog(mainWindow, {
+  const result = await dialog.showOpenDialog(mainWindow!, {
     properties: ['openDirectory'],
   });
   
@@ -1488,15 +1489,16 @@ ipcMain.handle('select-folder', async () => {
 
 /** 회사 인증서 파일 다시 선택. 성공 시 process.env 적용 및 경로 저장 */
 ipcMain.handle('select-cert-file', async () => {
-  const win = mainWindow || undefined;
-  const { filePath } = await dialog.showOpenDialog(win, {
+  const win = mainWindow ?? undefined;
+  const result = await dialog.showOpenDialog((win ?? undefined) as any, {
     title: '회사 인증서 파일 선택',
     defaultPath: app.getPath('documents'),
     filters: [{ name: '인증서', extensions: ['enc'] }, { name: '모든 파일', extensions: ['*'] }],
     properties: ['openFile'],
   });
-  if (!filePath || filePath.length === 0) return { success: false, cancelled: true };
-  const certPath = filePath[0];
+  const filePaths = result.filePaths;
+  if (!filePaths || filePaths.length === 0) return { success: false, cancelled: true };
+  const certPath = filePaths[0];
   if (!loadCertFromPath(certPath)) return { success: false, error: '서명이 일치하지 않거나 파일이 손상되었습니다.' };
   saveCertPath(certPath);
   return { success: true };
