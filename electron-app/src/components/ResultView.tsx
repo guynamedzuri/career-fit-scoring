@@ -316,8 +316,6 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
     residence: 3 as 0 | 1 | 2 | 3, // 0=안산, 1=시흥+안산, 2=수도권, 3=전국
   });
 
-  // TODO: 실제로 DOCX 파일을 파싱하고 점수를 계산하는 로직 구현
-  // 지금은 임시로 플레이스홀더 데이터를 표시
   // 캐시 로드 및 초기 상태 설정
   useEffect(() => {
     const loadCachedData = async () => {

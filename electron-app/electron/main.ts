@@ -3869,60 +3869,6 @@ ipcMain.handle('ai-check-resume', async (event, data: {
   }
 });
 
-/** 배치 AI 분석: 여러 이력서를 한 번에 API 호출하여 분석 (예: 10건씩). debugFolder 있으면 해당/debug에 AI 원문·파싱 결과 저장 */
-ipcMain.handle('ai-check-resume-batch', async (event, data: {
-  userPrompt: {
-    jobDescription: string;
-    requiredQualifications: string;
-    preferredQualifications: string;
-    requiredCertifications: string[];
-    gradeCriteria: { 상: string; 중: string; 하: string };
-    scoringWeights?: Record<string, number>;
-  };
-  items: Array<{ applicationData: any; fileName: string }>;
-  debugFolder?: string;
-}) => {
-  try {
-    loadEnvFile();
-    const API_KEY = process.env.AZURE_OPENAI_API_KEY;
-    if (!API_KEY) {
-      throw new Error('Azure OpenAI API 키가 설정되지 않았습니다. .env 파일에 AZURE_OPENAI_API_KEY를 설정하세요.');
-    }
-    if (!data.userPrompt?.jobDescription?.trim()) {
-      throw new Error('jobDescription이 비어있습니다.');
-    }
-    const userPrompt = {
-      jobDescription: (data.userPrompt.jobDescription && typeof data.userPrompt.jobDescription === 'string') ? data.userPrompt.jobDescription : '',
-      requiredQualifications: (data.userPrompt.requiredQualifications && typeof data.userPrompt.requiredQualifications === 'string') ? data.userPrompt.requiredQualifications : '',
-      preferredQualifications: (data.userPrompt.preferredQualifications && typeof data.userPrompt.preferredQualifications === 'string') ? data.userPrompt.preferredQualifications : '',
-      requiredCertifications: Array.isArray(data.userPrompt.requiredCertifications) ? data.userPrompt.requiredCertifications : [],
-      gradeCriteria: data.userPrompt.gradeCriteria || {},
-      scoringWeights: data.userPrompt.scoringWeights || {},
-    };
-    const batchItems = data.items.map(({ applicationData, fileName }) => ({
-      resumeText: formatResumeDataForAI(applicationData),
-      fileName,
-    }));
-    const { systemPrompt, userPromptText } = buildAiPromptsForBatch(userPrompt, batchItems);
-    const fileNames = batchItems.map(i => i.fileName);
-    const debugDir = !app.isPackaged && data.debugFolder ? path.join(data.debugFolder, 'debug') : null;
-    const results = await callAIAndParseBatch(systemPrompt, userPromptText, fileNames, 0, debugDir);
-    return { results, systemPrompt, userPromptText };
-  } catch (error) {
-    console.error('[AI Check Batch] IPC Error:', error);
-    const errMsg = error instanceof Error ? error.message : '알 수 없는 오류';
-    const results = (data.items || []).map(({ fileName }) => ({
-      success: false,
-      grade: 'C',
-      report: '',
-      reportParsed: false,
-      fileName,
-      error: errMsg,
-    }));
-    return { results, systemPrompt: '', userPromptText: '' };
-  }
-});
-
 const AI_BATCH_FULL_DEFAULT_SIZE = 1;
 const AI_BATCH_FULL_MAX_RETRIES = 3;
 
