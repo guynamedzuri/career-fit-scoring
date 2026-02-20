@@ -970,6 +970,12 @@ function createCertGateWindow() {
 
   certGateWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(certGateHTML)}`);
   certGateWindow.on('closed', () => { certGateWindow = null; });
+  certGateWindow.webContents.on('context-menu', (e) => e.preventDefault());
+  if (app.isPackaged) {
+    certGateWindow.webContents.on('devtools-opened', () => {
+      if (certGateWindow) certGateWindow.webContents.closeDevTools();
+    });
+  }
   certGateWindow.show();
   certGateWindow.center();
 }
@@ -1036,36 +1042,13 @@ function createWindow() {
   // 메뉴바 완전히 제거
   mainWindow.setMenuBarVisibility(false);
   
-  // 개발자 도구: 개발/프로덕션 모두 F12로 열기 허용 (개발 단계)
+  // 프로덕션: F12·DevTools 단축키 차단 / 개발: F12로만 DevTools 토글 허용
   mainWindow.webContents.on('before-input-event', (event, input) => {
-    // F12로 개발자 도구 열기/닫기
-    if (input.key === 'F12') {
-      if (mainWindow) {
-        if (mainWindow.webContents.isDevToolsOpened()) {
-          mainWindow.webContents.closeDevTools();
-        } else {
-          mainWindow.webContents.openDevTools();
-        }
-      }
-      event.preventDefault();
-    }
-  });
-  
-  if (!isDev) {
-    // 프로덕션 환경에서도 개발자 도구는 F12로 열 수 있음 (개발 단계)
-    // 추후 프로덕션 배포 시 아래 주석을 해제하여 보안 강화 가능
-    /*
-    mainWindow.webContents.on('devtools-opened', () => {
-      console.warn('[Security] DevTools opened in production, closing...');
-      if (mainWindow) {
-        mainWindow.webContents.closeDevTools();
-      }
-    });
-    */
-  } else {
-    // 개발 환경: F12로 개발자 도구 열기 허용
-    mainWindow.webContents.on('before-input-event', (event, input) => {
-      // F12로 개발자 도구 열기/닫기
+    if (!isDev) {
+      const isF12 = input.key === 'F12';
+      const isDevToolsShortcut = (input.control || input.meta) && input.shift && (input.key === 'I' || input.key === 'J' || input.key === 'C');
+      if (isF12 || isDevToolsShortcut) event.preventDefault();
+    } else {
       if (input.key === 'F12') {
         if (mainWindow) {
           if (mainWindow.webContents.isDevToolsOpened()) {
@@ -1076,11 +1059,14 @@ function createWindow() {
         }
         event.preventDefault();
       }
-    });
-    
-    // 우클릭 컨텍스트 메뉴에서 "검사" 옵션 제거 (preload에서도 처리 필요)
-    mainWindow.webContents.on('context-menu', (event) => {
-      event.preventDefault();
+    }
+  });
+  
+  mainWindow.webContents.on('context-menu', (event) => event.preventDefault());
+  
+  if (!isDev) {
+    mainWindow.webContents.on('devtools-opened', () => {
+      if (mainWindow) mainWindow.webContents.closeDevTools();
     });
   }
   
