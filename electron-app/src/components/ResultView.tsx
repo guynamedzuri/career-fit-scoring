@@ -228,6 +228,22 @@ type SortOrder = 'asc' | 'desc';
 const aiGradeToLabel: Record<string, string> = { A: '상', B: '중', C: '하' };
 const aiGradeLabel = (g: string | undefined) => (g ? (aiGradeToLabel[g] ?? g) : '-');
 
+/** aiReport에서 표시용 등급(A/B/C) 도출 — gradeEvaluations의 satisfied가 true인 것 중 최상위(상>중>하). 없으면 report.grade 호환 */
+function deriveDisplayGradeFromReport(report: any): string {
+  if (!report || typeof report !== 'object') return '';
+  const ge = report.gradeEvaluations;
+  if (ge && typeof ge === 'object') {
+    const order: Array<[string, string]> = [['상', 'A'], ['중', 'B'], ['하', 'C']];
+    for (const [name, letter] of order) {
+      if (ge[name]?.satisfied === true) return letter;
+    }
+  }
+  const g = report.grade;
+  if (g === '상') return 'A'; if (g === '중') return 'B'; if (g === '하') return 'C';
+  if (g === 'A' || g === 'B' || g === 'C') return String(g).toUpperCase();
+  return '';
+}
+
 /** applicationData에서 최종학력 1건: educationEndDate 기준 가장 최근 항목의 학교명·학과 */
 function getFinalEducation(app: any): { school: string; major: string } {
   if (!app) return { school: '', major: '' };
@@ -2291,11 +2307,14 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
             </div>
             <div className="ai-report-content">
               {currentAiReportParsed && typeof currentAiReport === 'object' ? (
+                (() => {
+                  const displayGrade = deriveDisplayGradeFromReport(currentAiReport);
+                  return (
                 <div className="ai-report-structured">
                   <div className="ai-report-grade">
                     <span className="ai-report-grade-label">등급</span>
-                    <span className={`ai-report-grade-value grade-${(currentAiReport.grade || '').toLowerCase()}`}>
-                      {aiGradeLabel(currentAiReport.grade)}
+                    <span className={`ai-report-grade-value grade-${(displayGrade || '').toLowerCase()}`}>
+                      {aiGradeLabel(displayGrade)}
                     </span>
                   </div>
                   
@@ -2385,6 +2404,8 @@ export default function ResultView({ selectedFiles, userPrompt, selectedFolder, 
                     </div>
                   )}
                 </div>
+                  );
+                })()
               ) : (
                 <pre className="ai-report-text">{typeof currentAiReport === 'string' ? currentAiReport : JSON.stringify(currentAiReport, null, 2)}</pre>
               )}

@@ -1,7 +1,8 @@
 /**
- * Career Fit Scoring Algorithm
- * 
- * 커리어넷 API를 활용한 지원자 적합도 점수 산출 알고리즘
+ * Career Fit Scoring — Core Module
+ *
+ * 이력서(DOCX/PDF) 파싱·매핑, 자격증 파싱, (선택) 알고리즘 점수·커리어넷/Q-Net API 클라이언트.
+ * Electron 앱에서는 평가에 AI 결과를 사용하며, 알고리즘 점수·API는 라이브러리/설정 데이터용.
  */
 
 // 점수 계산 함수들

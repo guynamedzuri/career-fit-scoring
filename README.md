@@ -1,41 +1,39 @@
 # Career Fit Scoring System
 
-커리어넷 API와 AI를 활용한 지원자 적합도 평가 시스템입니다. **DOCX** 및 **PDF** 형식의 이력서 파일을 자동으로 분석하여 채용 공고와의 적합도를 점수화하고 AI 기반 평가를 제공합니다.
+**DOCX** 및 **PDF** 이력서를 파싱하고 **Azure OpenAI**로 지원자 적합도를 평가하는 Electron 데스크톱 앱입니다. 채용 공고 조건에 맞춰 이력서를 일괄 분석·등급 판정·근거를 제공합니다.
 
 ## 프로젝트 개요
 
-이 프로젝트는 **Electron 기반 데스크톱 애플리케이션**으로, 로컬 폴더에 저장된 이력서 파일들을 일괄 분석하여 지원자 평가를 지원합니다. 알고리즘 기반 점수 계산과 Azure OpenAI를 활용한 AI 분석을 결합하여 종합적인 평가를 제공합니다.
+**Electron 기반 데스크톱 애플리케이션**으로, 로컬 폴더의 이력서 파일을 일괄 파싱한 뒤 **AI 기반 평가**를 수행합니다. 결과 화면의 종합 점수·등급·만족도는 모두 AI 분석 결과를 사용하며, Core 모듈은 이력서 파싱·데이터 매핑·자격증 파싱 및 (선택) 알고리즘 점수·API 클라이언트를 제공합니다.
 
 ### 주요 특징
 
-- **로컬 파일 기반**: 인터넷 연결 없이도 작동 가능 (API 호출 제외)
-- **DOCX·PDF 이력서 지원**: Microsoft Word 이력서 및 PDF 이력서 직접 분석·데이터 추출
-- **PDF 증명사진 표시**: PDF에서 100×140 크기 증명사진 추출 후 후보 목록·상세 패널에 표시 (캐시 저장)
-- **병렬 처리**: 이력서 파싱(최대 4개 동시), AI 분석(최대 3개 동시)으로 처리 속도 향상
-- **알고리즘 기반 평가**: AI 비용 절감을 위한 순수 알고리즘 점수 산출
-- **AI 기반 평가**: Azure OpenAI를 활용한 경력 적합도·요구사항 만족도·등급별 판정 및 근거 평가
-- **AI 프롬프트 미리보기**: 설정 화면(폼 입력값·빈 칸 플레이스홀더) 및 결과 화면(실제 이력서 데이터)에서 System/User 프롬프트 전문 확인
-- **커리어넷 API 연동**: 직종, 학과, 자격증 데이터 활용
-- **Q-Net API 연동**: 국가자격증 검색 및 검증
-- **자동 업데이트**: electron-updater를 통한 자동 업데이트 지원
-- **유연한 데이터 매핑**: 다양한 이력서 형식에 대응 가능한 구조
+- **AI 기반 평가**: Azure OpenAI로 경력 적합도, 필수/우대/자격증 만족도, 등급별 판정·근거 평가 (앱의 메인 평가 방식)
+- **이력서 파싱**: DOCX·PDF에서 구조화 데이터 추출 (PDF는 pdftotext 사용, 임베디드 Python 우선)
+- **병렬 처리**: 파싱 최대 4개 동시, AI 분석 최대 3개 동시
+- **진행률·ETA**: 파싱/AI 단계별 진행률 및 예상 남은 시간 표시
+- **채용 설정 UI**: 직종·필수/우대·자격증·등급별 조건·점수 가중치 설정, 저장/불러오기
+- **직종·자격 목록**: 채용 설정 시 직종/자격증 목록을 커리어넷·Q-Net API로 조회 (메인 프로세스에서 호출, 비상 시 로컬 백업 사용)
+- **인증서 기반 API 키**: 앱 실행 시 회사 인증서(.enc) 지정·검증 후 API 키 로드
+- **결과·엑셀**: 테이블 정렬/필터, 상세 패널(증명사진, AI 코멘트), 선택 후보 엑셀 내보내기
+- **자동 업데이트**: electron-updater 지원
+- **프롬프트 미리보기**: 설정·결과 화면에서 AI에 전달되는 System/User 프롬프트 확인
 
 ## 시스템 구성
 
 ### 1. Core Module (`career-fit-scoring`)
-점수 계산 알고리즘 및 API 연동 모듈
+이력서 파싱·매핑·자격증 파싱 및 (선택) 알고리즘 점수·외부 API 클라이언트
 
-- **자격증 점수 계산** (10점 만점)
-- **경력 점수 계산** (20점 만점)
-- **학력 점수 계산** (20점 만점)
-- **총점 계산**: 가중 평균을 통한 최종 적합도 점수 산출
-- **커리어넷 API 연동**: 직종 검색, 학과 검색, 직종 상세 정보 조회
-- **Q-Net API 연동**: 국가자격증 검색
+- **이력서 파싱**: DOCX 테이블 추출, PDF는 외부 스크립트(pdftotext 등) 연동
+- **데이터 매핑**: 파싱 결과를 채용/AI 입력 형식으로 매핑
+- **자격증 파싱**: 공식·추가 국가자격증 목록 파싱
+- **알고리즘 점수** (라이브러리/참고용): 자격증 10점, 경력 20점, 학력 20점 기준의 점수 계산·총점 가중 평균 (앱 결과 화면에서는 미사용, AI 평가 사용)
+- **API 클라이언트**: 커리어넷(직종/학과/직종 상세), Q-Net(자격증 목록) — 앱은 메인 프로세스에서 직접 HTTP 호출하여 직종/자격 목록만 사용
 
 ### 2. Electron Application (`electron-app`)
 데스크톱 애플리케이션
 
-- **이력서 파일 파싱**: DOCX·PDF에서 구조화된 데이터 추출 (PDF는 pdftotext/pdfminer.six/PyMuPDF 순 시도, 임베디드 Python 우선)
+- **이력서 파일 파싱**: DOCX·PDF에서 구조화된 데이터 추출 (PDF는 **pdftotext** 사용, 임베디드 Python 우선)
 - **채용 공고 설정**: 직종, 필수/우대 사항, 자격증, 등급별 조건, 점수 가중치 설정
 - **배치 처리**: 여러 이력서 파일을 파싱·AI 분석 병렬 처리
 - **진행 모달**: 파싱 단계·AI 단계별 진행률 및 동시 처리 수 표시 (예: "이력서 파싱 중 (최대 4개 동시)", "AI 분석 중 (최대 3개 동시)")
@@ -109,7 +107,7 @@ npm run build:linux
 
 ### PDF 이력서 파싱 (임베디드 파이썬)
 
-PDF 모드에서는 **임베디드 파이썬**(`python-embed`)을 우선 사용합니다. PDF 텍스트 추출은 **pdftotext(poppler) → pdfminer.six → PyMuPDF** 순으로 시도하며, **pdftotext**가 있으면 레이아웃/순서가 가장 안정적입니다.
+PDF 모드에서는 **임베디드 파이썬**(`python-embed`)을 우선 사용합니다. PDF 텍스트 추출은 **pdftotext(poppler)**만 사용합니다. (이전 fallback 엔진 pdfminer.six/PyMuPDF는 제거됨)
 
 #### Windows 설치본: Poppler 번들 포함
 
@@ -125,14 +123,9 @@ Installer 빌드 전에 프로젝트 루트에 Poppler Windows 바이너리를 �
 
 Poppler를 번들하지 않으려면 `electron-app/electron-builder.yml`의 `extraResources`에서 `poppler-windows` 블록을 제거하거나 주석 처리하면 됩니다. 그 경우 설치본에서는 pdfminer.six 또는 PyMuPDF(pip 설치)에 의존합니다.
 
-#### pdftotext 없을 때 (pip으로 추출기만 설치)
+#### pdftotext 없을 때
 
-- **경로**: 프로젝트 루트 `career-fit-scoring` (python-embed 폴더가 있는 위치)
-- **명령**:
-  - Windows: `python-embed\python.exe -m pip install pdfminer.six` 또는 `pymupdf`
-  - macOS/Linux: `python-embed/python3 -m pip install pdfminer.six` 또는 `pymupdf`
-
-이후 `electron-app`에서 빌드하면 `python-embed` 폴더가 그대로 `resources`에 복사되므로, 설치된 패키지가 포함된 상태로 배포됩니다.
+PDF 파싱은 **pdftotext(poppler)**만 사용합니다. Windows에서는 빌드 시 poppler-windows를 포함할 수 있으며, 포함하지 않으면 사용자 환경에 poppler(pdftotext) 설치가 필요합니다.
 
 ## 주요 기능
 
@@ -152,7 +145,6 @@ Poppler를 번들하지 않으려면 `electron-app/electron-builder.yml`의 `ext
 - **문서 형식 선택**: DOCX 또는 PDF 이력서 모드 선택
 - **폴더 선택**: 해당 형식의 이력서 파일이 있는 폴더 선택
 - **병렬 파싱**: 이력서 파일에서 기본 정보, 경력, 학력, 자격증, GPA, 증명사진(PDF 시) 등 추출 (최대 4개 동시)
-- **알고리즘 점수 계산**: 추출된 데이터를 기반으로 적합도 점수 산출
 - **병렬 AI 분석**: Azure OpenAI를 통한 경력 적합도·요구사항 만족도·등급별 판정 및 근거 평가 (최대 3개 동시)
 - **진행 모달**: 파싱 단계·AI 단계별 진행률 및 동시 처리 수 표시
 
@@ -176,30 +168,25 @@ Poppler를 번들하지 않으려면 `electron-app/electron-builder.yml`의 `ext
 - **필수사항 만족여부**: ◎ (만족), X (불만족)
 - **우대사항 만족여부**: ◎ (매우 만족), ○ (만족), X (불만족)
 - **자격증 만족여부**: ◎ (매우 만족), ○ (만족), X (불만족) — 자격증 평가 가이드(상위 자격으로 하위 인정, 하위 자격으로 상위 미인정 등) 적용
-- **종합 점수**: 가중치 기반 계산 (필수사항 불만족 시 "필수사항 불만족" 표시)
+- **종합 점수**: AI 등급·필수/우대/자격 만족도 기반 가중치 계산 (필수사항 불만족 시 "필수사항 불만족" 표시)
 
-## 점수 체계
+## 점수 체계 (Core 모듈 참고)
+
+앱 결과 화면의 **종합 점수는 AI 평가 결과**를 사용합니다. 아래는 **Core 모듈**에 구현된 알고리즘 점수 체계로, 라이브러리로 사용하거나 참고할 때 활용합니다.
 
 ### 자격증 점수 (10점 만점)
-- **필수 자격증**: 없음 시 5점, 1개 시 1개 일치하면 5점, 2개 이상 시 2개 이상 일치하면 5점, 1개 일치하면 3점
-- **관련 자격증**: 3개 이상 일치 시 3점, 2개 일치 시 2점, 1개 일치 시 1점
-- **자격증 개수**: 7개 이상 시 2점, 4개 이상 시 1점
+- **필수 자격증**: 없음 시 5점, 1개 시 1개 일치 5점, 2개 이상 시 2개 이상 일치 5점 / 1개 일치 3점
+- **관련 자격증**: 3개 이상 3점, 2개 2점, 1개 1점
+- **자격증 개수**: 7개 이상 2점, 4개 이상 1점
 
 ### 경력 점수 (20점 만점)
-- **관련 직종 점수** (10점):
-  - 완전 동일 직종 (jobdicSeq 일치): 10점
-  - 관련 직종 (aptd_type_code 일치): 5점
-- **경력 기간 점수** (10점):
-  - 80% 이상: 10점
-  - 60% 이상 80% 미만: 8점
-  - 30% 이상 60% 미만: 6점
-  - 0% 초과 30% 미만: 3점
-  - 0% (무경력): 0점
+- **관련 직종** (10점): jobdicSeq 일치 10점, aptd_type_code 일치 5점
+- **경력 기간** (10점): (최장 경력)/(나이−20) 비율에 따라 80%↑ 10점, 60%↑ 8점, 30%↑ 6점, 0% 초과 3점, 무경력 0점
 
 ### 학력 점수 (20점 만점)
-- **학력 점수** (5점): 고졸 1점, 대졸(전문학사/학사) 3점, 석사/박사 5점
-- **관련 학과 점수** (10점): MAJOR_NM 일치 10점, MAJOR_SEQ만 일치 7점
-- **학점 점수** (5점): 88% 이상 5점, 66% 이상 88% 미만 2점
+- **학력** (5점): 고졸 1점, 대졸 3점, 석·박 5점
+- **관련 학과** (10점): MAJOR_NM 일치 10점, MAJOR_SEQ만 일치 7점
+- **학점** (5점): 88%↑ 5점, 66%↑ 2점
 
 ## 환경 변수 설정
 
@@ -222,10 +209,9 @@ QNET_API_KEY=your_api_key
 ## 기술 스택
 
 ### Core Module
-- TypeScript
-- Node.js
-- 커리어넷 API
-- Q-Net API
+- TypeScript, Node.js
+- 이력서 파싱(DOCX), 데이터 매핑, 자격증 파싱
+- (선택) 알고리즘 점수, 커리어넷/Q-Net API 클라이언트
 
 ### Electron Application
 - Electron 28
@@ -257,32 +243,23 @@ career-fit-scoring/
 
 ## 사용 예제
 
-### Core Module 사용
+### Core Module 사용 (라이브러리)
+
+앱은 평가에 AI 결과를 사용하므로, 아래 알고리즘 점수는 라이브러리·배치 스크립트 등에서 활용할 때 참고하세요.
 
 ```typescript
-import { calculateAllScores } from 'career-fit-scoring';
+import { calculateAllScores, mapResumeDataToApplicationData } from 'career-fit-scoring';
 
-const applicationData = {
-  birthDate: '1990-01-01',
-  certificateName1: '정보처리기사',
-  careerStartDate1: '2020-01-01',
-  careerEndDate1: '2024-12-31',
-  careerJobTypeCode1: '12345',
-  universityDegreeType1: '학사',
-  universityMajor1_1: '컴퓨터공학과',
-};
-
+// 이력서 파싱 결과를 applicationData 형식으로 매핑한 뒤
+const applicationData = { ... }; // 또는 mapResumeDataToApplicationData(parsed)
 const jobMetadata = {
   jobdicSeq: '12345',
   requiredCertifications: ['정보처리기사'],
-  scoringWeights: {
-    certification: 1,
-    career: 2,
-    education: 1
-  }
+  scoringWeights: { certification: 1, career: 2, education: 1 }
 };
 
 const scores = calculateAllScores(applicationData, { aiMetadata: jobMetadata });
+// scores: { certificationScore, careerScore, educationScore, totalScore }
 ```
 
 ## 개발 로드맵
@@ -292,7 +269,7 @@ const scores = calculateAllScores(applicationData, { aiMetadata: jobMetadata });
 - [x] 커리어넷 API 연동
 - [x] Q-Net API 연동
 - [x] DOCX 파일 파싱
-- [x] PDF 이력서 파싱 (pdftotext/pdfminer.six/PyMuPDF, 임베디드 Python 우선)
+- [x] PDF 이력서 파싱 (pdftotext, 임베디드 Python 우선)
 - [x] PDF 증명사진 추출(100×140) 및 UI·캐시 표시
 - [x] PDF 학력 GPA 추출 및 표시
 - [x] 이력서 데이터 매핑

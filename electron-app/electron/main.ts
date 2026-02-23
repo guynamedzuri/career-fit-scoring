@@ -3260,15 +3260,16 @@ async function callAIAndParse(
       
       parsedReport = JSON.parse(jsonText);
       
-      // 유효한 객체인지 확인
-      if (parsedReport && typeof parsedReport === 'object' && 'grade' in parsedReport) {
+      // 유효한 객체인지 확인 (grade 필드는 요청하지 않음 — 앱에서 gradeEvaluations로 산출)
+      if (parsedReport && typeof parsedReport === 'object') {
         const gradeMap: { [key: string]: string } = {
           '상': 'A',
           '중': 'B',
           '하': 'C'
         };
-        
-        grade = gradeMap[parsedReport.grade] || 'B';
+        // 등급은 gradeEvaluations에서 만족하는 최상위만 사용. 없으면 예전 응답 호환용으로 report.grade 사용
+        const derived = deriveGradeFromGradeEvaluations(parsedReport.gradeEvaluations);
+        grade = derived !== null ? derived : (parsedReport.grade ? (gradeMap[parsedReport.grade] || 'C') : 'C');
         
         // 필수 필드가 모두 있는지 확인
         if (parsedReport.summary && parsedReport.summary.trim() && 
@@ -3486,9 +3487,8 @@ function buildAiPrompts(
 - 하: ${userPrompt.gradeCriteria?.하 || '기본 조건을 만족하지 못하는 경우'}
 
 응답 형식:
-반드시 다음 JSON 형식으로만 응답해야 합니다. 다른 텍스트나 설명은 포함하지 마세요:
+반드시 다음 JSON 형식으로만 응답해야 합니다. 다른 텍스트나 설명은 포함하지 마세요. (등급은 앱에서 gradeEvaluations의 satisfied가 true인 것 중 최상위로 자동 산출하므로 grade 필드는 포함하지 마세요.)
 {
-  "grade": "상|중|하 중 하나",
   "summary": "이력서 전체를 종합적으로 평가한 요약 (등급 근거가 아닌 전체적인 평가 내용)",
   "strengths": ["강점1", "강점2", "강점3", "강점4", "강점5"],
   "weaknesses": ["약점1", "약점2", "약점3", "약점4", "약점5"],
@@ -3600,9 +3600,8 @@ function buildAiPromptsForBatch(
   items: Array<{ resumeText: string; fileName: string }>
 ): { systemPrompt: string; userPromptText: string } {
   const singleSystemSuffix = `응답 형식:
-반드시 다음 JSON 형식으로만 응답해야 합니다. 다른 텍스트나 설명은 포함하지 마세요:
+반드시 다음 JSON 형식으로만 응답해야 합니다. 다른 텍스트나 설명은 포함하지 마세요. (등급은 앱에서 gradeEvaluations의 satisfied가 true인 것 중 최상위로 자동 산출하므로 grade 필드는 포함하지 마세요.)
 {
-  "grade": "상|중|하 중 하나",
   "summary": "이력서 전체를 종합적으로 평가한 요약 (등급 근거가 아닌 전체적인 평가 내용)",
   "strengths": ["강점1", "강점2", "강점3", "강점4", "강점5"],
   "weaknesses": ["약점1", "약점2", "약점3", "약점4", "약점5"],
@@ -3695,6 +3694,24 @@ ${userPrompt.requiredCertifications.join(', ')}
   return { systemPrompt, userPromptText };
 }
 
+/**
+ * gradeEvaluations에서 만족(satisfied === true)하는 등급 중 가장 높은 등급을 반환.
+ * 상 > 중 > 하 순으로 확인하여, 첫 만족 등급을 A/B/C로 반환. 하나도 없으면 null(기존 grade 유지).
+ */
+function deriveGradeFromGradeEvaluations(gradeEvaluations: Record<string, { satisfied?: boolean; reason?: string }> | undefined): 'A' | 'B' | 'C' | null {
+  if (!gradeEvaluations || typeof gradeEvaluations !== 'object') return null;
+  const order: Array<{ name: string; letter: 'A' | 'B' | 'C' }> = [
+    { name: '상', letter: 'A' },
+    { name: '중', letter: 'B' },
+    { name: '하', letter: 'C' },
+  ];
+  for (const { name, letter } of order) {
+    const ev = gradeEvaluations[name];
+    if (ev && ev.satisfied === true) return letter;
+  }
+  return null;
+}
+
 /** 단일 파싱된 보고서 객체를 등급 매핑·유효성 검사 후 반환 (단일/배치 공용) */
 function normalizeParsedReport(
   parsed: any,
@@ -3703,16 +3720,15 @@ function normalizeParsedReport(
   const gradeMap: { [key: string]: string } = {
     '상': 'A', '중': 'B', '하': 'C'
   };
-  let grade = 'B';
-  if (parsed && typeof parsed === 'object' && 'grade' in parsed) {
-    grade = gradeMap[parsed.grade] || 'B';
-  }
+  // 등급은 gradeEvaluations에서 만족하는 최상위만 사용. 없으면 예전 응답 호환용으로 report.grade 사용
+  const derived = deriveGradeFromGradeEvaluations(parsed?.gradeEvaluations);
+  const grade = derived !== null ? derived : (parsed && typeof parsed === 'object' && 'grade' in parsed ? (gradeMap[parsed.grade] || 'C') : 'C');
   const hasRequired = parsed?.summary?.trim() && parsed?.opinion?.trim();
   const report = parsed && typeof parsed === 'object' ? parsed : {};
   return {
     grade,
     report,
-    reportParsed: !!(hasRequired && report.grade),
+    reportParsed: !!hasRequired,
   };
 }
 
