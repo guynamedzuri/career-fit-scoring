@@ -919,11 +919,11 @@ function createCertGateWindow() {
   </style>
 </head>
 <body>
-  <h2>인증서를 지정해 주세요</h2>
+  <h2>인증서 확인</h2>
   <p class="msg">인증서 파일(.enc)을 선택해주세요.</p>
   <div id="status"></div>
   <div class="btns">
-    <button id="btnSelect">지정하기</button>
+    <button id="btnSelect">파일 선택</button>
     <button id="btnStart" disabled>시작하기</button>
   </div>
   <script>
